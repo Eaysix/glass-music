@@ -4,7 +4,13 @@ Tu música local, a tu manera. Reproductor para Windows centrado en FLAC y MP3, 
 
 ![Interfaz de la alpha con archivos de prueba sintéticos](docs/interface.webp)
 
-## Primera versión (alpha)
+## Alpha 0.1.1
+
+Corrige el error `SeekError(Unseekable)` al adelantar o reanudar archivos FLAC. El decodificador conoce ahora el tamaño del archivo y habilita los saltos. Añade lectura de Enhanced LRC con tiempos por palabra y voces (`v1:`, `v3:`), limpiando las marcas también en letras ya importadas.
+
+Para ampliar: toca la portada junto a los controles o el botón **Vista grande**. Alterna **Portada / Letra** arriba y usa **Esc** para volver. La vista sigue la canción actual, con los controles siempre disponibles. La biblioteca usa ahora la portada real y texto más legible.
+
+## Funciones de la alpha
 
 - Importación de archivos/carpetas; etiquetas y portadas integradas; evita volver a importar una misma ruta.
 - Audio nativo en streaming con Rodio/Symphonia; reproducción, pausa, volumen, seek, anterior, siguiente y repetición.

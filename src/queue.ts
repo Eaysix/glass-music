@@ -81,24 +81,72 @@ export function previousQueue(queue: Queue): Queue {
       : queue.upcoming,
   };
 }
+export interface LyricWord {
+  time: number;
+  text: string;
+}
 export interface LyricLine {
   time: number;
   text: string;
+  words?: LyricWord[];
+  voice?: string;
+}
+function stampSeconds(
+  minutes: string,
+  seconds: string,
+  fraction?: string,
+): number {
+  return Number(minutes) * 60 + Number(seconds) + Number(`0.${fraction ?? 0}`);
 }
 export function parseLrc(text: string): LyricLine[] {
   const lines: LyricLine[] = [];
   let offset = Number(text.match(/\[offset:([+-]?\d+)\]/i)?.[1] ?? 0) / 1000;
   if (!Number.isFinite(offset)) offset = 0;
-  for (const row of text.split(/\r?\n/)) {
+  // Enhanced LRC can wrap a physical row in the middle of word timestamps.
+  const rows: string[] = [];
+  for (const physical of text.split(/\r?\n/)) {
+    if (
+      !/\[\d+:\d{2}/.test(physical) &&
+      /<\d+:\d{2}/.test(physical) &&
+      rows.length
+    )
+      rows[rows.length - 1] += ` ${physical.trim()}`;
+    else rows.push(physical);
+  }
+  for (const row of rows) {
     const stamps = [...row.matchAll(/\[(\d+):(\d{2})(?:[.:](\d{1,3}))?\]/g)];
-    const content = row.replace(/\[[^\]]*\]/g, "").trim();
+    if (!stamps.length) continue;
+    let content = row.replace(/\[[^\]]*\]/g, "").trim();
+    const voice = content.match(/^v(\d+):\s*/i)?.[1];
+    content = content.replace(/^v\d+:\s*/i, "");
+    const tags = [...content.matchAll(/<(\d+):(\d{2})(?:[.:](\d{1,3}))?>/g)];
+    const words: LyricWord[] = [];
+    for (let i = 0; i < tags.length; i++) {
+      const tag = tags[i],
+        start = tag.index! + tag[0].length,
+        end = tags[i + 1]?.index ?? content.length;
+      const word = content.slice(start, end).replace(/\s+/g, " ").trim();
+      if (word)
+        words.push({
+          time: Math.max(0, stampSeconds(tag[1], tag[2], tag[3]) + offset),
+          text: word,
+        });
+    }
+    const clean = content
+      .replace(/<\d+:\d{2}(?:[.:]\d{1,3})?>/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    const base = stampSeconds(stamps[0][1], stamps[0][2], stamps[0][3]);
     for (const stamp of stamps) {
-      const time =
-        Number(stamp[1]) * 60 +
-        Number(stamp[2]) +
-        Number(`0.${stamp[3] ?? 0}`) +
-        offset;
-      lines.push({ time: Math.max(0, time), text: content });
+      const time = stampSeconds(stamp[1], stamp[2], stamp[3]);
+      const line: LyricLine = { time: Math.max(0, time + offset), text: clean };
+      if (voice) line.voice = voice;
+      if (words.length)
+        line.words = words.map((word) => ({
+          ...word,
+          time: Math.max(0, word.time + time - base),
+        }));
+      lines.push(line);
     }
   }
   return lines.sort((a, b) => a.time - b.time);

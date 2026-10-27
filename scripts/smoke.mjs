@@ -183,7 +183,9 @@ try {
     .click();
   await page
     .getByLabel("Letra de la canción")
-    .fill("[00:00.00] Una letra guardada\n[00:05.00] Otra línea");
+    .fill(
+      "[00:00.00]v3:<00:00.00>Una <00:00.20><00:00.20>letra <00:00.50>guardada<00:04.00>\n[00:05.00]v2:<00:05.00>Otra <00:05.30>línea",
+    );
   await page.getByRole("button", { name: "Guardar", exact: true }).click();
   await page
     .getByRole("button", { name: "Opciones de Otro momento", exact: true })
@@ -202,6 +204,51 @@ try {
     .getByRole("button", { name: "Mostrar letra", exact: true })
     .click();
   await page.getByText("Una letra guardada", { exact: true }).waitFor();
+  assert.equal(
+    await page.locator(".lyric-line").first().textContent(),
+    "Una letra guardada",
+  );
+  await page
+    .getByRole("button", { name: "Ampliar letra", exact: true })
+    .click();
+  await page.getByRole("region", { name: "Reproductor ampliado" }).waitFor();
+  assert.equal(
+    await page.locator(".focus-line").first().textContent(),
+    "Una letra guardada",
+  );
+  await page.screenshot({ path: "artifacts/focus-lyrics.png" });
+  await page.getByRole("button", { name: "Portada", exact: true }).click();
+  assert(
+    await page
+      .locator(".focus-stage")
+      .evaluate((el) => el.classList.contains("cover-mode")),
+  );
+  await page.screenshot({ path: "artifacts/focus-cover.png" });
+  await page.getByRole("button", { name: "Siguiente", exact: true }).click();
+  await page
+    .locator(".focus-stage h1")
+    .filter({ hasText: "Otro momento" })
+    .waitFor();
+  await page.getByRole("button", { name: "Pausar", exact: true }).click();
+  await page.getByRole("button", { name: "Reproducir", exact: true }).click();
+  await page.getByRole("button", { name: "Pausar", exact: true }).waitFor();
+  await page.getByRole("button", { name: "Pausar", exact: true }).click();
+  await page.keyboard.press("Escape");
+  assert.equal(await page.locator(".focus-stage").count(), 0);
+  // Restore the first track and the explicit queue before persistence checks.
+  await page
+    .getByRole("button", {
+      name: "Reproducir Primera luz editada",
+      exact: true,
+    })
+    .click();
+  await page.getByRole("button", { name: "Pausar", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Opciones de Otro momento", exact: true })
+    .click();
+  await page
+    .getByRole("menuitem", { name: "Reproducir después", exact: true })
+    .click();
   await page.screenshot({ path: "artifacts/library.png" });
   await page.setViewportSize({ width: 960, height: 720 });
   assert(

@@ -1,6 +1,6 @@
 [package]
 name = "glass-music"
-version = "0.1.0"
+version = "0.1.1"
 description = "Tu música local, a tu manera"
 authors = ["Eaysix"]
 edition = "2021"
@@ -20,7 +20,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }
 lofty = "0.22.4"
-rodio = { version = "0.20.1", default-features = false, features = ["symphonia-flac", "symphonia-mp3"] }
+rodio = { version = "0.21.1", default-features = false, features = ["playback", "symphonia-flac", "symphonia-mp3"] }
 walkdir = "2"
 sha2 = "0.10"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }

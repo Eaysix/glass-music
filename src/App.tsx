@@ -20,6 +20,7 @@ import {
   Library,
   ListMusic,
   Mic2,
+  Maximize2,
   Music2,
   Pause,
   Play,
@@ -39,6 +40,8 @@ import {
   X,
 } from "lucide-react";
 import * as api from "./api";
+import FocusStage from "./FocusStage";
+import { LyricContent } from "./LyricContent";
 import type { Playlist, Queue, Settings, Track } from "./types";
 import { defaults } from "./types";
 import {
@@ -115,6 +118,7 @@ export default function App() {
   const [playing, setPlaying] = useState(false),
     [position, setPosition] = useState(0),
     [panel, setPanel] = useState<"lyrics" | "queue" | null>("lyrics");
+  const [focusView, setFocusView] = useState<"lyrics" | "cover" | null>(null);
   const [scrub, setScrub] = useState<number | null>(null);
   const [lyrics, setLyrics] = useState(""),
     [modal, setModal] = useState<Modal>(null),
@@ -308,9 +312,13 @@ export default function App() {
   }, [playing]);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (e.code === "Escape" && focusView && !modal) {
+        setFocusView(null);
+        return;
+      }
       if (
         (e.target as HTMLElement).closest(
-          "input,textarea,select,[contenteditable],dialog",
+          "input,textarea,select,button,a,[contenteditable],dialog",
         ) ||
         modal
       )
@@ -618,9 +626,16 @@ export default function App() {
     );
   return (
     <div
-      className={`app ${settings.appearance.theme} ${settings.appearance.reduced ? "reduced" : ""}`}
+      className={`app ${focusView ? "focus-open" : ""} ${settings.appearance.theme} ${settings.appearance.reduced ? "reduced" : ""}`}
       style={style}
     >
+      {current?.cover && (
+        <img
+          className="album-atmosphere"
+          src={api.coverUrl(current.cover)}
+          alt=""
+        />
+      )}
       <div className="ambient ambient-one" />
       <div className="ambient ambient-two" />
       <aside className="sidebar glass">
@@ -730,7 +745,9 @@ export default function App() {
             <SlidersHorizontal size={19} />
           </IconButton>
         </header>
-        <section className={`hero ${selectedPlaylist ? "playlist-hero" : ""}`}>
+        <section
+          className={`hero ${tracks.length ? "has-music" : ""} ${selectedPlaylist ? "playlist-hero" : ""}`}
+        >
           <div className="hero-copy">
             <div className="eyebrow">
               {selectedPlaylist
@@ -742,6 +759,8 @@ export default function App() {
             <h1>
               {selectedPlaylist ? (
                 title
+              ) : tracks.length ? (
+                (current?.title ?? "Tu colección")
               ) : view === "favorites" ? (
                 <>
                   Lo que más
@@ -795,7 +814,21 @@ export default function App() {
               )}
             </div>
           </div>
-          {selectedPlaylist ? (
+          {tracks.length && !selectedPlaylist ? (
+            <button
+              className="hero-current-art"
+              aria-label="Abrir portada grande"
+              onClick={() => {
+                if (!current && visibleTracks[0]) playTrack(visibleTracks[0]);
+                setFocusView("cover");
+              }}
+            >
+              <Cover
+                cover={(current ?? visibleTracks[0])?.cover ?? null}
+                title={(current ?? visibleTracks[0])?.album ?? ""}
+              />
+            </button>
+          ) : selectedPlaylist ? (
             <Cover
               className="playlist-art"
               cover={selectedPlaylist.cover}
@@ -1087,7 +1120,7 @@ export default function App() {
           </span>
         </footer>
       </main>
-      {panel && (
+      {panel && !focusView && (
         <aside className="right-panel glass">
           <div className="panel-tabs">
             <button
@@ -1104,6 +1137,15 @@ export default function App() {
               <ListMusic size={17} />
               Cola<span>{settings.queue.upcoming.length}</span>
             </button>
+            {panel === "lyrics" && (
+              <IconButton
+                label="Ampliar letra"
+                disabled={!current}
+                onClick={() => setFocusView("lyrics")}
+              >
+                <Maximize2 size={16} />
+              </IconButton>
+            )}
             <IconButton label="Cerrar panel" onClick={() => setPanel(null)}>
               <X size={15} />
             </IconButton>
@@ -1146,7 +1188,12 @@ export default function App() {
                           key={`${line.time}:${i}`}
                           onClick={() => seek(line.time)}
                         >
-                          {line.text || "♪"}
+                          <LyricContent
+                            line={line}
+                            position={position}
+                            playing={playing}
+                            active={i === activeLine}
+                          />
                         </button>
                       ))
                     ) : lyrics ? (
@@ -1347,9 +1394,38 @@ export default function App() {
           )}
         </aside>
       )}
+      {focusView && (
+        <FocusStage
+          track={current}
+          mode={focusView}
+          setMode={setFocusView}
+          lyrics={lyrics}
+          lines={timed}
+          active={activeLine}
+          position={position}
+          playing={playing}
+          seek={seek}
+          close={() => setFocusView(null)}
+          edit={() =>
+            current &&
+            setModal({ type: "lyrics", id: current.id, text: lyrics })
+          }
+        />
+      )}
       <footer className="player glass">
         <div className="player-track">
-          <Cover cover={current?.cover ?? null} title={current?.album ?? ""} />
+          <button
+            className="player-art-button"
+            aria-label="Ampliar portada"
+            disabled={!current}
+            onClick={() => setFocusView("cover")}
+          >
+            <Cover
+              cover={current?.cover ?? null}
+              title={current?.album ?? ""}
+            />
+            <Maximize2 size={15} />
+          </button>
           <div>
             <strong>{current?.title ?? "Dale play a tu espacio"}</strong>
             <small>{current?.artist ?? "Tu música, siempre contigo"}</small>
@@ -1490,6 +1566,14 @@ export default function App() {
           </div>
         </div>
         <div className="player-extras">
+          <IconButton
+            label={focusView ? "Volver a biblioteca" : "Vista grande"}
+            active={!!focusView}
+            disabled={!current}
+            onClick={() => setFocusView(focusView ? null : "lyrics")}
+          >
+            <Maximize2 size={18} />
+          </IconButton>
           {current && (
             <span className="player-quality">
               {current.format}

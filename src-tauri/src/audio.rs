@@ -1,4 +1,4 @@
-use rodio::{Decoder, OutputStream, Sink};
+use rodio::{Decoder, OutputStream, OutputStreamBuilder, Sink};
 use serde::Serialize;
 use std::{fs::File, io::BufReader, path::PathBuf, sync::mpsc, time::Duration};
 
@@ -20,6 +20,17 @@ struct Request {
 pub struct Player {
     sender: mpsc::Sender<Request>,
 }
+pub(crate) fn open_decoder(path: PathBuf) -> Result<Decoder<BufReader<File>>, String> {
+    let file = File::open(path).map_err(|e| format!("No se pudo abrir el archivo: {e}"))?;
+    let length = file.metadata().map_err(|e| e.to_string())?.len();
+    Decoder::builder()
+        .with_data(BufReader::new(file))
+        .with_byte_len(length)
+        .with_seekable(true)
+        .build()
+        .map_err(|e| format!("Audio no compatible o dañado: {e}"))
+}
+
 impl Player {
     pub fn new() -> Self {
         let (sender, receiver) = mpsc::channel::<Request>();
@@ -45,16 +56,14 @@ impl Player {
                             let id = request.id.ok_or("No hay canción seleccionada.")?;
                             if status.track_id.as_ref() != Some(&id) || sink.is_none() {
                                 // Open and decode before replacing the existing source.
-                                let file =
-                                    File::open(request.path.ok_or("Ruta no disponible.")?)
-                                        .map_err(|e| format!("No se pudo abrir el archivo: {e}"))?;
-                                let decoder = Decoder::new(BufReader::new(file))
-                                    .map_err(|e| format!("Audio no compatible o dañado: {e}"))?;
-                                let (stream, handle) =
-                                    OutputStream::try_default().map_err(|e| {
+                                let decoder =
+                                    open_decoder(request.path.ok_or("Ruta no disponible.")?)?;
+                                let mut stream = OutputStreamBuilder::open_default_stream()
+                                    .map_err(|e| {
                                         format!("No se pudo abrir la salida de audio: {e}")
                                     })?;
-                                let next = Sink::try_new(&handle).map_err(|e| e.to_string())?;
+                                stream.log_on_drop(false);
+                                let next = Sink::connect_new(stream.mixer());
                                 next.set_volume(volume);
                                 next.pause();
                                 next.append(decoder);
@@ -148,5 +157,33 @@ impl Player {
         receive
             .recv_timeout(Duration::from_secs(20))
             .map_err(|_| "El reproductor no respondió.".to_string())?
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rodio::Source;
+
+    #[test]
+    fn flac_and_mp3_seek_forward_backward_and_reopen_at_pause_position() {
+        for name in ["first.flac", "second.mp3"] {
+            let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../tests/fixtures")
+                .join(name);
+            let mut decoder = open_decoder(path.clone()).unwrap();
+            for seconds in [5.0, 2.0, 14.0, 0.0] {
+                decoder
+                    .try_seek(Duration::from_secs_f64(seconds))
+                    .unwrap_or_else(|e| panic!("{name} seek {seconds}: {e}"));
+                assert!(decoder.next().is_some());
+            }
+            drop(decoder);
+            let mut resumed = open_decoder(path).unwrap();
+            resumed
+                .try_seek(Duration::from_secs_f64(7.5))
+                .expect("resume must support nonzero positions");
+            assert!(resumed.next().is_some());
+        }
     }
 }

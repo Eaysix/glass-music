@@ -119,3 +119,27 @@ describe("LRC", () => {
     expect(timeLabel(184.8)).toBe("3:04");
   });
 });
+
+describe("letras Enhanced LRC", () => {
+  it("oculta las marcas de palabra duplicadas y de voces del FLAC", () => {
+    const result = parseLrc(
+      "[01:29.788]v3:<01:29.788>Llámate <01:30.193><01:30.193>al <01:30.329>ruso <01:31.854>\n[01:31.854]v3:<01:31.854>Que <01:32.027>llega",
+    );
+    expect(result[0].text).toBe("Llámate al ruso");
+    expect(result[0].voice).toBe("3");
+    expect(result[0].words).toEqual([
+      { time: 89.788, text: "Llámate" },
+      { time: 90.193, text: "al" },
+      { time: 90.329, text: "ruso" },
+    ]);
+    expect(result[1].text).toBe("Que llega");
+    expect(result.map((l) => l.text).join(" ")).not.toMatch(/v3:|<|>/);
+  });
+  it("reúne una línea dividida entre marcas de palabra y aplica el offset", () => {
+    const result = parseLrc(
+      "[offset:100]\n[00:01.000]v1:<00:01.000>Hola\n<00:02.000>mundo",
+    );
+    expect(result[0].text).toBe("Hola mundo");
+    expect(result[0].words?.[1].time).toBe(2.1);
+  });
+});

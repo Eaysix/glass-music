@@ -29,6 +29,8 @@ Reproductor personal de música local, principalmente FLAC y también MP3, con b
 - Audio nativo con Rodio/Symphonia; SQLite para biblioteca y ajustes.
 - Los cambios de información, portadas y letras se guardan en la biblioteca. No se escriben etiquetas en originales.
 - Portadas reducidas a un máximo de 512 px, almacenadas en caché.
+- Vista grande de portada o letra, que sigue la canción actual y conserva los controles visibles.
+- Enhanced LRC con sincronización por palabra y limpieza de marcas de voces.
 - Letras embebidas y archivos .lrc junto al audio se leen al importar. Un LRC externo tiene prioridad. Se editan luego desde la app.
 - La mezcla variada separa artistas cuando hay alternativas; la separación por álbum queda pendiente.
 - Cambiar el modo aleatorio reordena únicamente lo que queda en la cola; no vuelve a añadir lo ya escuchado.
