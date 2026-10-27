@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Ventana local: selector de archivos y eventos; sin red ni comandos del sistema.",
+  "windows": ["main"],
+  "permissions": ["core:default", "dialog:allow-open"]
+}
