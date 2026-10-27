@@ -55,7 +55,7 @@ Se añade un recorrido de interfaz para marcar con Espacio, impedir guardados in
 - El callback de error de Rodio avisa al hilo del reproductor. La reconstrucción y el seek se hacen fuera del callback, con hasta tres intentos y una posición congelada entre intentos. Se usan las configuraciones de la salida predeterminada, sin elegir otra salida arbitraria.
 - Se invalidan callbacks de streams anteriores. Un error tardío no interrumpe una canción nueva ni reanuda música tras pausar o detener.
 - Si no se puede abrir la salida, la canción queda pausada con un aviso y `ended = false`; no se avanza la cola. Reproducir vuelve a intentar la salida actual conservando la posición.
-- Siete pruebas del motor simulan cambio de salida, recuperación temporal, ausencia total de dispositivos, volumen/posición, pausa, callbacks antiguos, fin natural y cambio de canción fallido. Se ejecutan sin un dispositivo de audio. Las pruebas nativas y la compilación Windows se repiten en Actions.
+- Ocho pruebas del motor simulan cambio de salida, recuperación temporal, ausencia total de dispositivos, volumen/posición, pausa, callbacks antiguos, fin natural, fallos repetidos del controlador y cambio de canción fallido. Se ejecutan sin un dispositivo de audio. Las pruebas nativas y la compilación Windows se repiten en Actions.
 
 La conmutación física entre USB, Bluetooth y salida integrada queda pendiente de comprobar en el equipo del usuario. Pasar la simulación no confirma el comportamiento de sus controladores.
 

@@ -129,6 +129,8 @@ struct Engine<B: Output> {
     status: Status,
     path: Option<PathBuf>,
     volume: f32,
+    error_recoveries: u8,
+    last_recovery_position: f64,
 }
 impl<B: Output> Engine<B> {
     fn new(output: B) -> Self {
@@ -137,6 +139,8 @@ impl<B: Output> Engine<B> {
             status: Status::default(),
             path: None,
             volume: 0.7,
+            error_recoveries: 0,
+            last_recovery_position: 0.0,
         }
     }
     fn refresh(&mut self) {
@@ -171,6 +175,7 @@ impl<B: Output> Engine<B> {
                 } else if value.is_some() {
                     self.output.seek(position)?;
                 }
+                self.error_recoveries = 0;
                 self.status = Status {
                     track_id: Some(id),
                     position,
@@ -180,6 +185,7 @@ impl<B: Output> Engine<B> {
                 };
             }
             "pause" => {
+                self.error_recoveries = 0;
                 self.output.close();
                 self.status.playing = false;
                 self.status.output_error = None;
@@ -189,6 +195,7 @@ impl<B: Output> Engine<B> {
                     .filter(|s| s.is_finite() && *s >= 0.0)
                     .ok_or("Posición inválida.")?;
                 self.output.seek(position)?;
+                self.error_recoveries = 0;
                 self.status.position = position;
                 self.status.ended = false;
             }
@@ -200,6 +207,7 @@ impl<B: Output> Engine<B> {
                 self.output.volume(self.volume);
             }
             "stop" => {
+                self.error_recoveries = 0;
                 self.output.close();
                 self.path = None;
                 self.status = Status::default();
@@ -210,9 +218,27 @@ impl<B: Output> Engine<B> {
         Ok(self.status.clone())
     }
     fn stream_error(&mut self, generation: u64, wait: impl FnMut()) {
-        if self.output.generation() == Some(generation) {
-            self.reconnect(wait);
+        if self.output.generation() != Some(generation) {
+            return;
         }
+        self.refresh();
+        if !self.status.playing {
+            return;
+        }
+        if (self.status.position - self.last_recovery_position).abs() > 1.0 {
+            self.error_recoveries = 0;
+        }
+        if self.error_recoveries >= 3 {
+            self.output.close();
+            self.status.playing = false;
+            self.status.ended = false;
+            self.status.output_error =
+                Some("La salida de audio volvió a fallar después de reconectarse.".into());
+            return;
+        }
+        self.error_recoveries += 1;
+        self.last_recovery_position = self.status.position;
+        self.reconnect(wait);
     }
     fn reconnect(&mut self, mut wait: impl FnMut()) {
         // Capture the sink clock once; retries never advance the song or its queue.
@@ -508,6 +534,25 @@ mod routing_tests {
             engine.output.opens.last().unwrap().0,
             PathBuf::from("two.mp3")
         );
+    }
+    #[test]
+    fn repeated_asynchronous_driver_errors_are_bounded_and_manual_play_can_retry() {
+        let mut engine = playing();
+        for _ in 0..10 {
+            if let Some(generation) = engine.output.generation() {
+                engine.stream_error(generation, || {});
+            }
+        }
+        assert_eq!(engine.output.opens.len(), 4);
+        assert!(!engine.status.playing && !engine.status.ended);
+        assert!(engine.status.output_error.is_some());
+        engine
+            .command("play", Some("one".into()), Some("one.flac".into()), None)
+            .unwrap();
+        let generation = engine.output.generation().unwrap();
+        engine.stream_error(generation, || {});
+        assert!(engine.status.playing);
+        assert_eq!(engine.output.opens.len(), 6);
     }
     #[test]
     fn natural_end_and_stop_still_release_output_and_do_not_reconnect() {
