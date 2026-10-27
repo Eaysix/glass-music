@@ -32,6 +32,8 @@ struct Track {
     bit_depth: Option<u8>,
     cover: Option<String>,
     favorite: bool,
+    #[serde(default)]
+    modified_at: Option<f64>,
 }
 #[derive(Serialize)]
 struct ImportReport {
@@ -70,8 +72,22 @@ fn load_library(db: State<'_, Database>) -> Result<Vec<Track>> {
     let conn = connection(&db)?;
     let mut statement = sql(conn.prepare("SELECT metadata FROM tracks ORDER BY rowid"))?;
     let rows = sql(statement.query_map([], |row| row.get::<_, String>(0)))?;
-    rows.map(|row| serde_json::from_str(&sql(row)?).map_err(|e| e.to_string()))
-        .collect()
+    let mut tracks: Vec<Track> = rows
+        .map(|row| serde_json::from_str(&sql(row)?).map_err(|e| e.to_string()))
+        .collect::<Result<_>>()?;
+    drop(statement);
+    for track in &mut tracks {
+        if let Some(modified) = file_modified(Path::new(&track.path)) {
+            if track.modified_at != Some(modified) {
+                track.modified_at = Some(modified);
+                sql(conn.execute(
+                    "UPDATE tracks SET metadata=?1 WHERE id=?2",
+                    params![serialize(&track)?, track.id],
+                ))?;
+            }
+        }
+    }
+    Ok(tracks)
 }
 #[tauri::command]
 fn load_settings(db: State<'_, Database>) -> Result<Option<serde_json::Value>> {
@@ -109,6 +125,7 @@ fn update_track(mut track: Track, db: State<'_, Database>) -> Result<()> {
     track.format = original.format;
     track.sample_rate = original.sample_rate;
     track.bit_depth = original.bit_depth;
+    track.modified_at = original.modified_at;
     sql(conn.execute(
         "UPDATE tracks SET metadata=?1 WHERE id=?2",
         params![serialize(&track)?, track.id],
@@ -227,6 +244,15 @@ fn read_lyrics_file(path: String) -> Result<String> {
         .map(|s| s.trim_start_matches('\u{feff}').to_string())
         .map_err(|e| format!("Guarda la letra como texto UTF-8: {e}"))
 }
+fn file_modified(path: &Path) -> Option<f64> {
+    fs::metadata(path)
+        .ok()?
+        .modified()
+        .ok()?
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()
+        .map(|value| value.as_millis() as f64)
+}
 fn read_track(path: &Path, covers: &Path) -> Result<(Track, String)> {
     let file =
         lofty::read_from_path(path).map_err(|e| format!("Etiquetas o audio dañados: {e}"))?;
@@ -281,6 +307,7 @@ fn read_track(path: &Path, covers: &Path) -> Result<(Track, String)> {
         bit_depth: properties.bit_depth(),
         cover,
         favorite: false,
+        modified_at: file_modified(path),
     };
     Ok((track, lyrics))
 }
@@ -623,6 +650,7 @@ mod tests {
             bit_depth: Some(24),
             cover: None,
             favorite: false,
+            modified_at: None,
         };
         conn.execute(
             "INSERT INTO tracks VALUES(?1,?2,?3,?4)",
@@ -664,6 +692,29 @@ mod tests {
             assert!(decoder.take(1000).count() > 0);
         }
         fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn file_modified_is_filesystem_time_and_legacy_metadata_still_loads() {
+        let root = std::env::temp_dir().join(format!("glass-date-test-{}", std::process::id()));
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("date.flac");
+        fs::write(&path, b"date test").unwrap();
+        let expected = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_650_000_000);
+        fs::File::options()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_times(fs::FileTimes::new().set_modified(expected))
+            .unwrap();
+        assert_eq!(file_modified(&path), Some(1_650_000_000_000.0));
+        fs::remove_file(&path).unwrap();
+        assert_eq!(file_modified(&path), None);
+        let legacy = serde_json::json!({"id":"old","path":"missing.flac","title":"Manual title","artist":"Artist","album":"Album","feats":"","duration":180.0,"format":"FLAC","sampleRate":null,"bitDepth":null,"cover":null,"favorite":true});
+        let track: Track = serde_json::from_value(legacy).unwrap();
+        assert_eq!(track.modified_at, None);
+        assert_eq!(track.title, "Manual title");
+        assert!(track.favorite);
+        fs::remove_dir(root).unwrap();
     }
     #[test]
     fn thumbnails_are_bounded_and_deduplicated() {

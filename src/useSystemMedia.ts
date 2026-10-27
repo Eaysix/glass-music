@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -40,7 +41,11 @@ export function useSystemMedia(
         else unlisten();
       })
       .catch((e) =>
-        report.current(`No se activaron las teclas multimedia: ${e}`),
+        report.current(
+          t("No se activaron las teclas multimedia: {p0}", {
+            p0: e,
+          }),
+        ),
       );
     return () => {
       alive = false;
@@ -56,7 +61,12 @@ export function useSystemMedia(
       canPrevious,
       position,
     }).catch((e) => {
-      if (alive) report.current(`Controles de Windows: ${e}`);
+      if (alive)
+        report.current(
+          t("Controles de Windows: {p0}", {
+            p0: e,
+          }),
+        );
     });
     return () => {
       alive = false;

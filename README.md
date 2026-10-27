@@ -4,6 +4,15 @@ Tu música local, a tu manera. Reproductor para Windows centrado en FLAC y MP3, 
 
 ![Interfaz de la alpha con archivos de prueba sintéticos](docs/interface.webp)
 
+## Candidata 1.0.0-rc.1
+
+- Cola vinculada al origen de reproducción: las nuevas importaciones se incorporan a las pendientes, y al quitar una búsqueda se recupera la playlist completa conservando la canción y la posición actuales.
+- Orden inicial por **fecha de modificación del archivo**, más reciente primero. También recupera la fecha de canciones importadas en versiones anteriores y permite elegir otros órdenes.
+- Idioma de la interfaz en **español, inglés, alemán o chino simplificado**, configurable en Ajustes → Apariencia. Los nombres y las letras originales se conservan.
+- Pruebas automáticas de cola, letras, edición, selección, importación, inicio, persistencia e idiomas; biblioteca y cola virtualizadas con 5.000 registros sintéticos.
+
+Es una candidata para probar antes de la versión estable. La integración con Windows y Nusa, Discord y el consumo deben confirmarse en el equipo real; consulta [validación](docs/VALIDACION.md).
+
 ## Alpha 0.4.0
 
 - Azul **#8CCDF3** como color principal, incluido el icono de Windows. El logo de la interfaz sigue el color elegido.

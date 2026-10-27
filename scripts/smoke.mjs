@@ -74,6 +74,9 @@ try {
   await page
     .getByRole("heading", { name: "Todas las canciones", exact: true })
     .waitFor();
+  await page
+    .getByLabel("Orden de canciones", { exact: true })
+    .selectOption("added");
   await page.screenshot({ path: "artifacts/empty.png" });
   await page
     .getByRole("button", { name: "Ajustes de apariencia y perfil" })
@@ -828,6 +831,9 @@ try {
   await page
     .getByRole("heading", { name: "Todas las canciones", exact: true })
     .waitFor();
+  await page
+    .getByLabel("Orden de canciones", { exact: true })
+    .selectOption("added");
   assert(
     (await page.locator(".track-row").count()) < 25,
     "library must render a bounded window",

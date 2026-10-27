@@ -1,3 +1,4 @@
+import { t, setLanguage, type Language } from "./i18n";
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { Check, Plus, UserRound } from "lucide-react";
 import { coverUrl, openDiscordPortal, type PresenceStatus } from "./api";
@@ -38,7 +39,7 @@ export default function SettingsPanel({
       <div
         className="settings-tabs"
         role="tablist"
-        aria-label="Secciones de ajustes"
+        aria-label={t("Secciones de ajustes")}
       >
         {tabs.map(([id, label]) => (
           <button
@@ -50,7 +51,7 @@ export default function SettingsPanel({
             key={id}
             onClick={() => setTab(id)}
           >
-            {label}
+            {t(label)}
           </button>
         ))}
       </div>
@@ -63,17 +64,20 @@ export default function SettingsPanel({
         {tab === "profile" && (
           <>
             <p className="modal-description">
-              Tu perfil se guarda en este equipo. Sin registro ni login.
+              {t("Tu perfil se guarda en este equipo. Sin registro ni login.")}
             </p>
             <div className="profile-editor">
               <button
                 type="button"
                 className="photo-picker"
-                aria-label="Cambiar foto de perfil"
+                aria-label={t("Cambiar foto de perfil")}
                 onClick={photo}
               >
                 {s.profile.photo ? (
-                  <img src={coverUrl(s.profile.photo)} alt="Foto de perfil" />
+                  <img
+                    src={coverUrl(s.profile.photo)}
+                    alt={t("Foto de perfil")}
+                  />
                 ) : (
                   <UserRound size={28} />
                 )}
@@ -82,7 +86,7 @@ export default function SettingsPanel({
                 </span>
               </button>
               <label>
-                Nombre del perfil
+                {t("Nombre del perfil")}
                 <input
                   maxLength={60}
                   value={s.profile.name}
@@ -103,19 +107,38 @@ export default function SettingsPanel({
                   set((v) => ({ ...v, profile: { ...v.profile, photo: null } }))
                 }
               >
-                Quitar foto
+                {t("Quitar foto")}
               </button>
             )}
           </>
         )}
         {tab === "appearance" && (
           <>
+            <label className="settings-select">
+              {t("Idioma de la interfaz")}
+              <select
+                aria-label={t("Idioma de la interfaz")}
+                value={s.language}
+                onChange={(e) => {
+                  const language = e.target.value as Language;
+                  setLanguage(language);
+                  set((v) => ({ ...v, language }));
+                }}
+              >
+                <option value="es">Español</option>
+                <option value="en">English</option>
+                <option value="de">Deutsch</option>
+                <option value="zh-CN">简体中文</option>
+              </select>
+            </label>
+
             <p className="modal-description">
-              Azul Glass como base. El color elegido también cambia el logo de
-              la interfaz.
+              {t(
+                "Azul Glass como base. El color elegido tambi\u00E9n cambia el logo de la interfaz.",
+              )}
             </p>
             <div className="settings-section">
-              <h3>Color principal</h3>
+              <h3>{t("Color principal")}</h3>
               <div className="swatches">
                 {["#8CCDF3", "#c9ed87", "#c2a4ff", "#f6a6c7", "#ffbd88"].map(
                   (color) => (
@@ -123,7 +146,9 @@ export default function SettingsPanel({
                       type="button"
                       key={color}
                       style={{ background: color }}
-                      aria-label={`Color ${color}`}
+                      aria-label={t("Color {p0}", {
+                        p0: color,
+                      })}
                       aria-pressed={
                         s.appearance.accent.toLowerCase() ===
                         color.toLowerCase()
@@ -135,20 +160,20 @@ export default function SettingsPanel({
                     </button>
                   ),
                 )}
-                <label className="custom-color" title="Elegir otro color">
+                <label className="custom-color" title={t("Elegir otro color")}>
                   <Plus size={17} />
                   <input
                     type="color"
-                    aria-label="Color personalizado"
+                    aria-label={t("Color personalizado")}
                     value={s.appearance.accent}
                     onChange={(e) => appearance({ accent: e.target.value })}
                   />
                 </label>
               </div>
               <label className="color-hex">
-                Código del color
+                {t("C\u00F3digo del color")}
                 <input
-                  aria-label="Código del color"
+                  aria-label={t("C\u00F3digo del color")}
                   value={hex}
                   maxLength={7}
                   onChange={(e) => {
@@ -162,7 +187,7 @@ export default function SettingsPanel({
               </label>
             </div>
             <div className="settings-section">
-              <h3>Ambiente</h3>
+              <h3>{t("Ambiente")}</h3>
               <div className="theme-options">
                 {(["dark", "light"] as const).map((theme) => (
                   <button
@@ -171,14 +196,15 @@ export default function SettingsPanel({
                     className={s.appearance.theme === theme ? "selected" : ""}
                     onClick={() => appearance({ theme })}
                   >
-                    {theme === "dark" ? "Noche" : "Día"}
+                    {theme === "dark" ? t("Noche") : t("D\u00EDa")}
                   </button>
                 ))}
               </div>
               <label className="range-label">
-                Intensidad del vidrio<span>{s.appearance.glass}px</span>
+                {t("Intensidad del vidrio")}
+                <span>{s.appearance.glass}px</span>
                 <input
-                  aria-label="Intensidad del vidrio"
+                  aria-label={t("Intensidad del vidrio")}
                   type="range"
                   min="0"
                   max="32"
@@ -191,9 +217,10 @@ export default function SettingsPanel({
                 />
               </label>
               <label className="range-label">
-                Opacidad de los paneles<span>{s.appearance.opacity}%</span>
+                {t("Opacidad de los paneles")}
+                <span>{s.appearance.opacity}%</span>
                 <input
-                  aria-label="Opacidad de los paneles"
+                  aria-label={t("Opacidad de los paneles")}
                   type="range"
                   min="20"
                   max="90"
@@ -206,8 +233,8 @@ export default function SettingsPanel({
               </label>
               <label className="toggle-label">
                 <span>
-                  <strong>Fondo con la portada</strong>
-                  <small>El ambiente cambia con la canción.</small>
+                  <strong>{t("Fondo con la portada")}</strong>
+                  <small>{t("El ambiente cambia con la canci\u00F3n.")}</small>
                 </span>
                 <input
                   type="checkbox"
@@ -219,8 +246,10 @@ export default function SettingsPanel({
               </label>
               <label className="toggle-label">
                 <span>
-                  <strong>Animaciones</strong>
-                  <small>Transiciones de paneles, canciones y controles.</small>
+                  <strong>{t("Animaciones")}</strong>
+                  <small>
+                    {t("Transiciones de paneles, canciones y controles.")}
+                  </small>
                 </span>
                 <input
                   type="checkbox"
@@ -230,8 +259,10 @@ export default function SettingsPanel({
               </label>
               <label className="toggle-label">
                 <span>
-                  <strong>Reducir efectos</strong>
-                  <small>Desactiva desenfoques, sombras y animaciones.</small>
+                  <strong>{t("Reducir efectos")}</strong>
+                  <small>
+                    {t("Desactiva desenfoques, sombras y animaciones.")}
+                  </small>
                 </span>
                 <input
                   type="checkbox"
@@ -245,33 +276,34 @@ export default function SettingsPanel({
               className="text-button restore-appearance"
               onClick={() => appearance(defaults().appearance)}
             >
-              Restaurar apariencia Glass
+              {t("Restaurar apariencia Glass")}
             </button>
           </>
         )}
         {tab === "player" && (
           <>
             <p className="modal-description">
-              Controles a tu ritmo, sin ocupar espacio cuando escuchas.
+              {t("Controles a tu ritmo, sin ocupar espacio cuando escuchas.")}
             </p>
             <label className="toggle-label">
               <span>
-                <strong>Ocultar reproductor automáticamente</strong>
+                <strong>{t("Ocultar reproductor autom\u00E1ticamente")}</strong>
                 <small>
-                  Acerca el mouse al borde inferior o llega con Tab.
+                  {t("Acerca el mouse al borde inferior o llega con Tab.")}
                 </small>
               </span>
               <input
-                aria-label="Ocultar reproductor automáticamente"
+                aria-label={t("Ocultar reproductor autom\u00E1ticamente")}
                 type="checkbox"
                 checked={s.player.autoHide}
                 onChange={(e) => player({ autoHide: e.target.checked })}
               />
             </label>
             <label className="range-label">
-              Escala de la interfaz<span>{Math.round(s.uiScale * 100)}%</span>
+              {t("Escala de la interfaz")}
+              <span>{Math.round(s.uiScale * 100)}%</span>
               <input
-                aria-label="Escala de la interfaz"
+                aria-label={t("Escala de la interfaz")}
                 type="range"
                 min="0.75"
                 max="1.5"
@@ -283,32 +315,35 @@ export default function SettingsPanel({
               />
             </label>
             <p className="settings-help">
-              Ctrl + / Ctrl − o Ctrl + rueda para cambiar el tamaño. Ctrl + 0
-              restablece el 100%.
+              {t(
+                "Ctrl + / Ctrl \u2212 o Ctrl + rueda para cambiar el tama\u00F1o. Ctrl + 0 restablece el 100%.",
+              )}
             </p>
             <label className="settings-select">
-              Pasos de volumen
+              {t("Pasos de volumen")}
               <select
-                aria-label="Pasos de volumen"
+                aria-label={t("Pasos de volumen")}
                 value={s.player.volumeStep}
                 onChange={(e) => player({ volumeStep: Number(e.target.value) })}
               >
                 {[1, 2, 5, 10].map((n) => (
                   <option key={n} value={n}>
-                    {n}% por paso
+                    {n}
+                    {t("% por paso")}
                   </option>
                 ))}
               </select>
             </label>
             <p className="settings-help">
-              La rueda y + / − usan este paso. El porcentaje permite escribir un
-              valor exacto.
+              {t(
+                "La rueda y + / \u2212 usan este paso. El porcentaje permite escribir un valor exacto.",
+              )}
             </p>
             <label className="range-label">
-              Tamaño de la letra
+              {t("Tama\u00F1o de la letra")}
               <span>{Math.round(s.appearance.lyricScale * 100)}%</span>
               <input
-                aria-label="Tamaño de la letra"
+                aria-label={t("Tama\u00F1o de la letra")}
                 type="range"
                 min="0.85"
                 max="1.35"
@@ -324,18 +359,21 @@ export default function SettingsPanel({
         {tab === "discord" && (
           <>
             <p className="modal-description">
-              Muestra la canción, el artista y Glass Music en tu actividad de
-              Discord de escritorio.
+              {t(
+                "Muestra la canci\u00F3n, el artista y Glass Music en tu actividad de Discord de escritorio.",
+              )}
             </p>
             <label className="toggle-label">
               <span>
-                <strong>Compartir en Discord</strong>
+                <strong>{t("Compartir en Discord")}</strong>
                 <small>
-                  La actividad se retira al pausar o desactivar esta opción.
+                  {t(
+                    "La actividad se retira al pausar o desactivar esta opci\u00F3n.",
+                  )}
                 </small>
               </span>
               <input
-                aria-label="Compartir en Discord"
+                aria-label={t("Compartir en Discord")}
                 type="checkbox"
                 checked={s.discord.enabled}
                 onChange={(e) => discord({ enabled: e.target.checked })}
@@ -344,13 +382,13 @@ export default function SettingsPanel({
             <div className={`presence-status ${presence.state}`} role="status">
               <i />
               {s.discord.enabled
-                ? presence.message
-                : "Actividad de Discord desactivada."}
+                ? t(presence.message)
+                : t("Actividad de Discord desactivada.")}
             </div>
             <label className="toggle-label">
               <span>
-                <strong>Mostrar álbum</strong>
-                <small>Añade el álbum junto al artista.</small>
+                <strong>{t("Mostrar \u00E1lbum")}</strong>
+                <small>{t("A\u00F1ade el \u00E1lbum junto al artista.")}</small>
               </span>
               <input
                 type="checkbox"
@@ -359,12 +397,12 @@ export default function SettingsPanel({
               />
             </label>
             <label className="settings-field">
-              Application ID de Glass Music
+              {t("Application ID de Glass Music")}
               <input
-                aria-label="Application ID de Discord"
+                aria-label={t("Application ID de Discord")}
                 inputMode="numeric"
                 maxLength={20}
-                placeholder="ID público de la aplicación"
+                placeholder={t("ID p\u00FAblico de la aplicaci\u00F3n")}
                 value={s.discord.applicationId}
                 onChange={(e) =>
                   discord({ applicationId: e.target.value.replace(/\D/g, "") })
@@ -372,8 +410,9 @@ export default function SettingsPanel({
               />
             </label>
             <p className="settings-help">
-              Configuración inicial del proyecto: crea una aplicación llamada
-              Glass Music en el{" "}
+              {t(
+                "Configuraci\u00F3n inicial del proyecto: crea una aplicaci\u00F3n llamada Glass Music en el",
+              )}{" "}
               <button
                 type="button"
                 className="text-button"
@@ -381,18 +420,19 @@ export default function SettingsPanel({
                   void openDiscordPortal().catch((e) => setError(String(e)));
                 }}
               >
-                portal de desarrolladores de Discord
+                {t("portal de desarrolladores de Discord")}
               </button>{" "}
-              y copia su Application ID. En Rich Presence → Art Assets, sube el
-              logo con el nombre glass_music para mostrarlo en la actividad. El
-              ID es público; no pegues tokens ni secretos.
+              {t(
+                "y copia su Application ID. En Rich Presence \u2192 Art Assets, sube el logo con el nombre glass_music para mostrarlo en la actividad. El ID es p\u00FAblico; no pegues tokens ni secretos.",
+              )}
             </p>
-            {error && <p className="form-error">{error}</p>}
+            {error && <p className="form-error">{t(error)}</p>}
             <div className="discord-preview">
-              <small>VISTA PREVIA</small>
-              <strong>Escuchando Glass Music</strong>
+              <small>{t("VISTA PREVIA")}</small>
+              <strong>{t("Escuchando Glass Music")}</strong>
               <span>
-                Canción · Artista{s.discord.showAlbum ? " · Álbum" : ""}
+                {t("Canci\u00F3n \u00B7 Artista")}
+                {s.discord.showAlbum ? t(" \u00B7 \u00C1lbum") : ""}
               </span>
             </div>
           </>
@@ -400,25 +440,29 @@ export default function SettingsPanel({
         {tab === "performance" && (
           <>
             <p className="modal-description">
-              El consumo real depende del equipo y debe medirse en Windows.
+              {t(
+                "El consumo real depende del equipo y debe medirse en Windows.",
+              )}
             </p>
             <div className="performance-options">
               {(
                 [
                   [
                     "economy",
-                    "Ahorro",
-                    "Cristal sin desenfoques ni animaciones continuas. Reloj a 1 segundo.",
+                    t("Ahorro"),
+                    t(
+                      "Cristal sin desenfoques ni animaciones continuas. Reloj a 1 segundo.",
+                    ),
                   ],
                   [
                     "balanced",
-                    "Equilibrado",
-                    "Desenfoque limitado a 12px y reloj a 1 segundo.",
+                    t("Equilibrado"),
+                    t("Desenfoque limitado a 12px y reloj a 1 segundo."),
                   ],
                   [
                     "quality",
-                    "Máxima apariencia",
-                    "Hasta 32px de desenfoque y reloj a medio segundo.",
+                    t("M\u00E1xima apariencia"),
+                    t("Hasta 32px de desenfoque y reloj a medio segundo."),
                   ],
                 ] as const
               ).map(([id, title, text]) => (
@@ -437,9 +481,9 @@ export default function SettingsPanel({
               ))}
             </div>
             <p className="settings-help">
-              El reloj actualiza solo sus controles y la línea activa. El fondo
-              se prepara una vez por portada. Al pausar no hay consultas
-              periódicas del audio ni reconexiones de Discord.
+              {t(
+                "El reloj actualiza solo sus controles y la l\u00EDnea activa. El fondo se prepara una vez por portada. Al pausar no hay consultas peri\u00F3dicas del audio ni reconexiones de Discord.",
+              )}
             </p>
           </>
         )}

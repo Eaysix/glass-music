@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { Minus, Plus, Volume2, VolumeX, X } from "lucide-react";
 export default function VolumeControl({
@@ -55,15 +56,15 @@ export default function VolumeControl({
     >
       <button
         className="icon-button"
-        aria-label={value ? "Silenciar" : "Activar sonido"}
-        title={value ? "Silenciar" : "Activar sonido"}
+        aria-label={value ? t("Silenciar") : t("Activar sonido")}
+        title={value ? t("Silenciar") : t("Activar sonido")}
         onClick={() => change(value ? 0 : last.current)}
       >
         {value ? <Volume2 size={19} /> : <VolumeX size={19} />}
       </button>
       <input
         className="volume"
-        aria-label="Volumen"
+        aria-label={t("Volumen")}
         type="range"
         min="0"
         max="1"
@@ -73,7 +74,7 @@ export default function VolumeControl({
       />
       <button
         className="volume-percent"
-        aria-label="Ajustar volumen"
+        aria-label={t("Ajustar volumen")}
         aria-expanded={open}
         onClick={() => setOpen(!open)}
       >
@@ -83,20 +84,20 @@ export default function VolumeControl({
         <div
           className="volume-popover glass"
           role="dialog"
-          aria-label="Control de volumen"
+          aria-label={t("Control de volumen")}
         >
           <header>
-            <strong>Volumen</strong>
+            <strong>{t("Volumen")}</strong>
             <button
               className="icon-button"
-              aria-label="Cerrar volumen"
+              aria-label={t("Cerrar volumen")}
               onClick={() => setOpen(false)}
             >
               <X size={16} />
             </button>
           </header>
           <input
-            aria-label="Volumen ampliado"
+            aria-label={t("Volumen ampliado")}
             type="range"
             min="0"
             max="100"
@@ -106,14 +107,14 @@ export default function VolumeControl({
           />
           <div className="volume-exact">
             <button
-              aria-label="Bajar volumen"
+              aria-label={t("Bajar volumen")}
               onClick={() => set(percent - step)}
             >
               <Minus size={18} />
             </button>
             <label>
               <input
-                aria-label="Porcentaje de volumen"
+                aria-label={t("Porcentaje de volumen")}
                 type="number"
                 min="0"
                 max="100"
@@ -125,7 +126,7 @@ export default function VolumeControl({
               %
             </label>
             <button
-              aria-label="Subir volumen"
+              aria-label={t("Subir volumen")}
               onClick={() => set(percent + step)}
             >
               <Plus size={18} />
@@ -138,7 +139,10 @@ export default function VolumeControl({
               </button>
             ))}
           </div>
-          <small>Rueda del mouse: pasos de {step}%</small>
+          <small>
+            {t("Rueda del mouse: pasos de ")}
+            {step}%
+          </small>
         </div>
       )}
     </div>

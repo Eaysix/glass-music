@@ -177,6 +177,7 @@ export async function importMusic(
         bitDepth: format.bitsPerSample ?? null,
         cover,
         favorite: false,
+        modifiedAt: file.lastModified,
       };
       await write("files", id, file);
       const lyric = common.lyrics?.[0];

@@ -1,4 +1,8 @@
-export type EditableLyric = { text: string; time: number | null };
+import { t } from "./i18n";
+export type EditableLyric = {
+  text: string;
+  time: number | null;
+};
 const timestamp = /\[(\d+):(\d{2})(?:[.:](\d{1,3}))?\]/g;
 export function editableLyrics(source: string): EditableLyric[] {
   const offset =
@@ -43,13 +47,22 @@ export function serializeLyrics(rows: EditableLyric[]): string {
 export function timingError(rows: EditableLyric[], duration: number): string {
   if (!rows.some((row) => row.time !== null)) return "";
   if (rows.some((row) => row.time === null))
-    return "Faltan líneas por marcar. Completa los tiempos antes de guardar la letra sincronizada.";
+    return t(
+      "Faltan l\u00EDneas por marcar. Completa los tiempos antes de guardar la letra sincronizada.",
+    );
   for (let i = 0; i < rows.length; i++) {
     const time = rows[i].time!;
     if (!Number.isFinite(time) || time < 0 || (duration > 0 && time > duration))
-      return `Revisa el tiempo de la línea ${i + 1}.`;
+      return t("Revisa el tiempo de la l\u00EDnea {p0}.", {
+        p0: i + 1,
+      });
     if (i && time <= rows[i - 1].time!)
-      return `La línea ${i + 1} debe comenzar después de la anterior.`;
+      return t(
+        "La l\u00EDnea {p0} debe comenzar despu\u00E9s de la anterior.",
+        {
+          p0: i + 1,
+        },
+      );
   }
   return "";
 }

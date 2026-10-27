@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import {
   Heart,
   ListMusic,
@@ -53,7 +54,9 @@ export default function Home({
             <button
               key={playlist.id}
               className={`playlist-card ${dropTarget === playlist.id ? "drop-target" : ""}`}
-              aria-label={`Abrir playlist ${playlist.name}`}
+              aria-label={t("Abrir playlist {p0}", {
+                p0: playlist.name,
+              })}
               onClick={() => open(`playlist:${playlist.id}`)}
               onDragOver={(e) => dragOver(e, playlist.id)}
               onDrop={(e) => drop(e, playlist.id)}
@@ -69,7 +72,10 @@ export default function Home({
                 </span>
               </div>
               <strong>{playlist.name}</strong>
-              <small>{playlist.trackIds.length} canciones</small>
+              <small>
+                {playlist.trackIds.length}
+                {t(" canciones")}
+              </small>
             </button>
           );
         })}
@@ -84,17 +90,20 @@ export default function Home({
     <div className="home-content">
       <section className="home-welcome">
         <div>
-          <span className="eyebrow">TU ESPACIO</span>
-          <h1>Tu música, {name}.</h1>
-          <p>Elige una playlist y encuentra tu ritmo.</p>
+          <span className="eyebrow">{t("TU ESPACIO")}</span>
+          <h1>
+            {t("Tu m\u00FAsica, ")}
+            {name}.
+          </h1>
+          <p>{t("Elige una playlist y encuentra tu ritmo.")}</p>
         </div>
         <button className="secondary" onClick={create}>
           <Plus size={17} />
-          Crear playlist
+          {t("Crear playlist")}
         </button>
       </section>
       {current && (
-        <section className="resume-card" aria-label="Seguir escuchando">
+        <section className="resume-card" aria-label={t("Seguir escuchando")}>
           <div className="resume-art">
             {current.cover ? (
               <img src={api.coverUrl(current.cover)} alt="" />
@@ -105,15 +114,17 @@ export default function Home({
           <div>
             <small>
               {playing
-                ? "SONANDO AHORA"
-                : `SEGUIR ESCUCHANDO · ${timeLabel(position)}`}
+                ? t("SONANDO AHORA")
+                : t("SEGUIR ESCUCHANDO \u00B7 {p0}", {
+                    p0: timeLabel(position),
+                  })}
             </small>
             <strong>{current.title}</strong>
             <span>{current.artist}</span>
           </div>
           <button className="primary" onClick={resume} disabled={playing}>
             <Play size={16} fill="currentColor" />
-            {playing ? "Escuchando" : "Continuar"}
+            {playing ? t("Escuchando") : t("Continuar")}
           </button>
         </section>
       )}
@@ -122,7 +133,11 @@ export default function Home({
           <button onClick={() => open("favorites")}>
             <Heart size={20} />
             <span>
-              Me gusta<small>{favoriteCount} canciones</small>
+              {t("Me gusta")}
+              <small>
+                {favoriteCount}
+                {t(" canciones")}
+              </small>
             </span>
           </button>
         )}
@@ -130,24 +145,30 @@ export default function Home({
           <button onClick={() => open("unorganized")}>
             <FolderOpen size={20} />
             <span>
-              Sin organizar<small>{unorganizedCount} sin playlist</small>
+              {t("Sin organizar")}
+              <small>
+                {unorganizedCount}
+                {t(" sin playlist")}
+              </small>
             </span>
           </button>
         )}
       </div>
       {recentlyPlayed.length > 0 && (
         <section className="home-section">
-          <h2>Escuchadas recientemente</h2>
+          <h2>{t("Escuchadas recientemente")}</h2>
           {cards(recentlyPlayed)}
         </section>
       )}
       <section className="home-section">
         <div className="home-section-heading">
-          <h2>Tus playlists</h2>
+          <h2>{t("Tus playlists")}</h2>
           <span>
             {playlists.length
-              ? `${playlists.length} playlists`
-              : "Todo empieza con una selección"}
+              ? t("{p0} playlists", {
+                  p0: playlists.length,
+                })
+              : t("Todo empieza con una selecci\u00F3n")}
           </span>
         </div>
         {playlists.length ? (
@@ -155,14 +176,15 @@ export default function Home({
         ) : (
           <div className="home-empty">
             <ListMusic size={42} />
-            <h3>Hazle espacio a tu música</h3>
+            <h3>{t("Hazle espacio a tu m\u00FAsica")}</h3>
             <p>
-              Crea tu primera playlist y añade tus archivos FLAC o MP3
-              directamente dentro de ella.
+              {t(
+                "Crea tu primera playlist y a\u00F1ade tus archivos FLAC o MP3 directamente dentro de ella.",
+              )}
             </p>
             <button className="primary" onClick={create}>
               <Plus size={17} />
-              Crear mi primera playlist
+              {t("Crear mi primera playlist")}
             </button>
           </div>
         )}

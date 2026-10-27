@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import { useState } from "react";
 import { usePosition } from "./playback";
 import { timeLabel } from "./queue";
@@ -20,7 +21,7 @@ export default function SeekControl({
     <div className="seek">
       <span>{timeLabel(position)}</span>
       <input
-        aria-label="Posición de reproducción"
+        aria-label={t("Posici\u00F3n de reproducci\u00F3n")}
         type="range"
         min="0"
         max={duration || 1}

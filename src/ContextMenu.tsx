@@ -1,5 +1,5 @@
+import { t } from "./i18n";
 import { useLayoutEffect, useRef, type ReactNode } from "react";
-
 /** A pointer-anchored menu with keyboard navigation and focus restoration. */
 export default function ContextMenu({
   x,
@@ -41,7 +41,7 @@ export default function ContextMenu({
         ref={ref}
         className="context-menu glass"
         role="menu"
-        aria-label="Opciones de canción"
+        aria-label={t("Opciones de canci\u00F3n")}
         onPointerDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           const buttons = [

@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Pause, Play, Undo2, Upload } from "lucide-react";
 import * as api from "./api";
@@ -13,7 +14,7 @@ import {
 function Clock({ active }: { active: boolean }) {
   const position = usePosition();
   return (
-    <output className="sync-clock" aria-label="Tiempo para sincronizar">
+    <output className="sync-clock" aria-label={t("Tiempo para sincronizar")}>
       {lrcStamp(active ? position : 0)}
     </output>
   );
@@ -43,7 +44,12 @@ export default function LyricsEditor({
 }) {
   const [mode, setMode] = useState<"write" | "sync">("write");
   const [selected, setSelected] = useState(0);
-  const [undo, setUndo] = useState<{ text: string; selected: number }[]>([]);
+  const [undo, setUndo] = useState<
+    {
+      text: string;
+      selected: number;
+    }[]
+  >([]);
   const [error, setError] = useState("");
   const rows = useMemo(() => editableLyrics(text), [text]);
   const list = useRef<HTMLDivElement>(null);
@@ -68,7 +74,9 @@ export default function LyricsEditor({
     try {
       const status = await api.audioCommand("status");
       if (status.trackId !== trackId)
-        throw new Error("Vuelve a reproducir esta canción para marcarla.");
+        throw new Error(
+          t("Vuelve a reproducir esta canci\u00F3n para marcarla."),
+        );
       change(
         rows.map((row, i) =>
           i === selected
@@ -87,17 +95,22 @@ export default function LyricsEditor({
   return (
     <div className="lyric-workshop">
       <p className="modal-description">
-        Escribe tu letra y marca cada línea mientras escuchas. Se guarda en tu
-        biblioteca, sin modificar el audio.
+        {t(
+          "Escribe tu letra y marca cada l\u00EDnea mientras escuchas. Se guarda en tu biblioteca, sin modificar el audio.",
+        )}
       </p>
-      <div className="lyric-modes" role="tablist" aria-label="Editor de letras">
+      <div
+        className="lyric-modes"
+        role="tablist"
+        aria-label={t("Editor de letras")}
+      >
         <button
           type="button"
           role="tab"
           aria-selected={mode === "write"}
           onClick={() => setMode("write")}
         >
-          Escribir letra
+          {t("Escribir letra")}
         </button>
         <button
           type="button"
@@ -113,7 +126,7 @@ export default function LyricsEditor({
             );
           }}
         >
-          Sincronizar líneas
+          {t("Sincronizar l\u00EDneas")}
         </button>
       </div>
       {mode === "write" ? (
@@ -135,25 +148,25 @@ export default function LyricsEditor({
             }}
           >
             <Upload size={16} />
-            Importar .lrc o .txt
+            {t("Importar .lrc o .txt")}
           </button>
           <textarea
             className="lyrics-editor"
-            aria-label="Letra de la canción"
+            aria-label={t("Letra de la canci\u00F3n")}
             value={text}
             maxLength={1024 * 1024}
             onChange={(e) => {
               setText(e.target.value);
               setUndo([]);
             }}
-            placeholder={
-              "Una línea por verso…\nTambién puedes pegar una letra con tiempos LRC."
-            }
+            placeholder={t(
+              "Una l\u00EDnea por verso\u2026\nTambi\u00E9n puedes pegar una letra con tiempos LRC.",
+            )}
           />
           <p className="privacy-note">
-            Para añadir tiempos, abre «Sincronizar líneas». Importar y guardar
-            sin editar conserva el LRC original, incluidos los tiempos por
-            palabra.
+            {t(
+              "Para a\u00F1adir tiempos, abre \u00ABSincronizar l\u00EDneas\u00BB. Importar y guardar sin editar conserva el LRC original, incluidos los tiempos por palabra.",
+            )}
           </p>
         </>
       ) : (
@@ -164,9 +177,9 @@ export default function LyricsEditor({
               <small>
                 {active
                   ? playing
-                    ? "Escuchando para sincronizar"
-                    : "En pausa"
-                  : "Reproduce esta canción para marcar tiempos"}
+                    ? t("Escuchando para sincronizar")
+                    : t("En pausa")
+                  : t("Reproduce esta canci\u00F3n para marcar tiempos")}
               </small>
             </div>
             <Clock active={active} />
@@ -175,26 +188,25 @@ export default function LyricsEditor({
               className="secondary"
               aria-label={
                 playing && active
-                  ? "Pausar sincronización"
-                  : "Reproducir para sincronizar"
+                  ? t("Pausar sincronizaci\u00F3n")
+                  : t("Reproducir para sincronizar")
               }
               onClick={toggle}
             >
               {playing && active ? <Pause size={17} /> : <Play size={17} />}
-              {playing && active ? "Pausar" : "Reproducir"}
+              {playing && active ? t("Pausar") : t("Reproducir")}
             </button>
           </div>
           <SeekControl duration={duration} enabled={active} seek={seek} />
           <p className="privacy-note">
-            Selecciona la primera línea y pulsa «Marcar línea y seguir» cuando
-            empiece a cantarse. El botón avanza a la siguiente; también funciona
-            con Espacio si lo dejas enfocado. La sincronización manual se guarda
-            por línea.
+            {t(
+              "Selecciona la primera l\u00EDnea y pulsa \u00ABMarcar l\u00EDnea y seguir\u00BB cuando empiece a cantarse. El bot\u00F3n avanza a la siguiente; tambi\u00E9n funciona con Espacio si lo dejas enfocado. La sincronizaci\u00F3n manual se guarda por l\u00EDnea.",
+            )}
           </p>
           <div
             className="sync-lines"
             role="list"
-            aria-label="Líneas para sincronizar"
+            aria-label={t("L\u00EDneas para sincronizar")}
             ref={list}
           >
             {rows.map((row, index) => (
@@ -209,22 +221,26 @@ export default function LyricsEditor({
                 <button
                   type="button"
                   className="sync-line-select"
-                  aria-label={`Seleccionar línea ${index + 1}`}
+                  aria-label={t("Seleccionar l\u00EDnea {p0}", {
+                    p0: index + 1,
+                  })}
                   aria-pressed={selected === index}
                   onClick={() => setSelected(index)}
                 >
                   <small>{index + 1}</small>
-                  <span>{row.text || "Pausa instrumental"}</span>
+                  <span>{row.text || t("Pausa instrumental")}</span>
                 </button>
                 <label>
                   <input
-                    aria-label={`Tiempo de línea ${index + 1} en segundos`}
+                    aria-label={t("Tiempo de l\u00EDnea {p0} en segundos", {
+                      p0: index + 1,
+                    })}
                     type="number"
                     min="0"
                     max={duration || undefined}
                     step="0.01"
                     value={row.time ?? ""}
-                    placeholder="Sin marcar"
+                    placeholder={t("Sin marcar")}
                     onChange={(e) => {
                       const value = e.target.value;
                       change(
@@ -243,18 +259,20 @@ export default function LyricsEditor({
                 <button
                   type="button"
                   className="text-button"
-                  aria-label={`Escuchar línea ${index + 1}`}
+                  aria-label={t("Escuchar l\u00EDnea {p0}", {
+                    p0: index + 1,
+                  })}
                   disabled={!active || row.time === null}
                   onClick={() => {
                     setSelected(index);
                     seek(row.time!);
                   }}
                 >
-                  Ir
+                  {t("Ir")}
                 </button>
               </div>
             ))}
-            {!rows.length && <p>Escribe o importa la letra primero.</p>}
+            {!rows.length && <p>{t("Escribe o importa la letra primero.")}</p>}
           </div>
           <div className="sync-actions">
             <button
@@ -269,11 +287,11 @@ export default function LyricsEditor({
               }}
             >
               <Undo2 size={16} />
-              Deshacer marca
+              {t("Deshacer marca")}
             </button>
             <span>
               {rows.filter((row) => row.time !== null).length} / {rows.length}{" "}
-              líneas
+              {t("l\u00EDneas")}
             </span>
             <button
               type="button"
@@ -281,7 +299,7 @@ export default function LyricsEditor({
               disabled={!active || !rows.length}
               onClick={mark}
             >
-              Marcar línea y seguir
+              {t("Marcar l\u00EDnea y seguir")}
             </button>
           </div>
           {problem && (

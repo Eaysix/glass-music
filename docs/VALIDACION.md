@@ -32,3 +32,13 @@ No se ha medido todavía el consumo del ejecutable en Windows. Las pruebas del a
 - La prueba de interfaz comprueba letras limpias, vistas grandes de portada/letra, cambio de canción dentro de la vista, pausa/reanudación y salida con Esc.
 
 La prueba de decodificación sin dispositivo reproduce y corrige el error del lector; la salida de audio con el archivo y dispositivo concretos del usuario sigue requiriendo prueba en su PC.
+
+## Candidata 1.0.0-rc.1
+
+- La cola conserva el origen de reproducción (playlist, biblioteca, favoritas o sin organizar). Importar canciones actualiza las pendientes del origen activo; quitar una búsqueda restaura el conjunto completo sin reiniciar la canción ni reanudarla si estaba pausada.
+- Las entradas añadidas manualmente a la cola, incluidos duplicados, sobreviven a los cambios de filtro. Las canciones ya escuchadas no se reinsertan automáticamente.
+- El orden predeterminado usa la fecha de modificación del archivo, de más reciente a más antigua. La app de Windows recupera esta fecha también para registros anteriores; si el archivo no está disponible, conserva la última fecha conocida. El orden manual de playlist sigue disponible.
+- La interfaz admite español, inglés, alemán y chino simplificado desde Ajustes → Apariencia. El idioma se guarda localmente. Los títulos, artistas, nombres de playlists y letras conservan su contenido original; los diagnósticos del sistema pueden mantenerse en su idioma de origen.
+- Se añadieron pruebas de cola con 1.500 canciones, entradas manuales, filtros e importaciones, cobertura del catálogo y un recorrido de interfaz que cambia los cuatro idiomas y verifica su persistencia. El flujo de Windows ejecuta estos recorridos además de los de letras, edición, selección, inicio y virtualización de 5.000 registros.
+
+La candidata sigue pendiente de una prueba real en el PC del usuario: teclas multimedia de Windows con la ventana en segundo plano, metadatos en Nusa y letras de sus archivos, presencia de Discord con su aplicación configurada y rendimiento con su biblioteca. Compilar correctamente y pasar pruebas sintéticas no confirma por sí solo esas integraciones ni autoriza a describir la candidata como estable.

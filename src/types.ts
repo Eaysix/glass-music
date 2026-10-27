@@ -12,6 +12,7 @@ export interface Track {
   bitDepth: number | null;
   cover: string | null;
   favorite: boolean;
+  modifiedAt?: number;
 }
 export interface Playlist {
   id: string;
@@ -25,8 +26,14 @@ export interface Queue {
   upcoming: string[];
   history: string[];
   context: string[];
+  source?: { view: string; query: string; filter: string; sort: string };
+  manualIndices?: number[];
+  currentManual?: boolean;
+  historyManual?: boolean[];
+  played?: string[];
 }
 export interface Settings {
+  language: "es" | "en" | "de" | "zh-CN";
   profile: { name: string; photo: string | null };
   appearance: {
     accent: string;
@@ -65,6 +72,7 @@ export interface ImportReport {
   errors: string[];
 }
 export const defaults = (): Settings => ({
+  language: "es",
   profile: { name: "Mi espacio", photo: null },
   appearance: {
     accent: "#8CCDF3",
