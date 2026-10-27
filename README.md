@@ -4,8 +4,6 @@ Tu música local, a tu manera. Reproductor para Windows centrado en FLAC y MP3, 
 
 ![Interfaz de la alpha con archivos de prueba sintéticos](docs/interface.webp)
 
-[Ver las transiciones de la interfaz](docs/motion.mp4) · Vista previa con datos y audio sintéticos.
-
 ## Alpha 0.2.0
 
 - Azul **#8CCDF3** como color principal, incluido el icono de Windows. El logo de la interfaz sigue el color elegido.

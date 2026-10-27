@@ -12,7 +12,13 @@ const browser = await chromium.launch({
   ...(process.env.GLASS_TEST_BROWSER
     ? {
         executablePath: process.env.GLASS_TEST_BROWSER,
-        args: ["--no-sandbox", "--no-zygote", "--single-process"],
+        args: [
+          "--no-sandbox",
+          "--no-zygote",
+          "--single-process",
+          "--disable-gpu",
+          "--disable-software-rasterizer",
+        ],
       }
     : {}),
 });
@@ -142,9 +148,18 @@ try {
               store.put(
                 {
                   profile: { name: "Mi espacio", photo: null },
+                  appearanceVersion: 1,
+                  uiScale: 1,
+                  player: { autoHide: false, volumeStep: 2 },
+                  performance: "balanced",
+                  discord: {
+                    enabled: false,
+                    applicationId: "",
+                    showAlbum: true,
+                  },
                   appearance: {
-                    accent: "#b8d8ff",
-                    glass: 24,
+                    accent: "#8CCDF3",
+                    glass: 20,
                     reduced: false,
                     theme: "dark",
                   },
@@ -195,6 +210,31 @@ try {
   await page.getByRole("heading", { name: "Tu biblioteca" }).waitFor();
   await page.waitForTimeout(500);
   await page.screenshot({ path: "artifacts/design-library.png" });
+  await page.locator(".track-title").nth(0).click();
+  await page
+    .locator(".track-title")
+    .nth(1)
+    .click({ modifiers: ["Control"] });
+  await page.screenshot({ path: "artifacts/design-selection.png" });
+  await page
+    .getByRole("button", { name: "Limpiar selección", exact: true })
+    .click();
+  await page
+    .getByRole("button", {
+      name: "Ajustes de apariencia y perfil",
+      exact: true,
+    })
+    .click();
+  await page.getByRole("tab", { name: "Reproductor", exact: true }).click();
+  await page.screenshot({ path: "artifacts/design-settings.png" });
+  await page.getByRole("button", { name: "Listo", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Ajustar volumen", exact: true })
+    .click();
+  await page.screenshot({ path: "artifacts/design-volume.png" });
+  await page
+    .getByRole("button", { name: "Cerrar volumen", exact: true })
+    .click();
   // Optional recording: capture actual UI frames while exercising transitions.
   if (process.env.GLASS_RECORD_MOTION) {
     let recording = true;

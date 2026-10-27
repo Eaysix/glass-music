@@ -643,6 +643,22 @@ try {
     .first()
     .click();
   assert.equal(await page.locator(".track-row").count(), 1);
+  // Wait for the app's last settings write before replacing the test database.
+  // Otherwise its pending debounce can overwrite the synthetic queue after seeding.
+  await page.waitForFunction(
+    () =>
+      new Promise((resolve) => {
+        const r = indexedDB.open("glass-music-dev", 1);
+        r.onsuccess = () => {
+          const db = r.result;
+          const q = db.transaction("data").objectStore("data").get("settings");
+          q.onsuccess = () => {
+            resolve(q.result?.queue.current === null);
+            db.close();
+          };
+        };
+      }),
+  );
   await page.evaluate(
     () =>
       new Promise((resolve, reject) => {
@@ -746,11 +762,51 @@ try {
     true,
   );
   console.log("bulk remove cancel/commit and 5,000-track selection passed");
+  await page.setViewportSize({ width: 960, height: 720 });
+  for (let i = 0; i < 5; i++) await page.keyboard.press("Control+Equal");
+  await page.locator(".profile").click();
+  const scaledDialog = await page.getByRole("dialog").boundingBox();
+  assert(
+    scaledDialog.x >= 0 &&
+      scaledDialog.y >= 0 &&
+      scaledDialog.x + scaledDialog.width <= 961 &&
+      scaledDialog.y + scaledDialog.height <= 721,
+  );
+  await page.getByRole("tab", { name: "Reproductor", exact: true }).click();
+  assert.equal(
+    await page
+      .getByLabel("Escala de la interfaz", { exact: true })
+      .inputValue(),
+    "1.5",
+  );
+  await page.screenshot({ path: "artifacts/hud-150.png" });
+  await page.keyboard.press("Control+0");
+  await page.getByRole("button", { name: "Listo", exact: true }).click();
+  console.log("150% HUD and settings fit the 960px window");
   assert.deepEqual(errors, []);
   console.log(
     "PASS: importar FLAC/MP3, reproducción web, letras, edición, portada, favoritas, playlists, cola, perfil con foto, temas, persistencia y ancho 960px.",
   );
 } catch (e) {
+  console.error(
+    "UI diagnostics",
+    await page.evaluate(() => ({
+      app: document.querySelector(".app")?.className,
+      queue: (() => {
+        const e = document.querySelector(".queue-list");
+        return e
+          ? {
+              top: e.scrollTop,
+              height: e.clientHeight,
+              total: e.scrollHeight,
+              first: e.querySelector(".queue-title")?.textContent,
+              last: [...e.querySelectorAll(".queue-title")].at(-1)?.textContent,
+              rect: e.getBoundingClientRect().toJSON(),
+            }
+          : null;
+      })(),
+    })),
+  );
   await page.screenshot({ path: "artifacts/ui-failure.png" });
   throw e;
 } finally {

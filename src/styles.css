@@ -3656,3 +3656,9 @@ button:active:not(:disabled) {
   font-size: 11px;
   margin-top: 12px;
 }
+.editor {
+  --solid: #243147;
+}
+.editor.light {
+  --solid: #edf3fc;
+}

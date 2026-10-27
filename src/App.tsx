@@ -1039,6 +1039,7 @@ export default function App() {
           </div>
           <button
             className="profile"
+            aria-label={settings.profile.name + " Perfil local"}
             onClick={() => setModal({ type: "settings" })}
           >
             {settings.profile.photo ? (
