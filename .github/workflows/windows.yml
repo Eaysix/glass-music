@@ -1,9 +1,12 @@
 name: Windows · comprobar y crear instalador
 on:
   push:
-    branches: [main, 'feat/**']
+    branches: [main, "feat/**"]
   pull_request:
   workflow_dispatch:
+concurrency:
+  group: windows-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -14,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: "22"
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -24,6 +27,9 @@ jobs:
           workspaces: src-tauri
       - run: npm ci
       - run: npm test
+      - run: npm run format:check
+      - run: npx playwright install chromium
+      - run: npm run test:ui
       - run: npm run build
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
       - run: cargo test --locked --manifest-path src-tauri/Cargo.toml

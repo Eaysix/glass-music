@@ -35,7 +35,7 @@ Reproductor personal de música local, principalmente FLAC y también MP3, con b
 - Una lista ordenada comienza desde la canción elegida. Una selección aleatoria recorre las otras canciones de la lista una vez.
 - Solo Repetir todo comienza una nueva ronda. Repetir una canción se aplica al terminar, no al pulsar Siguiente.
 - La cola permite duplicados añadidos manualmente. Las playlists no incluyen duplicados internos.
-- La cola y su orden persisten. La posición se guarda al pausar o adelantar; no se reanuda automáticamente al abrir.
+- La cola y su orden persisten. La posición se guarda al pausar, adelantar o cerrar la app nativa; no se reanuda automáticamente al abrir.
 - Importar una ruta ya existente no vuelve a indexarla ni reemplaza ediciones. No hay deduplicación acústica.
 - Quitar una canción de la biblioteca conserva el archivo y la retira de playlists y cola.
 - No hay búsquedas online ni conexiones externas durante el uso normal.

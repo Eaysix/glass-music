@@ -88,6 +88,9 @@ impl Player {
                                 status.position = active.get_pos().as_secs_f64();
                             }
                             status.playing = false;
+                            // Release device and decoder while paused; resume reopens at this position.
+                            sink = None;
+                            output = None;
                         }
                         "seek" => {
                             let seconds = request

@@ -2,6 +2,8 @@
 
 Tu música local, a tu manera. Reproductor para Windows centrado en FLAC y MP3, con interfaz de vidrio ajustable y perfil local con nombre y foto. Sin registro, login ni telemetría.
 
+![Interfaz de la alpha con archivos de prueba sintéticos](docs/interface.webp)
+
 ## Primera versión (alpha)
 
 - Importación de archivos/carpetas; etiquetas y portadas integradas; evita volver a importar una misma ruta.
@@ -40,9 +42,18 @@ npm run tauri build -- --bundles nsis
 
 El instalador queda en `src-tauri/target/release/bundle/nsis/`. Para revisar solo la interfaz: `npm run dev`. Ese modo usa IndexedDB y HTML Audio dentro del navegador; no usa el motor nativo ni comparte su biblioteca.
 
+## Pruebas de interfaz
+
+```powershell
+npx playwright install chromium
+npm run test:ui
+```
+
+Este recorrido automatizado prueba importación FLAC/MP3, reproducción web, edición, letras, favoritas, playlists, cola, perfil/foto, temas, persistencia y la virtualización de 5.000 filas. Guarda capturas en `artifacts/` (fuera del repositorio). No sustituye la prueba del dispositivo de audio nativo.
+
 ## Datos y rendimiento
 
-En Windows, SQLite y las portadas están bajo el directorio local de datos de la aplicación (`%LOCALAPPDATA%/com.eaysix.glassmusic`). El audio permanece en sus carpetas originales: no se copia a la biblioteca ni se carga entero en RAM. Las portadas se reducen a un máximo de 512 px. Las letras se cargan al seleccionar una canción. El estado de audio se consulta cada 500 ms solo durante reproducción.
+En Windows, SQLite y las portadas están bajo el directorio local de datos de la aplicación (`%LOCALAPPDATA%/com.eaysix.glassmusic`). El audio permanece en sus carpetas originales: no se copia a la biblioteca ni se carga entero en RAM. Las portadas se reducen a un máximo de 512 px. Las letras se cargan al seleccionar una canción. El estado de audio se consulta cada 500 ms solo durante reproducción. Al pausar, el motor nativo libera el dispositivo y el decodificador; al reanudar abre el archivo en la posición guardada.
 
 El modo reducido elimina desenfoques, sombras y transiciones. Todavía deben medirse RAM, CPU, GPU y arranque en una compilación release de Windows; no se afirma consumo cero, audio bit-perfect ni reproducción gapless.
 
@@ -51,7 +62,7 @@ El modo reducido elimina desenfoques, sombras y transiciones. Todavía deben med
 - Alpha: verificar salida de audio y seek con tu colección y dispositivo en Windows.
 - Los cambios de etiquetas y letras se guardan en la biblioteca: escribirlos al archivo y buscar letras online quedan para una versión posterior.
 - Si mueves o renombras un archivo desde el Explorador, debes volver a importarlo; no hay relocalización automática. Duplicados por ruta, no por huella acústica.
-- La cola y su orden persisten. La posición se guarda al pausar o adelantar, no en cada actualización; al abrir siempre empieza en pausa.
+- La cola y su orden persisten. La posición se guarda al pausar, adelantar o cerrar la app nativa, no en cada actualización; al abrir siempre empieza en pausa.
 - El tema ofrece un fondo ambiental; elegir un fondo propio queda pendiente.
 - Playlists sin duplicados internos. La cola sí admite añadir una canción otra vez explícitamente.
 - No se han creado todavía las skills personalizadas propuestas.

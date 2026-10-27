@@ -10,11 +10,32 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [{ "label": "main", "title": "Glass Music", "width": 1360, "height": 880, "minWidth": 960, "minHeight": 700, "backgroundColor": "#111718" }],
+    "windows": [
+      {
+        "label": "main",
+        "title": "Glass Music",
+        "width": 1360,
+        "height": 880,
+        "minWidth": 960,
+        "minHeight": 700,
+        "backgroundColor": "#111718"
+      }
+    ],
     "security": {
       "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost data: blob:; style-src 'self' 'unsafe-inline'; media-src 'self' blob:; script-src 'self'; object-src 'none'; base-uri 'self'",
       "assetProtocol": { "enable": true, "scope": ["$APPLOCALDATA/covers/**"] }
     }
   },
-  "bundle": { "active": true, "targets": ["nsis"], "icon": ["icons/icon.png", "icons/icon.ico"], "windows": { "nsis": { "displayLanguageSelector": false, "languages": ["Spanish"], "installMode": "currentUser" } } }
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": ["icons/icon.png", "icons/icon.ico"],
+    "windows": {
+      "nsis": {
+        "displayLanguageSelector": false,
+        "languages": ["Spanish"],
+        "installMode": "currentUser"
+      }
+    }
+  }
 }
