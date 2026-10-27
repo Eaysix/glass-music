@@ -24,7 +24,7 @@ La alpha no está firmada con un certificado de distribución. Windows puede mos
 
 ## Desarrollo en Windows
 
-Requisitos: Node.js 22+, Rust estable y las herramientas C++ de Visual Studio (carga **Desarrollo para el escritorio con C++**), además de WebView2.
+Requisitos: Node.js 22.12+ (o 24 LTS), Rust estable y las herramientas C++ de Visual Studio (carga **Desarrollo para el escritorio con C++**), además de WebView2.
 
 ```powershell
 npm ci
