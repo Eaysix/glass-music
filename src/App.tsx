@@ -48,6 +48,7 @@ import SeekControl from "./SeekControl";
 import VolumeControl from "./VolumeControl";
 import Atmosphere from "./Atmosphere";
 import SettingsPanel from "./SettingsPanel";
+import { useMarqueeSelection } from "./useMarqueeSelection";
 import { useDiscordPresence } from "./useDiscordPresence";
 import FocusStage from "./FocusStage";
 import ContextMenu from "./ContextMenu";
@@ -66,15 +67,22 @@ import {
 const NO_LINES: ReturnType<typeof parseLrc> = [];
 const TRACK_DRAG = "application/x-glass-track";
 const QUEUE_DRAG = "application/x-glass-queue";
-type SongMenu = { id: string; x: number; y: number; playlistId?: string };
+type SongMenu = {
+  ids: string[];
+  id: string;
+  x: number;
+  y: number;
+  playlistId?: string;
+};
 
 type Modal =
   | { type: "settings" }
   | { type: "track"; track: Track }
   | { type: "playlist"; playlist: Playlist }
   | { type: "lyrics"; id: string; text: string }
-  | { type: "add"; id: string }
+  | { type: "add"; ids: string[] }
   | { type: "remove"; track: Track }
+  | { type: "removeMany"; tracks: Track[] }
   | null;
 function Cover({
   cover,
@@ -142,6 +150,8 @@ export default function App() {
     width: window.innerWidth,
     height: window.innerHeight,
   });
+  const [selection, setSelection] = useState<Set<string>>(() => new Set());
+  const selectionAnchor = useRef<string | null>(null);
   const [focusView, setFocusView] = useState<"lyrics" | "cover" | null>(null);
   const [lyrics, setLyrics] = useState(""),
     [modal, setModal] = useState<Modal>(null),
@@ -411,6 +421,17 @@ export default function App() {
     const handler = (e: KeyboardEvent) => {
       if (
         (e.ctrlKey || e.metaKey) &&
+        e.key.toLowerCase() === "a" &&
+        !modal &&
+        !focusView &&
+        !(e.target as HTMLElement).closest("input,textarea,[contenteditable]")
+      ) {
+        e.preventDefault();
+        setSelection(new Set(visibleTracks.map((t) => t.id)));
+        return;
+      }
+      if (
+        (e.ctrlKey || e.metaKey) &&
         ["+", "=", "-", "_", "0"].includes(e.key)
       ) {
         e.preventDefault();
@@ -470,6 +491,8 @@ export default function App() {
   }, [ready, view, tracks.length]);
   useEffect(() => {
     setScroll(0);
+    setSelection(new Set());
+    selectionAnchor.current = null;
     if (listRef.current) listRef.current.scrollTop = 0;
   }, [view, query, filter, sort]);
 
@@ -515,6 +538,44 @@ export default function App() {
       settings.queue.upcoming.length,
       Math.ceil((queueScroll + queueHeight) / 74) + 3,
     );
+  const selectedTracks = useMemo(
+    () => visibleTracks.filter((t) => selection.has(t.id)),
+    [visibleTracks, selection],
+  );
+  const selectedIds = selectedTracks.map((t) => t.id);
+  const marquee = useMarqueeSelection(
+    listRef,
+    visibleTracks.map((t) => t.id),
+    selection,
+    setSelection,
+    settings.uiScale,
+  );
+  function selectTrack(e: MouseEvent<HTMLElement>, id: string) {
+    if (e.shiftKey && selectionAnchor.current) {
+      const a = visibleTracks.findIndex(
+          (t) => t.id === selectionAnchor.current,
+        ),
+        b = visibleTracks.findIndex((t) => t.id === id);
+      if (a >= 0 && b >= 0) {
+        const range = visibleTracks
+          .slice(Math.min(a, b), Math.max(a, b) + 1)
+          .map((t) => t.id);
+        setSelection(
+          (previous) =>
+            new Set(e.ctrlKey || e.metaKey ? [...previous, ...range] : range),
+        );
+        return;
+      }
+    }
+    selectionAnchor.current = id;
+    setSelection((previous) => {
+      if (!e.ctrlKey && !e.metaKey) return new Set([id]);
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
   const totalDuration = visibleTracks.reduce((sum, t) => sum + t.duration, 0);
   const title =
     selectedPlaylist?.name ??
@@ -661,12 +722,15 @@ export default function App() {
       setNotice(String(e));
     }
   }
-  function enqueue(id: string, first: boolean) {
+  function enqueue(value: string | string[], first: boolean) {
+    const ids = typeof value === "string" ? [value] : value;
     setSettings((s) => ({
       ...s,
       queue: {
         ...s.queue,
-        upcoming: first ? [id, ...s.queue.upcoming] : [...s.queue.upcoming, id],
+        upcoming: first
+          ? [...ids, ...s.queue.upcoming]
+          : [...s.queue.upcoming, ...ids],
       },
     }));
     setMenu(null);
@@ -682,6 +746,10 @@ export default function App() {
     const rect = e.currentTarget.getBoundingClientRect();
     setMenu({
       id,
+      ids:
+        e.currentTarget.closest(".track-row") && selection.has(id)
+          ? selectedIds
+          : [id],
       playlistId,
       x: e.type === "contextmenu" ? e.clientX : rect.right,
       y: e.type === "contextmenu" ? e.clientY : rect.bottom,
@@ -692,8 +760,16 @@ export default function App() {
     id: string,
     playlistId?: string,
   ) {
+    if (marquee.isSelecting()) {
+      e.preventDefault();
+      return;
+    }
     e.dataTransfer.effectAllowed = "copyMove";
-    e.dataTransfer.setData(TRACK_DRAG, JSON.stringify({ id, playlistId }));
+    const ids =
+      e.currentTarget.closest(".track-row") && selection.has(id)
+        ? selectedIds
+        : [id];
+    e.dataTransfer.setData(TRACK_DRAG, JSON.stringify({ id, ids, playlistId }));
     setDragging(id);
     setMenu(null);
   }
@@ -703,28 +779,57 @@ export default function App() {
   }
   function droppedTrack(
     e: DragEvent<HTMLElement>,
-  ): { id: string; playlistId?: string } | null {
+  ): { id: string; ids: string[]; playlistId?: string } | null {
     try {
       const data = JSON.parse(e.dataTransfer.getData(TRACK_DRAG));
-      return typeof data?.id === "string" && byId.has(data.id) ? data : null;
+      const ids = Array.isArray(data?.ids)
+        ? [
+            ...new Set(
+              data.ids.filter(
+                (id: unknown): id is string =>
+                  typeof id === "string" && byId.has(id),
+              ),
+            ),
+          ]
+        : typeof data?.id === "string" && byId.has(data.id)
+          ? [data.id]
+          : [];
+      return ids.length
+        ? {
+            id: ids[0] as string,
+            ids: ids as string[],
+            playlistId:
+              typeof data.playlistId === "string" ? data.playlistId : undefined,
+          }
+        : null;
     } catch {
       return null;
     }
   }
-  function addToPlaylist(playlistId: string, id: string) {
-    const playlist = settings.playlists.find((p) => p.id === playlistId);
-    if (!playlist || !byId.has(id)) return;
-    if (playlist.trackIds.includes(id)) {
-      setNotice(`Ya está en «${playlist.name}»`);
+  function addToPlaylist(playlistId: string, value: string | string[]) {
+    const playlist = settings.playlists.find((p) => p.id === playlistId),
+      ids = [...new Set(typeof value === "string" ? [value] : value)].filter(
+        (id) => byId.has(id),
+      );
+    if (!playlist || !ids.length) return;
+    const added = ids.filter((id) => !playlist.trackIds.includes(id));
+    if (!added.length) {
+      setNotice(`Ya está${ids.length > 1 ? "n" : ""} en «${playlist.name}»`);
       return;
     }
     setSettings((s) => ({
       ...s,
       playlists: s.playlists.map((p) =>
-        p.id === playlistId ? { ...p, trackIds: [...p.trackIds, id] } : p,
+        p.id === playlistId
+          ? { ...p, trackIds: [...new Set([...p.trackIds, ...ids])] }
+          : p,
       ),
     }));
-    setNotice(`Añadida a «${playlist.name}»`);
+    setNotice(
+      added.length === 1
+        ? `Añadida a «${playlist.name}»`
+        : `${added.length} canciones añadidas a «${playlist.name}»`,
+    );
   }
   function allowPlaylistDrop(e: DragEvent<HTMLElement>, target: string) {
     if (!e.dataTransfer.types.includes(TRACK_DRAG)) return;
@@ -774,29 +879,36 @@ export default function App() {
       }),
     }));
   }
-  async function deleteTrack(track: Track) {
+  async function deleteTracks(ids: string[]) {
     if (busy.current)
       throw new Error("Espera a que termine el cambio de canción.");
-    if (settings.queue.current === track.id) {
+    const removed = new Set(ids),
+      currentRemoved = removed.has(settings.queue.current ?? "");
+    if (currentRemoved) {
       await api.audioCommand("stop");
       setPlaying(false);
       setPosition(0);
     }
-    await api.removeTrack(track.id);
-    setTracks((ts) => ts.filter((t) => t.id !== track.id));
+    await api.removeTracks(ids);
+    setTracks((ts) => ts.filter((t) => !removed.has(t.id)));
+    setSelection(new Set());
     setSettings((s) => ({
       ...s,
+      position: currentRemoved ? 0 : s.position,
       playlists: s.playlists.map((p) => ({
         ...p,
-        trackIds: p.trackIds.filter((id) => id !== track.id),
+        trackIds: p.trackIds.filter((id) => !removed.has(id)),
       })),
       queue: {
-        current: s.queue.current === track.id ? null : s.queue.current,
-        upcoming: s.queue.upcoming.filter((id) => id !== track.id),
-        history: s.queue.history.filter((id) => id !== track.id),
-        context: s.queue.context.filter((id) => id !== track.id),
+        current: removed.has(s.queue.current ?? "") ? null : s.queue.current,
+        upcoming: s.queue.upcoming.filter((id) => !removed.has(id)),
+        history: s.queue.history.filter((id) => !removed.has(id)),
+        context: s.queue.context.filter((id) => !removed.has(id)),
       },
     }));
+  }
+  async function deleteTrack(track: Track) {
+    await deleteTracks([track.id]);
   }
   const style = {
     "--ui-scale": settings.uiScale,
@@ -888,7 +1000,7 @@ export default function App() {
                 onDrop={(e) => {
                   e.preventDefault();
                   const data = droppedTrack(e);
-                  if (data) addToPlaylist(p.id, data.id);
+                  if (data) addToPlaylist(p.id, data.ids);
                   endDrag();
                 }}
                 onClick={() => setView(`playlist:${p.id}`)}
@@ -1096,6 +1208,43 @@ export default function App() {
               </IconButton>
             </div>
           </div>
+          {visibleTracks.length > 0 && (
+            <div className="selection-bar" role="status">
+              <span>
+                {selectedTracks.length
+                  ? `${selectedTracks.length} seleccionada${selectedTracks.length === 1 ? "" : "s"}`
+                  : "Ctrl + clic · Shift + clic · Arrastra para seleccionar"}
+              </span>
+              <button
+                disabled={!selectedTracks.length}
+                onClick={() => setModal({ type: "add", ids: selectedIds })}
+              >
+                Añadir a playlist
+              </button>
+              <button
+                disabled={!selectedTracks.length}
+                onClick={() => enqueue(selectedIds, false)}
+              >
+                Añadir a cola
+              </button>
+              <button
+                disabled={!selectedTracks.length}
+                className="danger"
+                onClick={() =>
+                  setModal({ type: "removeMany", tracks: selectedTracks })
+                }
+              >
+                Eliminar
+              </button>
+              <button
+                disabled={!selectedTracks.length}
+                aria-label="Limpiar selección"
+                onClick={() => setSelection(new Set())}
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
           <div className="filters">
             <div className="chips">
               {[
@@ -1155,11 +1304,18 @@ export default function App() {
                 <span />
               </div>
               <div
-                className="track-list"
+                className={`track-list ${marquee.box ? "selecting-area" : ""}`}
                 ref={listRef}
+                onPointerDown={marquee.onPointerDown}
+                onPointerMove={marquee.onPointerMove}
+                onPointerUp={marquee.onPointerUp}
+                onPointerCancel={marquee.onPointerCancel}
+                onLostPointerCapture={marquee.onPointerCancel}
+                onClickCapture={marquee.onClickCapture}
                 onScroll={(e) => setScroll(e.currentTarget.scrollTop)}
               >
                 <div
+                  className="track-canvas"
                   style={{
                     height: visibleTracks.length * 68,
                     position: "relative",
@@ -1171,7 +1327,8 @@ export default function App() {
                     return (
                       <div
                         key={track.id}
-                        className={`track-row ${isCurrent ? "current" : ""} ${dragging === track.id ? "drag-source" : ""} ${dropTarget === `track:${track.id}` ? "reorder-target" : ""}`}
+                        data-track-id={track.id}
+                        className={`track-row ${isCurrent ? "current" : ""} ${selection.has(track.id) ? "selected-track" : ""} ${dragging === track.id ? "drag-source" : ""} ${dropTarget === `track:${track.id}` ? "reorder-target" : ""}`}
                         draggable
                         onDragStart={(e) =>
                           beginDrag(e, track.id, selectedPlaylist?.id)
@@ -1199,7 +1356,7 @@ export default function App() {
                             selectedPlaylist &&
                             sort === "added" &&
                             data &&
-                            data.id !== track.id
+                            !data.ids.includes(track.id)
                           ) {
                             if (data.playlistId === selectedPlaylist.id) {
                               setSettings((s) => ({
@@ -1207,13 +1364,17 @@ export default function App() {
                                 playlists: s.playlists.map((p) => {
                                   if (p.id !== selectedPlaylist.id) return p;
                                   const ids = p.trackIds.filter(
-                                    (id) => id !== data.id,
+                                    (id) => !data.ids.includes(id),
                                   );
-                                  ids.splice(ids.indexOf(track.id), 0, data.id);
+                                  ids.splice(
+                                    ids.indexOf(track.id),
+                                    0,
+                                    ...data.ids,
+                                  );
                                   return { ...p, trackIds: ids };
                                 }),
                               }));
-                            } else addToPlaylist(selectedPlaylist.id, data.id);
+                            } else addToPlaylist(selectedPlaylist.id, data.ids);
                           }
                           endDrag();
                         }}
@@ -1223,7 +1384,14 @@ export default function App() {
                           left: 0,
                           right: 0,
                         }}
-                        onDoubleClick={() => playTrack(track)}
+                        onClick={(e) => {
+                          if (!(e.target as HTMLElement).closest("button"))
+                            selectTrack(e, track.id);
+                        }}
+                        onDoubleClick={(e) => {
+                          if (!e.ctrlKey && !e.metaKey && !e.shiftKey)
+                            playTrack(track);
+                        }}
                       >
                         <button
                           className="track-number"
@@ -1243,7 +1411,8 @@ export default function App() {
                         </button>
                         <button
                           className="track-title"
-                          onClick={() => playTrack(track)}
+                          aria-pressed={selection.has(track.id)}
+                          onClick={(e) => selectTrack(e, track.id)}
                         >
                           <Cover cover={track.cover} title={track.album} />
                           <span>
@@ -1291,6 +1460,13 @@ export default function App() {
                     );
                   })}
                 </div>
+                {marquee.box && (
+                  <div
+                    className="selection-rectangle"
+                    style={marquee.box}
+                    aria-hidden="true"
+                  />
+                )}
               </div>
             </>
           ) : (
@@ -1828,124 +2004,202 @@ export default function App() {
           scale={settings.uiScale}
           close={() => setMenu(null)}
         >
-          <strong>
-            {byId.get(menu.id)!.title}
-            <small>{byId.get(menu.id)!.artist}</small>
-          </strong>
-          <button
-            role="menuitem"
-            onClick={() => {
-              playTrack(byId.get(menu.id)!);
-              setMenu(null);
-            }}
-          >
-            <Play size={15} /> Reproducir ahora
-          </button>
-          <button
-            role="menuitem"
-            onClick={() => {
-              void favorite(byId.get(menu.id)!);
-              setMenu(null);
-            }}
-          >
-            <Heart size={15} />{" "}
-            {byId.get(menu.id)!.favorite
-              ? "Quitar de Me gusta"
-              : "Guardar en Me gusta"}
-          </button>
-          <button role="menuitem" onClick={() => enqueue(menu.id, true)}>
-            <SkipForward size={15} /> Reproducir después
-          </button>
-          <button role="menuitem" onClick={() => enqueue(menu.id, false)}>
-            <ListMusic size={15} /> Agregar al final de la cola
-          </button>
-          <button
-            role="menuitem"
-            onClick={() => {
-              setModal({ type: "add", id: menu.id });
-              setMenu(null);
-            }}
-          >
-            <Plus size={15} /> Añadir a playlist
-          </button>
-          <button
-            role="menuitem"
-            onClick={() => {
-              setModal({ type: "track", track: { ...byId.get(menu.id)! } });
-              setMenu(null);
-            }}
-          >
-            <Settings2 size={15} /> Editar información y portada
-          </button>
-          <button
-            role="menuitem"
-            onClick={async () => {
-              const id = menu.id;
-              setMenu(null);
-              try {
-                setModal({
-                  type: "lyrics",
-                  id,
-                  text: await api.getLyrics(id),
-                });
-              } catch (e) {
-                setNotice(String(e));
-              }
-            }}
-          >
-            <Mic2 size={15} /> Editar letra
-          </button>
-          {selectedPlaylist && menu.playlistId === selectedPlaylist.id && (
+          {menu.ids.length === 1 ? (
             <>
+              <strong>
+                {byId.get(menu.id)!.title}
+                <small>{byId.get(menu.id)!.artist}</small>
+              </strong>
               <button
                 role="menuitem"
                 onClick={() => {
-                  movePlaylist(menu.id, -1);
+                  playTrack(byId.get(menu.id)!);
                   setMenu(null);
                 }}
               >
-                Subir en la playlist
+                <Play size={15} /> Reproducir ahora
               </button>
               <button
                 role="menuitem"
                 onClick={() => {
-                  movePlaylist(menu.id, 1);
+                  void favorite(byId.get(menu.id)!);
                   setMenu(null);
                 }}
               >
-                Bajar en la playlist
+                <Heart size={15} />{" "}
+                {byId.get(menu.id)!.favorite
+                  ? "Quitar de Me gusta"
+                  : "Guardar en Me gusta"}
+              </button>
+              <button role="menuitem" onClick={() => enqueue(menu.id, true)}>
+                <SkipForward size={15} /> Reproducir después
+              </button>
+              <button role="menuitem" onClick={() => enqueue(menu.id, false)}>
+                <ListMusic size={15} /> Agregar al final de la cola
               </button>
               <button
                 role="menuitem"
                 onClick={() => {
-                  setSettings((s) => ({
-                    ...s,
-                    playlists: s.playlists.map((p) =>
-                      p.id === selectedPlaylist.id
-                        ? {
-                            ...p,
-                            trackIds: p.trackIds.filter((id) => id !== menu.id),
-                          }
-                        : p,
-                    ),
-                  }));
+                  setModal({ type: "add", ids: [menu.id] });
                   setMenu(null);
                 }}
               >
-                Quitar de esta playlist
+                <Plus size={15} /> Añadir a playlist
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setModal({ type: "track", track: { ...byId.get(menu.id)! } });
+                  setMenu(null);
+                }}
+              >
+                <Settings2 size={15} /> Editar información y portada
+              </button>
+              <button
+                role="menuitem"
+                onClick={async () => {
+                  const id = menu.id;
+                  setMenu(null);
+                  try {
+                    setModal({
+                      type: "lyrics",
+                      id,
+                      text: await api.getLyrics(id),
+                    });
+                  } catch (e) {
+                    setNotice(String(e));
+                  }
+                }}
+              >
+                <Mic2 size={15} /> Editar letra
+              </button>
+              {selectedPlaylist && menu.playlistId === selectedPlaylist.id && (
+                <>
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      movePlaylist(menu.id, -1);
+                      setMenu(null);
+                    }}
+                  >
+                    Subir en la playlist
+                  </button>
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      movePlaylist(menu.id, 1);
+                      setMenu(null);
+                    }}
+                  >
+                    Bajar en la playlist
+                  </button>
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setSettings((s) => ({
+                        ...s,
+                        playlists: s.playlists.map((p) =>
+                          p.id === selectedPlaylist.id
+                            ? {
+                                ...p,
+                                trackIds: p.trackIds.filter(
+                                  (id) => id !== menu.id,
+                                ),
+                              }
+                            : p,
+                        ),
+                      }));
+                      setMenu(null);
+                    }}
+                  >
+                    Quitar de esta playlist
+                  </button>
+                </>
+              )}
+              <button
+                className="danger"
+                role="menuitem"
+                onClick={() => {
+                  setModal({ type: "remove", track: byId.get(menu.id)! });
+                  setMenu(null);
+                }}
+              >
+                Quitar de la biblioteca…
+              </button>
+            </>
+          ) : (
+            <>
+              <strong>
+                {menu.ids.length} canciones seleccionadas
+                <small>Acciones para toda la selección</small>
+              </strong>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  void playQueue(
+                    startQueue(menu.ids, menu.ids[0], settings.shuffle, tracks),
+                  );
+                  setMenu(null);
+                }}
+              >
+                <Play size={15} />
+                Reproducir selección
+              </button>
+              <button role="menuitem" onClick={() => enqueue(menu.ids, true)}>
+                Reproducir después
+              </button>
+              <button role="menuitem" onClick={() => enqueue(menu.ids, false)}>
+                Agregar al final de la cola
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setModal({ type: "add", ids: menu.ids });
+                  setMenu(null);
+                }}
+              >
+                Añadir a playlist
+              </button>
+              {selectedPlaylist && menu.playlistId === selectedPlaylist.id && (
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    const ids = new Set(menu.ids);
+                    setSettings((s) => ({
+                      ...s,
+                      playlists: s.playlists.map((p) =>
+                        p.id === selectedPlaylist.id
+                          ? {
+                              ...p,
+                              trackIds: p.trackIds.filter((id) => !ids.has(id)),
+                            }
+                          : p,
+                      ),
+                    }));
+                    setSelection(new Set());
+                    setMenu(null);
+                  }}
+                >
+                  Quitar de esta playlist
+                </button>
+              )}
+              <button
+                role="menuitem"
+                className="danger"
+                onClick={() => {
+                  setModal({
+                    type: "removeMany",
+                    tracks: menu.ids
+                      .map((id) => byId.get(id))
+                      .filter((t): t is Track => !!t),
+                  });
+                  setMenu(null);
+                }}
+              >
+                Quitar selección de la biblioteca…
               </button>
             </>
           )}
-          <button
-            className="danger"
-            role="menuitem"
-            onClick={() => {
-              setModal({ type: "remove", track: byId.get(menu.id)! });
-              setMenu(null);
-            }}
-          >
-            Quitar de la biblioteca…
-          </button>
         </ContextMenu>
       )}
       {modal && (
@@ -1957,6 +2211,7 @@ export default function App() {
           onClose={() => setModal(null)}
           changeTrack={changeTrack}
           deleteTrack={deleteTrack}
+          deleteTracks={deleteTracks}
           onLyrics={async (id, text) => {
             await api.saveLyrics(id, text);
             if (id === settings.queue.current) setLyrics(text);
@@ -1984,6 +2239,7 @@ function Editor({
   onClose,
   changeTrack,
   deleteTrack,
+  deleteTracks,
   onLyrics,
 }: {
   modal: NonNullable<Modal>;
@@ -1993,6 +2249,7 @@ function Editor({
   onClose: () => void;
   changeTrack: (t: Track) => Promise<void>;
   deleteTrack: (t: Track) => Promise<void>;
+  deleteTracks: (ids: string[]) => Promise<void>;
   onLyrics: (id: string, text: string) => Promise<void>;
 }) {
   const [track, setTrack] = useState(
@@ -2045,6 +2302,8 @@ function Editor({
       }
       if (modal.type === "lyrics") await onLyrics(modal.id, text);
       if (modal.type === "remove") await deleteTrack(modal.track);
+      if (modal.type === "removeMany")
+        await deleteTracks(modal.tracks.map((t) => t.id));
       onClose();
     } catch (e) {
       setError(String(e));
@@ -2063,7 +2322,7 @@ function Editor({
             : "Una playlist, mil momentos"
           : modal.type === "lyrics"
             ? "Palabra por palabra"
-            : modal.type === "remove"
+            : modal.type === "remove" || modal.type === "removeMany"
               ? "Quitar de tu biblioteca"
               : "Elige su próximo lugar";
   return (
@@ -2243,6 +2502,27 @@ function Editor({
             Tu archivo de música permanecerá en su carpeta.
           </p>
         )}
+        {modal.type === "removeMany" && (
+          <div className="bulk-remove">
+            <p>
+              Se quitarán {modal.tracks.length} canciones de la biblioteca, las
+              playlists y la cola.{" "}
+              <strong>
+                Los archivos de música permanecerán en sus carpetas.
+              </strong>
+            </p>
+            <ul>
+              {modal.tracks.slice(0, 5).map((t) => (
+                <li key={t.id}>
+                  {t.title} · {t.artist}
+                </li>
+              ))}
+            </ul>
+            {modal.tracks.length > 5 && (
+              <small>Y {modal.tracks.length - 5} canciones más.</small>
+            )}
+          </div>
+        )}
         {modal.type === "add" && (
           <div className="add-playlist-list">
             {settings.playlists.length ? (
@@ -2259,7 +2539,7 @@ function Editor({
                           ? {
                               ...item,
                               trackIds: [
-                                ...new Set([...item.trackIds, modal.id]),
+                                ...new Set([...item.trackIds, ...modal.ids]),
                               ],
                             }
                           : item,
@@ -2273,7 +2553,7 @@ function Editor({
                     {p.name}
                     <small>{p.trackIds.length} canciones</small>
                   </span>
-                  {p.trackIds.includes(modal.id) ? (
+                  {modal.ids.every((id) => p.trackIds.includes(id)) ? (
                     <Check size={18} />
                   ) : (
                     <Plus size={18} />
@@ -2298,6 +2578,16 @@ function Editor({
               ? "Los cambios se guardan automáticamente"
               : ""}
           </span>
+          {(modal.type === "remove" || modal.type === "removeMany") && (
+            <button
+              type="button"
+              className="secondary"
+              disabled={saving}
+              onClick={onClose}
+            >
+              Cancelar
+            </button>
+          )}
           <button
             type={
               modal.type === "settings" || modal.type === "add"
@@ -2316,9 +2606,11 @@ function Editor({
               ? "Guardando…"
               : modal.type === "settings" || modal.type === "add"
                 ? "Listo"
-                : modal.type === "remove"
-                  ? "Quitar"
-                  : "Guardar"}
+                : modal.type === "removeMany"
+                  ? `Quitar ${modal.tracks.length} canciones`
+                  : modal.type === "remove"
+                    ? "Quitar"
+                    : "Guardar"}
           </button>
         </div>
       </form>

@@ -12,7 +12,13 @@ const browser = await chromium.launch({
   ...(process.env.GLASS_TEST_BROWSER
     ? {
         executablePath: process.env.GLASS_TEST_BROWSER,
-        args: ["--no-sandbox", "--no-zygote", "--single-process"],
+        args: [
+          "--no-sandbox",
+          "--no-zygote",
+          "--single-process",
+          "--disable-gpu",
+          "--disable-software-rasterizer",
+        ],
       }
     : {}),
 });
@@ -20,7 +26,7 @@ const errors = [];
 const deadline = setTimeout(() => {
   console.error("UI test deadline exceeded");
   process.exit(1);
-}, 90000);
+}, 150000);
 const page = await browser.newPage({ viewport: { width: 1440, height: 960 } });
 page.setDefaultTimeout(12000);
 page.on("pageerror", (e) => errors.push(e.message));
@@ -62,9 +68,15 @@ try {
   await page
     .getByRole("button", { name: "Ajustes de apariencia y perfil" })
     .click();
+  await page.getByRole("tab", { name: "Perfil", exact: true }).click();
   await page.getByLabel("Nombre del perfil").fill("Eaysix");
   await choose(page.locator(".photo-picker"), image);
   await page.getByAltText("Foto de perfil").waitFor();
+  await page.getByRole("tab", { name: "Apariencia", exact: true }).click();
+  assert.equal(
+    await page.getByLabel("Código del color").inputValue(),
+    "#8CCDF3",
+  );
   await page.getByLabel("Color #c2a4ff", { exact: true }).click();
   await page.getByLabel("Reducir efectos").check();
   assert(
@@ -98,7 +110,34 @@ try {
     await page.locator(".app").evaluate((el) => el.classList.contains("light")),
   );
   await page.screenshot({ path: "artifacts/light.png" });
-  console.log("profile and theme configured");
+  await page.getByRole("tab", { name: "Discord", exact: true }).click();
+  await page.getByLabel("Compartir en Discord", { exact: true }).check();
+  await page
+    .getByText(
+      "La conexión con Discord está disponible en la aplicación de Windows.",
+      { exact: true },
+    )
+    .waitFor();
+  await page.getByLabel("Application ID de Discord").fill("123456789012345678");
+  await page.getByLabel("Compartir en Discord", { exact: true }).uncheck();
+  await page.getByRole("tab", { name: "Rendimiento", exact: true }).click();
+  await page.getByRole("button", { name: /Ahorro Cristal/ }).click();
+  assert.equal(
+    await page
+      .locator(".sidebar")
+      .evaluate((el) => getComputedStyle(el).backdropFilter),
+    "none",
+  );
+  await page.getByRole("button", { name: /Equilibrado Desenfoque/ }).click();
+  await page.getByRole("tab", { name: "Reproductor", exact: true }).click();
+  await page
+    .getByLabel("Ocultar reproductor automáticamente", { exact: true })
+    .uncheck();
+  await page.getByLabel("Pasos de volumen", { exact: true }).selectOption("5");
+  await page.getByRole("tab", { name: "Apariencia", exact: true }).click();
+  console.log(
+    "profile, appearance, player, Discord and performance settings configured",
+  );
   await page.getByRole("button", { name: "Noche", exact: true }).click();
   await page.getByRole("button", { name: "Listo", exact: true }).click();
   await savedProfile("Eaysix");
@@ -217,6 +256,52 @@ try {
   console.log(
     "drag to playlist, duplicate protection, reordering and right-click menu passed",
   );
+  await page
+    .getByRole("button", { name: "Crear playlist", exact: true })
+    .click();
+  await page.getByLabel("Nombre de la playlist").fill("Selección");
+  await page.getByRole("button", { name: "Guardar", exact: true }).click();
+  const songTitles = page.locator(".track-title");
+  await songTitles.nth(0).click();
+  await songTitles.nth(1).click({ modifiers: ["Control"] });
+  assert.equal(await page.locator(".selected-track").count(), 2);
+  await page.locator(".track-row").nth(1).click({ button: "right" });
+  await page
+    .locator(".context-menu > strong")
+    .filter({ hasText: "2 canciones seleccionadas" })
+    .waitFor();
+  await page
+    .getByRole("menuitem", { name: "Añadir a playlist", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Selección", exact: true })
+    .click();
+  const multiPlaylist = page
+    .locator(".playlists-nav > button")
+    .filter({ hasText: "Selección" });
+  assert.match(await multiPlaylist.textContent(), /2 canciones/);
+  await page.locator(".track-row").first().dragTo(multiPlaylist);
+  await page.getByText("Ya están en «Selección»", { exact: true }).waitFor();
+  await songTitles.nth(0).click();
+  await songTitles.nth(1).click({ modifiers: ["Shift"] });
+  assert.equal(await page.locator(".selected-track").count(), 2);
+  await songTitles.nth(1).click({ modifiers: ["Control"] });
+  assert.equal(await page.locator(".selected-track").count(), 1);
+  await page
+    .getByRole("button", { name: "Limpiar selección", exact: true })
+    .click();
+  const listBox = await page.locator(".track-list").boundingBox();
+  await page.mouse.move(listBox.x + listBox.width - 7, listBox.y + 155);
+  await page.mouse.down();
+  await page.mouse.move(listBox.x + 15, listBox.y + 5, { steps: 8 });
+  assert.equal(await page.locator(".selected-track").count(), 2);
+  await page.screenshot({ path: "artifacts/marquee.png" });
+  await page.mouse.up();
+  await page
+    .getByRole("button", { name: "Limpiar selección", exact: true })
+    .click();
+  console.log("Ctrl/Shift selection, marquee and bulk playlist actions passed");
   console.log("playlist and track edited");
   await page
     .getByRole("button", {
@@ -374,6 +459,120 @@ try {
     "lyrics must only scroll their own container",
   );
   assert.equal(await page.evaluate(() => window.scrollY), 0);
+  await page.locator(".main").click({ position: { x: 10, y: 10 } });
+  await page.keyboard.press("Control+Equal");
+  await page.waitForFunction(
+    () =>
+      Number(
+        getComputedStyle(document.querySelector(".app")).getPropertyValue(
+          "--ui-scale",
+        ),
+      ) === 1.1,
+  );
+  await page.keyboard.press("Control+Minus");
+  await page.keyboard.down("Control");
+  await page.mouse.wheel(0, -100);
+  await page.keyboard.up("Control");
+  await page.waitForFunction(
+    () =>
+      Number(
+        getComputedStyle(document.querySelector(".app")).getPropertyValue(
+          "--ui-scale",
+        ),
+      ) === 1.05,
+  );
+  await page.keyboard.press("Control+0");
+  for (let i = 0; i < 3; i++) await page.keyboard.press("Control+Equal");
+  await page.locator(".track-row").first().click({ button: "right" });
+  const zoomMenu = await page.getByRole("menu").boundingBox();
+  assert(
+    zoomMenu.x >= 0 &&
+      zoomMenu.y >= 0 &&
+      zoomMenu.x + zoomMenu.width <= 1441 &&
+      zoomMenu.y + zoomMenu.height <= 961,
+  );
+  await page.screenshot({ path: "artifacts/hud-large.png" });
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Control+0");
+  await page
+    .getByRole("button", { name: "Ajustar volumen", exact: true })
+    .click();
+  await page.getByLabel("Porcentaje de volumen", { exact: true }).fill("37");
+  assert.equal(
+    await page
+      .getByRole("slider", { name: "Volumen", exact: true })
+      .inputValue(),
+    "0.37",
+  );
+  await page
+    .getByRole("button", { name: "Subir volumen", exact: true })
+    .click();
+  assert.equal(
+    await page
+      .getByLabel("Porcentaje de volumen", { exact: true })
+      .inputValue(),
+    "42",
+  );
+  await page.getByRole("button", { name: "Silenciar", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Activar sonido", exact: true })
+    .click();
+  assert.equal(
+    await page
+      .getByLabel("Porcentaje de volumen", { exact: true })
+      .inputValue(),
+    "42",
+  );
+  await page.getByRole("button", { name: "75%", exact: true }).click();
+  await page.getByRole("slider", { name: "Volumen", exact: true }).hover();
+  await page.mouse.wheel(0, -100);
+  await page.waitForFunction(
+    () => document.querySelector('[aria-label="Volumen"]').value === "0.8",
+  );
+  await page.screenshot({ path: "artifacts/volume.png" });
+  await page
+    .getByRole("button", { name: "Cerrar volumen", exact: true })
+    .click();
+  await page
+    .getByRole("button", {
+      name: "Ajustes de apariencia y perfil",
+      exact: true,
+    })
+    .click();
+  await page.getByRole("tab", { name: "Reproductor", exact: true }).click();
+  await page
+    .getByLabel("Ocultar reproductor automáticamente", { exact: true })
+    .check();
+  await page.getByRole("button", { name: "Listo", exact: true }).click();
+  await page.mouse.move(600, 300);
+  await page.waitForFunction(
+    () => getComputedStyle(document.querySelector(".player")).opacity === "0",
+  );
+  await page
+    .getByRole("button", {
+      name: "Mostrar controles de reproducción",
+      exact: true,
+    })
+    .hover();
+  await page.waitForFunction(
+    () => getComputedStyle(document.querySelector(".player")).opacity === "1",
+  );
+  await page.mouse.move(600, 300);
+  await page.getByRole("button", { name: "Siguiente", exact: true }).focus();
+  await page.waitForFunction(
+    () => getComputedStyle(document.querySelector(".player")).opacity === "1",
+  );
+  await page
+    .getByRole("button", {
+      name: "Ajustes de apariencia y perfil",
+      exact: true,
+    })
+    .click();
+  await page.getByRole("tab", { name: "Reproductor", exact: true }).click();
+  await page
+    .getByLabel("Ocultar reproductor automáticamente", { exact: true })
+    .uncheck();
+  await page.getByRole("button", { name: "Listo", exact: true }).click();
   await page.screenshot({ path: "artifacts/library.png" });
   await page.setViewportSize({ width: 960, height: 720 });
   assert(
@@ -506,6 +705,47 @@ try {
   console.log(
     "PASS: biblioteca y cola de 5.000 canciones virtualizadas, con acceso a la última fila.",
   );
+  await page.locator(".track-list").evaluate((el) => {
+    el.scrollTop = 0;
+  });
+  await page
+    .getByRole("button", { name: "Reproducir Pista 0", exact: true })
+    .waitFor();
+  await page.locator(".track-title").first().click();
+  await page.keyboard.press("Control+a");
+  await page.getByText("5000 seleccionadas", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Eliminar", exact: true }).click();
+  await page
+    .getByText("Los archivos de música permanecerán en sus carpetas.", {
+      exact: true,
+    })
+    .waitFor();
+  await page.getByRole("button", { name: "Cancelar", exact: true }).click();
+  await page.getByText("5000 seleccionadas", { exact: true }).waitFor();
+  await page.locator(".track-title").nth(0).click();
+  await page
+    .locator(".track-title")
+    .nth(2)
+    .click({ modifiers: ["Shift"] });
+  await page.getByRole("button", { name: "Eliminar", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Quitar 3 canciones", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Reproducir Pista 3", exact: true })
+    .waitFor();
+  await page
+    .getByRole("button", { name: "Reproducir Pista 0", exact: true })
+    .waitFor({ state: "detached" });
+  assert.equal(
+    await page
+      .locator(".track-title")
+      .first()
+      .textContent()
+      .then((t) => t.includes("Pista 3")),
+    true,
+  );
+  console.log("bulk remove cancel/commit and 5,000-track selection passed");
   assert.deepEqual(errors, []);
   console.log(
     "PASS: importar FLAC/MP3, reproducción web, letras, edición, portada, favoritas, playlists, cola, perfil con foto, temas, persistencia y ancho 960px.",

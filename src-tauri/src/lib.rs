@@ -1,4 +1,5 @@
 mod audio;
+mod presence;
 use lofty::{file::AudioFile, prelude::*, tag::ItemKey};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
@@ -137,6 +138,21 @@ fn save_lyrics(id: String, lyrics: String, db: State<'_, Database>) -> Result<()
 fn remove_track(id: String, db: State<'_, Database>) -> Result<()> {
     sql(connection(&db)?.execute("DELETE FROM tracks WHERE id=?1", [id]))?;
     Ok(())
+}
+fn remove_track_ids(conn: &mut Connection, ids: &[String]) -> Result<()> {
+    let transaction = sql(conn.transaction())?;
+    {
+        let mut delete = sql(transaction.prepare("DELETE FROM tracks WHERE id=?1"))?;
+        for id in ids {
+            sql(delete.execute([id]))?;
+        }
+    }
+    sql(transaction.commit())
+}
+#[tauri::command]
+fn remove_tracks(ids: Vec<String>, db: State<'_, Database>) -> Result<()> {
+    let mut conn = connection(&db)?;
+    remove_track_ids(&mut conn, &ids)
 }
 fn thumbnail(bytes: &[u8], directory: &Path) -> Result<String> {
     if bytes.len() > 20 * 1024 * 1024 {
@@ -374,6 +390,60 @@ async fn audio_command(
     .await
     .map_err(|e| e.to_string())?
 }
+#[tauri::command]
+async fn discord_update(
+    config: presence::Config,
+    track_id: Option<String>,
+    playing: bool,
+    position: f64,
+    app: tauri::AppHandle,
+) -> Result<presence::Status> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let song = if config.enabled && playing {
+            if let Some(id) = track_id {
+                let db = app.state::<Database>();
+                let conn = connection(&db)?;
+                let track = track_from_db(&conn, &id)?;
+                Some(presence::Song {
+                    title: track.title,
+                    artist: track.artist,
+                    album: track.album,
+                    duration: track.duration,
+                })
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        Ok(app
+            .state::<presence::Presence>()
+            .update(config, song, playing, position))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+fn open_discord_portal() -> Result<()> {
+    #[cfg(target_os = "windows")]
+    let result = std::process::Command::new("rundll32.exe")
+        .args([
+            "url.dll,FileProtocolHandler",
+            "https://discord.com/developers/applications",
+        ])
+        .spawn();
+    #[cfg(target_os = "macos")]
+    let result = std::process::Command::new("open")
+        .arg("https://discord.com/developers/applications")
+        .spawn();
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    let result = std::process::Command::new("xdg-open")
+        .arg("https://discord.com/developers/applications")
+        .spawn();
+    result
+        .map(|_| ())
+        .map_err(|_| "Abre https://discord.com/developers/applications en tu navegador.".into())
+}
 fn initialize_database(conn: &Connection) -> rusqlite::Result<()> {
     conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;
         CREATE TABLE IF NOT EXISTS tracks(id TEXT PRIMARY KEY, path TEXT NOT NULL UNIQUE, metadata TEXT NOT NULL, lyrics TEXT NOT NULL DEFAULT '');
@@ -391,6 +461,7 @@ pub fn run() {
             initialize_database(&conn)?;
             app.manage(Database(Mutex::new(conn)));
             app.manage(audio::Player::new());
+            app.manage(presence::Presence::new());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -401,10 +472,13 @@ pub fn run() {
             get_lyrics,
             save_lyrics,
             remove_track,
+            remove_tracks,
             import_image,
             read_lyrics_file,
             import_music,
-            audio_command
+            audio_command,
+            discord_update,
+            open_discord_portal
         ])
         .run(tauri::generate_context!())
         .expect("No se pudo iniciar Glass Music");
@@ -413,6 +487,33 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn bulk_remove_preserves_original_files() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        initialize_database(&conn).unwrap();
+        let mut paths = Vec::new();
+        for id in ["one", "two", "keep"] {
+            let path =
+                std::env::temp_dir().join(format!("glass-bulk-{}-{id}.flac", std::process::id()));
+            fs::write(&path, b"original music remains here").unwrap();
+            conn.execute(
+                "INSERT INTO tracks(id,path,metadata) VALUES(?1,?2,'{}')",
+                params![id, path.to_string_lossy().to_string()],
+            )
+            .unwrap();
+            paths.push(path);
+        }
+        remove_track_ids(&mut conn, &["one".into(), "two".into()]).unwrap();
+        assert_eq!(
+            conn.query_row("SELECT count(*) FROM tracks", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            1
+        );
+        for path in paths {
+            assert_eq!(fs::read(&path).unwrap(), b"original music remains here");
+            fs::remove_file(path).unwrap();
+        }
+    }
     #[test]
     fn database_rejects_duplicate_paths_and_roundtrips_unicode() {
         let conn = Connection::open_in_memory().unwrap();

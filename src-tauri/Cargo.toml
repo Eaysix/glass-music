@@ -24,6 +24,7 @@ rodio = { version = "0.21.1", default-features = false, features = ["playback", 
 walkdir = "2"
 sha2 = "0.10"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+discord-rich-presence = "1.1.0"
 
 [profile.release]
 codegen-units = 1

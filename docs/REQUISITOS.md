@@ -24,6 +24,12 @@ Reproductor personal de música local, principalmente FLAC y también MP3, con b
 - Aleatorio sin repetir canciones hasta terminar la lista, conservando el orden al pausar.
 - Mezcla variada que intente separar canciones del mismo artista o álbum.
 - Personalizar colores, fondo, tema claro/oscuro e intensidad del vidrio; ofrecer efectos reducidos.
+- Selección con Ctrl + clic, rangos con clic y Shift + clic, Ctrl + A y recuadro desde el espacio o margen de la lista. Arrastre y acciones sobre toda la selección; quitar requiere confirmación y conserva originales.
+- Escala del HUD persistente (75–150%) con Ctrl + / −, Ctrl + rueda y Ctrl + 0.
+- Color principal #8CCDF3 en interfaz e icono instalado; los colores posteriores personalizados se conservan.
+- Barra inferior autoocultable con mouse o teclado. Volumen ampliado/exacto, rueda, pasos y nivel previo al silenciar.
+- Ajustes separados: perfil, apariencia, reproductor, Discord y rendimiento. Fondo de portada, opacidad, tamaño de letra y animaciones.
+- Discord Rich Presence opcional: título, artista, álbum opcional y progreso; se retira al pausar/desactivar. Requiere cliente de escritorio y Application ID público de Glass Music, pendiente del propietario. Sin token ni subida de archivos.
 - **Perfil local con nombre y foto editables; sin registro de usuarios ni login.**
 
 ## Decisiones de la alpha
@@ -44,7 +50,7 @@ Reproductor personal de música local, principalmente FLAC y también MP3, con b
 - La cola y su orden persisten. La posición se guarda al pausar, adelantar o cerrar la app nativa; no se reanuda automáticamente al abrir.
 - Importar una ruta ya existente no vuelve a indexarla ni reemplaza ediciones. No hay deduplicación acústica.
 - Quitar una canción de la biblioteca conserva el archivo y la retira de playlists y cola.
-- No hay búsquedas online ni conexiones externas durante el uso normal.
+- No hay búsquedas online ni telemetría. Discord opcional usa IPC local; el cliente de Discord publica la actividad.
 
 ## Control de versiones
 
@@ -62,3 +68,7 @@ No subir música personal, bibliotecas, credenciales, cachés ni compilaciones a
 6. Fondo personalizado; mezcla con separación por álbum; importación de playlists CSV.
 7. Firma del instalador y actualizaciones de la app.
 8. Figma opcional y skills personalizadas: no creadas ni instaladas todavía.
+
+## Rendimiento 0.2.0
+
+El usuario informó aproximadamente 8% de CPU y menos de 300 MB de RAM con 0.1.2; no es una medición controlada. El reloj de 0.2.0 no vuelve a evaluar la biblioteca cada segundo. El fondo se prepara en un canvas de 32px una vez por portada. Equilibrado limita el desenfoque a 12px; Ahorro lo desactiva. El audio se consulta cada segundo (500ms en máxima apariencia) solo al reproducir. Discord se actualiza por eventos y cada 15s únicamente cuando reproduce y está habilitado. Falta comparar el resultado en Windows con el mismo archivo, vista y equipo.

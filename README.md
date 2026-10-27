@@ -6,6 +6,17 @@ Tu música local, a tu manera. Reproductor para Windows centrado en FLAC y MP3, 
 
 [Ver las transiciones de la interfaz](docs/motion.mp4) · Vista previa con datos y audio sintéticos.
 
+## Alpha 0.2.0
+
+- Azul **#8CCDF3** como color principal, incluido el icono de Windows. El logo de la interfaz sigue el color elegido.
+- Ajustes por secciones: apariencia, perfil, reproductor, Discord y rendimiento.
+- Escala de toda la interfaz: **Ctrl +**, **Ctrl −**, **Ctrl + rueda** y **Ctrl + 0**. Se guarda entre sesiones.
+- Selección: **Ctrl + clic** para canciones separadas; clic en la primera y **Shift + clic** en la última para un rango; **Ctrl + A** para la lista filtrada; recuadro desde un espacio vacío o el margen izquierdo. La selección se puede arrastrar a playlists, añadir a la cola o quitar de la biblioteca con confirmación. Los archivos originales se conservan.
+- Reproductor que aparece al acercar el mouse al borde inferior o llegar con Tab. Se puede dejar siempre visible.
+- Volumen con barra más grande, valor exacto, panel ampliado, rueda, pasos configurables y recuperación del nivel previo al silenciar.
+- Reloj aislado de la biblioteca, fondo preparado una vez por portada a baja resolución y perfiles Ahorro / Equilibrado / Máxima apariencia. El consumo debe medirse en Windows.
+- Discord Rich Presence opcional. Requiere la configuración inicial indicada abajo.
+
 ## Alpha 0.1.2
 
 Arrastra una canción desde la biblioteca, la cola o el reproductor hasta una playlist de la barra lateral. Se resalta el destino y se confirma al añadirla, sin duplicados. Dentro de una playlist, selecciona **Tu orden** para mover sus filas arrastrando. El menú de **clic derecho** aparece junto al cursor con reproducir, favoritas, cola, playlists, edición y quitar. También funciona con el botón de tres puntos y el teclado.
@@ -34,9 +45,17 @@ Para ampliar: toca la portada junto a los controles o el botón **Vista grande**
 
 ## Instalar en Windows
 
-En [Actions](https://github.com/Eaysix/glass-music/actions), abre una ejecución completada correctamente de **Windows · comprobar y crear instalador** y descarga el artefacto **Glass-Music-Windows-x64**. Descomprime el ZIP y ejecuta el instalador `*-setup.exe`. El artefacto se genera solo si pasan las comprobaciones; este README no confirma que una ejecución haya terminado.
+Descarga la versión publicada en **[Releases](https://github.com/Eaysix/glass-music/releases)** y ejecuta el instalador `*-setup.exe`. Para actualizar, cierra la app e instala en la misma ubicación: se conservan biblioteca, playlists y perfil.
+
+Las compilaciones de desarrollo están en [Actions](https://github.com/Eaysix/glass-music/actions), en ejecuciones completadas correctamente de **Windows · comprobar y crear instalador**, artefacto **Glass-Music-Windows-x64**. Se generan solo si pasan las comprobaciones; no equivalen a una release publicada.
 
 La alpha no está firmada con un certificado de distribución. Windows puede mostrar una advertencia de editor desconocido. El instalador utiliza WebView2; si falta, su instalación inicial puede requerir internet. La reproducción y los datos de la app funcionan sin internet.
+
+## Discord: configuración inicial del proyecto
+
+La presencia se conecta al cliente local de Discord; no pide contraseña ni token. El propietario debe crear una aplicación llamada **Glass Music** en el [portal de Discord](https://discord.com/developers/applications), configurar su icono y aportar su **Application ID público**. Este ID todavía no se ha proporcionado; no se ha confirmado una actividad real con la cuenta del usuario.
+
+En esta alpha se introduce en **Ajustes → Discord**. Para distribuirlo listo para todos, se configura una sola vez `DISCORD_APPLICATION_ID` en `src/types.ts` antes de compilar. No es un secreto. Activa compartir actividad en Glass Music y en Discord; la conexión requiere Discord de escritorio. Al pausar o desactivar la opción se retira la actividad. Solo se envían título, artista, álbum opcional y tiempos. No se publican rutas, portadas locales ni letras.
 
 ## Desarrollo en Windows
 
@@ -69,7 +88,7 @@ Este recorrido automatizado prueba importación FLAC/MP3, reproducción web, edi
 
 ## Datos y rendimiento
 
-En Windows, SQLite y las portadas están bajo el directorio local de datos de la aplicación (`%LOCALAPPDATA%/com.eaysix.glassmusic`). El audio permanece en sus carpetas originales: no se copia a la biblioteca ni se carga entero en RAM. Las portadas se reducen a un máximo de 512 px. Las letras se cargan al seleccionar una canción. El estado de audio se consulta cada 500 ms solo durante reproducción. Al pausar, el motor nativo libera el dispositivo y el decodificador; al reanudar abre el archivo en la posición guardada.
+En Windows, SQLite y las portadas están bajo el directorio local de datos de la aplicación (`%LOCALAPPDATA%/com.eaysix.glassmusic`). El audio permanece en sus carpetas originales: no se copia a la biblioteca ni se carga entero en RAM. Las portadas se reducen a un máximo de 512 px. Las letras se cargan al seleccionar una canción. El estado de audio se consulta cada segundo (medio segundo en máxima apariencia), solo durante reproducción. El reloj actualiza únicamente sus controles suscritos y el cambio de línea; el fondo se prepara en un canvas de 32px por portada. Al pausar, el motor nativo libera el dispositivo y el decodificador; al reanudar abre el archivo en la posición guardada.
 
 El modo reducido elimina desenfoques, sombras y transiciones. Todavía deben medirse RAM, CPU, GPU y arranque en una compilación release de Windows; no se afirma consumo cero, audio bit-perfect ni reproducción gapless.
 

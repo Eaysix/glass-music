@@ -327,3 +327,20 @@ export async function openDiscordPortal() {
     "noopener,noreferrer",
   );
 }
+
+export async function removeTracks(ids: string[]) {
+  if (native) return invoke<void>("remove_tracks", { ids });
+  const removed = new Set(ids),
+    tracks = (await loadLibrary()).filter((t) => !removed.has(t.id)),
+    database = await db();
+  await new Promise<void>((resolve, reject) => {
+    const tx = database.transaction(["files", "data"], "readwrite");
+    tx.objectStore("data").put(tracks, "tracks");
+    for (const id of removed) {
+      tx.objectStore("files").delete(id);
+      tx.objectStore("data").delete(`lyrics:${id}`);
+    }
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
