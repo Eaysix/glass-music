@@ -152,6 +152,7 @@ export default function App() {
   const [playing, setPlaying] = useState(false),
     [panel, setPanel] = useState<"lyrics" | "queue" | null>("lyrics");
   const [transportRevision, setTransportRevision] = useState(0);
+  const [homePanel, setHomePanel] = useState(false);
   const [viewport, setViewport] = useState({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -193,6 +194,7 @@ export default function App() {
   );
   const showHome = view === "home" && !query.trim();
   function navigate(next: string) {
+    setHomePanel(false);
     setView(next);
     setQuery("");
     setFilter("all");
@@ -591,7 +593,7 @@ export default function App() {
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [panel, focusView, ready]);
+  }, [panel, focusView, ready, homePanel, showHome]);
   const queueStart = Math.max(0, Math.floor(queueScroll / 74) - 3),
     queueEnd = Math.min(
       settings.queue.upcoming.length,
@@ -1671,7 +1673,7 @@ export default function App() {
           </>
         )}
       </main>
-      {panel && !focusView && (
+      {panel && !focusView && (!showHome || homePanel) && (
         <aside className="right-panel glass" key={panel}>
           <PanelResize
             width={settings.panelWidth}
@@ -2127,21 +2129,34 @@ export default function App() {
           )}
           <IconButton
             label="Mostrar letra"
-            active={focusView ? focusView === "lyrics" : panel === "lyrics"}
+            active={
+              focusView
+                ? focusView === "lyrics"
+                : panel === "lyrics" && (!showHome || homePanel)
+            }
             onClick={() => {
               if (focusView) setFocusView("lyrics");
-              else setPanel(panel === "lyrics" ? null : "lyrics");
+              else if (showHome) {
+                setHomePanel(!(homePanel && panel === "lyrics"));
+                setPanel("lyrics");
+              } else setPanel(panel === "lyrics" ? null : "lyrics");
             }}
           >
             <Mic2 size={18} />
           </IconButton>
           <IconButton
             label="Mostrar cola"
-            active={!focusView && panel === "queue"}
+            active={!focusView && panel === "queue" && (!showHome || homePanel)}
             onClick={() => {
-              setPanel(
-                focusView ? "queue" : panel === "queue" ? null : "queue",
-              );
+              if (showHome && !focusView) {
+                setHomePanel(!(homePanel && panel === "queue"));
+                setPanel("queue");
+              } else {
+                setHomePanel(true);
+                setPanel(
+                  focusView ? "queue" : panel === "queue" ? null : "queue",
+                );
+              }
               setFocusView(null);
             }}
           >

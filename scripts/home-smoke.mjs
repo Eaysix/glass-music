@@ -106,6 +106,13 @@ try {
   await page.waitForFunction(() =>
     document.querySelector(".app").classList.contains("is-playing"),
   );
+  const resize = page.getByRole("separator", {
+    name: "Ancho del panel de letras y cola",
+    exact: true,
+  });
+  await resize.focus();
+  await resize.press("ArrowLeft");
+  assert.equal(await resize.getAttribute("aria-valuenow"), "340");
   await page.getByRole("button", { name: "Inicio", exact: true }).click();
   await page
     .getByRole("heading", { name: "Escuchadas recientemente", exact: true })
@@ -120,13 +127,7 @@ try {
       .count(),
     2,
   );
-  const resize = page.getByRole("separator", {
-    name: "Ancho del panel de letras y cola",
-    exact: true,
-  });
-  await resize.focus();
-  await resize.press("ArrowLeft");
-  assert.equal(await resize.getAttribute("aria-valuenow"), "340");
+  assert.equal(await page.locator(".right-panel").count(), 0);
   await page.screenshot({ path: "artifacts/home.png" });
   await page.getByRole("textbox", { name: "Buscar música" }).fill("Primera");
   await page.waitForFunction(
@@ -163,6 +164,7 @@ try {
     .locator(".home-content")
     .evaluate((el) => ({ width: el.clientWidth, scroll: el.scrollWidth }));
   assert(width.scroll <= width.width + 1);
+  assert.equal(await page.locator(".right-panel").count(), 0);
   await page.screenshot({ path: "artifacts/home-compact.png" });
   assert.deepEqual(errors, []);
   console.log(
