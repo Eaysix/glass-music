@@ -118,6 +118,23 @@ describe("word timing", () => {
         .join(""),
     ).toBe("你好世界");
   });
+  it("splits imported phrase timestamps into words while keeping known starts", () => {
+    const rows = wordsForLyrics(
+      editableLyrics("[00:01]<00:01>Hola mundo <00:04>otra vez"),
+    );
+    expect(rows[0].words?.map((w) => [w.text, w.time])).toEqual([
+      ["Hola", 1],
+      ["mundo", null],
+      ["otra", 4],
+      ["vez", null],
+    ]);
+    expect(wordTimingError(rows, 10)).toContain("Faltan palabras");
+    expect(
+      wordsForLyrics(editableLyrics("「你好，世界！」"))[0].words?.map(
+        (w) => w.text,
+      ),
+    ).toEqual(["「你好，", "世界！」"]);
+  });
   it("blocks partial word timing even if line times are already complete", () => {
     const rows = wordsForLyrics(
       editableLyrics("[00:01]Hola mundo\n[00:05]Otra línea"),

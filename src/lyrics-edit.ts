@@ -68,28 +68,45 @@ export function serializeLyrics(rows: EditableLyric[]): string {
     )
     .join("\n");
 }
+function splitWords(text: string): EditableWord[] {
+  const words: EditableWord[] = [];
+  for (const chunk of text.matchAll(/(\S+)(\s*)/gu)) {
+    const pieces: string[] = [];
+    if (
+      /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(chunk[1])
+    ) {
+      let prefix = "";
+      for (const part of new Intl.Segmenter(undefined, {
+        granularity: "word",
+      }).segment(chunk[1])) {
+        if (part.isWordLike) {
+          pieces.push(prefix + part.segment);
+          prefix = "";
+        } else if (pieces.length) pieces[pieces.length - 1] += part.segment;
+        else prefix += part.segment;
+      }
+      if (prefix) pieces.push(prefix);
+    } else pieces.push(chunk[1]);
+    for (const text of pieces) words.push({ text, time: null, spaceAfter: "" });
+    if (words.length) words[words.length - 1].spaceAfter = chunk[2];
+  }
+  return words;
+}
 export function wordsForLyrics(rows: EditableLyric[]): EditableLyric[] {
   return rows.map((row) => {
-    if (row.words?.length || !row.text.trim()) return row;
-    const words: EditableWord[] = [];
-    for (const chunk of row.text.matchAll(/(\S+)(\s*)/gu)) {
-      const pieces =
-        /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(chunk[1])
-          ? [
-              ...new Intl.Segmenter(undefined, { granularity: "word" }).segment(
-                chunk[1],
-              ),
-            ].reduce<string[]>((parts, part) => {
-              if (!part.isWordLike && parts.length)
-                parts[parts.length - 1] += part.segment;
-              else parts.push(part.segment);
-              return parts;
-            }, [])
-          : [chunk[1]];
-      for (const text of pieces)
-        words.push({ text, time: null, spaceAfter: "" });
-      if (words.length) words[words.length - 1].spaceAfter = chunk[2];
-    }
+    if (!row.text.trim()) return row;
+    if (row.words?.length)
+      return {
+        ...row,
+        words: row.words.flatMap((part) => {
+          const words = splitWords(part.text);
+          if (words[0]) words[0].time = part.time;
+          if (words.length)
+            words[words.length - 1].spaceAfter = part.spaceAfter ?? " ";
+          return words;
+        }),
+      };
+    const words = splitWords(row.text);
     if (words[0]) words[0].time = row.time;
     return { ...row, words };
   });
