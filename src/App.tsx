@@ -4,6 +4,8 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type DragEvent,
+  type MouseEvent,
   type ReactNode,
 } from "react";
 import {
@@ -41,6 +43,7 @@ import {
 } from "lucide-react";
 import * as api from "./api";
 import FocusStage from "./FocusStage";
+import ContextMenu from "./ContextMenu";
 import { LyricContent } from "./LyricContent";
 import type { Playlist, Queue, Settings, Track } from "./types";
 import { defaults } from "./types";
@@ -53,6 +56,10 @@ import {
   startQueue,
   timeLabel,
 } from "./queue";
+
+const TRACK_DRAG = "application/x-glass-track";
+const QUEUE_DRAG = "application/x-glass-queue";
+type SongMenu = { id: string; x: number; y: number; playlistId?: string };
 
 type Modal =
   | { type: "settings" }
@@ -78,7 +85,13 @@ function Cover({
       style={{ "--cover-hue": hue } as CSSProperties}
     >
       {cover ? (
-        <img src={api.coverUrl(cover)} alt="" loading="lazy" decoding="async" />
+        <img
+          src={api.coverUrl(cover)}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+        />
       ) : (
         <Disc3 aria-hidden="true" />
       )}
@@ -126,11 +139,13 @@ export default function App() {
   const [importing, setImporting] = useState(false),
     [progress, setProgress] = useState(""),
     [importErrors, setImportErrors] = useState<string[]>([]);
-  const [menu, setMenu] = useState<string | null>(null),
+  const [menu, setMenu] = useState<SongMenu | null>(null),
     [scroll, setScroll] = useState(0),
     [listHeight, setListHeight] = useState(400);
   const [queueScroll, setQueueScroll] = useState(0),
     [queueHeight, setQueueHeight] = useState(400);
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
   const queueRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null),
     busy = useRef(false),
@@ -273,10 +288,18 @@ export default function App() {
     };
   }, [current?.id]);
   useEffect(() => {
-    activeLyricRef.current?.scrollIntoView({
-      block: "center",
-      behavior: "instant",
-    });
+    const line = activeLyricRef.current;
+    const container = line?.parentElement;
+    if (line && container)
+      container.scrollTo({
+        top:
+          container.scrollTop +
+          line.getBoundingClientRect().top -
+          container.getBoundingClientRect().top -
+          container.clientHeight / 2 +
+          line.clientHeight / 2,
+        behavior: "auto",
+      });
   }, [activeLine, panel]);
   useEffect(() => {
     if (!playing) return;
@@ -312,6 +335,10 @@ export default function App() {
   }, [playing]);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (e.code === "Escape" && menu) {
+        setMenu(null);
+        return;
+      }
       if (e.code === "Escape" && focusView && !modal) {
         setFocusView(null);
         return;
@@ -545,6 +572,66 @@ export default function App() {
     setMenu(null);
     setNotice(first ? "Sonará después" : "Añadida al final de la cola");
   }
+  function openSongMenu(
+    e: MouseEvent<HTMLElement>,
+    id: string,
+    playlistId?: string,
+  ) {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMenu({
+      id,
+      playlistId,
+      x: e.type === "contextmenu" ? e.clientX : rect.right,
+      y: e.type === "contextmenu" ? e.clientY : rect.bottom,
+    });
+  }
+  function beginDrag(
+    e: DragEvent<HTMLElement>,
+    id: string,
+    playlistId?: string,
+  ) {
+    e.dataTransfer.effectAllowed = "copyMove";
+    e.dataTransfer.setData(TRACK_DRAG, JSON.stringify({ id, playlistId }));
+    setDragging(id);
+    setMenu(null);
+  }
+  function endDrag() {
+    setDragging(null);
+    setDropTarget(null);
+  }
+  function droppedTrack(
+    e: DragEvent<HTMLElement>,
+  ): { id: string; playlistId?: string } | null {
+    try {
+      const data = JSON.parse(e.dataTransfer.getData(TRACK_DRAG));
+      return typeof data?.id === "string" && byId.has(data.id) ? data : null;
+    } catch {
+      return null;
+    }
+  }
+  function addToPlaylist(playlistId: string, id: string) {
+    const playlist = settings.playlists.find((p) => p.id === playlistId);
+    if (!playlist || !byId.has(id)) return;
+    if (playlist.trackIds.includes(id)) {
+      setNotice(`Ya está en «${playlist.name}»`);
+      return;
+    }
+    setSettings((s) => ({
+      ...s,
+      playlists: s.playlists.map((p) =>
+        p.id === playlistId ? { ...p, trackIds: [...p.trackIds, id] } : p,
+      ),
+    }));
+    setNotice(`Añadida a «${playlist.name}»`);
+  }
+  function allowPlaylistDrop(e: DragEvent<HTMLElement>, target: string) {
+    if (!e.dataTransfer.types.includes(TRACK_DRAG)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+    setDropTarget(target);
+  }
   function newPlaylist() {
     setModal({
       type: "playlist",
@@ -559,7 +646,14 @@ export default function App() {
   function moveQueue(index: number, destination: number) {
     setSettings((s) => {
       const upcoming = [...s.queue.upcoming];
-      if (destination < 0 || destination >= upcoming.length) return s;
+      if (
+        !Number.isInteger(index) ||
+        index < 0 ||
+        index >= upcoming.length ||
+        destination < 0 ||
+        destination >= upcoming.length
+      )
+        return s;
       const [id] = upcoming.splice(index, 1);
       upcoming.splice(destination, 0, id);
       return { ...s, queue: { ...s.queue, upcoming } };
@@ -626,7 +720,13 @@ export default function App() {
     );
   return (
     <div
-      className={`app ${focusView ? "focus-open" : ""} ${settings.appearance.theme} ${settings.appearance.reduced ? "reduced" : ""}`}
+      onContextMenu={(e) => {
+        if (
+          !(e.target as HTMLElement).closest("input,textarea,[contenteditable]")
+        )
+          e.preventDefault();
+      }}
+      className={`app ${playing ? "is-playing" : ""} ${dragging ? "is-dragging" : ""} ${focusView ? "focus-open" : ""} ${settings.appearance.theme} ${settings.appearance.reduced ? "reduced" : ""}`}
       style={style}
     >
       {current?.cover && (
@@ -678,16 +778,35 @@ export default function App() {
             settings.playlists.map((p) => (
               <button
                 key={p.id}
-                className={selectedPlaylist?.id === p.id ? "selected" : ""}
+                className={`${selectedPlaylist?.id === p.id ? "selected" : ""} ${dropTarget === p.id ? "drop-target" : ""}`}
+                aria-label={p.name}
+                data-playlist-id={p.id}
+                onDragOver={(e) => allowPlaylistDrop(e, p.id)}
+                onDragLeave={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node))
+                    setDropTarget(null);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const data = droppedTrack(e);
+                  if (data) addToPlaylist(p.id, data.id);
+                  endDrag();
+                }}
                 onClick={() => setView(`playlist:${p.id}`)}
               >
                 <Cover cover={p.cover} title={p.name} />
-                <span>{p.name}</span>
+                <span>
+                  {p.name}
+                  <small>{p.trackIds.length} canciones</small>
+                </span>
+                {dropTarget === p.id && (
+                  <Plus size={16} className="drop-plus" />
+                )}
               </button>
             ))
           ) : (
             <p>
-              Un lugar para cada mood.
+              Organiza tu música.
               <br />
               <button className="text-button" onClick={newPlaylist}>
                 Crea tu primera playlist <Plus size={13} />
@@ -697,7 +816,15 @@ export default function App() {
         </div>
         <div className="sidebar-footer">
           <div className="local-status">
-            <i /> Tu música se queda contigo
+            {dragging ? (
+              <>
+                <Plus size={13} /> Suelta en una playlist
+              </>
+            ) : (
+              <>
+                <i /> Música local
+              </>
+            )}
           </div>
           <button
             className="profile"
@@ -722,7 +849,7 @@ export default function App() {
         <header className="topbar">
           <div className="breadcrumbs">
             <Music2 size={16} />
-            <span>Tu música, sin límites</span>
+            <span>Biblioteca local</span>
           </div>
           <label className="search">
             <Search size={17} />
@@ -748,37 +875,26 @@ export default function App() {
         <section
           className={`hero ${tracks.length ? "has-music" : ""} ${selectedPlaylist ? "playlist-hero" : ""}`}
         >
-          <div className="hero-copy">
+          {selectedPlaylist && (
+            <Cover
+              className="playlist-art"
+              cover={selectedPlaylist.cover}
+              title={selectedPlaylist.name}
+            />
+          )}
+          <div className="hero-copy" key={view}>
             <div className="eyebrow">
               {selectedPlaylist
-                ? "HECHA POR TI"
+                ? "PLAYLIST"
                 : view === "favorites"
-                  ? "SIEMPRE EN REPEAT"
-                  : "EL SONIDO DE TU ESPACIO"}
+                  ? "TUS IMPRESCINDIBLES"
+                  : "TU COLECCIÓN"}
             </div>
-            <h1>
-              {selectedPlaylist ? (
-                title
-              ) : tracks.length ? (
-                (current?.title ?? "Tu colección")
-              ) : view === "favorites" ? (
-                <>
-                  Lo que más
-                  <br />
-                  <em>te mueve.</em>
-                </>
-              ) : (
-                <>
-                  Tu música.
-                  <br />
-                  <em>A tu manera.</em>
-                </>
-              )}
-            </h1>
+            <h1>{title}</h1>
             <p>
-              {selectedPlaylist
-                ? `${visibleTracks.length} canciones · Tu propia selección`
-                : "Tus archivos. Tus letras. Tu momento."}
+              {visibleTracks.length
+                ? `${visibleTracks.length} canciones · ${Math.floor(totalDuration / 60)} min de música`
+                : "Todo lo que quieres escuchar, en un solo lugar."}
             </p>
             <div className="hero-actions">
               <button
@@ -786,8 +902,7 @@ export default function App() {
                 disabled={!visibleTracks.length}
                 onClick={() => visibleTracks[0] && playTrack(visibleTracks[0])}
               >
-                <Play size={16} fill="currentColor" />
-                Reproducir
+                <Play size={16} fill="currentColor" /> Reproducir
               </button>
               {selectedPlaylist ? (
                 <button
@@ -799,8 +914,7 @@ export default function App() {
                     })
                   }
                 >
-                  <Settings2 size={16} />
-                  Editar playlist
+                  <Settings2 size={16} /> Editar playlist
                 </button>
               ) : (
                 <button
@@ -814,56 +928,21 @@ export default function App() {
               )}
             </div>
           </div>
-          {tracks.length && !selectedPlaylist ? (
-            <button
-              className="hero-current-art"
-              aria-label="Abrir portada grande"
-              onClick={() => {
-                if (!current && visibleTracks[0]) playTrack(visibleTracks[0]);
-                setFocusView("cover");
-              }}
-            >
-              <Cover
-                cover={(current ?? visibleTracks[0])?.cover ?? null}
-                title={(current ?? visibleTracks[0])?.album ?? ""}
-              />
-            </button>
-          ) : selectedPlaylist ? (
-            <Cover
-              className="playlist-art"
-              cover={selectedPlaylist.cover}
-              title={selectedPlaylist.name}
-            />
-          ) : (
-            <div className="hero-art" aria-hidden="true">
-              <div className="orbital orbital-a" />
-              <div className="orbital orbital-b" />
-              <div className="record">
-                <div className="record-label">
-                  <div className="mini-wave">
-                    <i />
-                    <i />
-                    <i />
-                    <i />
-                    <i />
-                  </div>
-                  <span>
-                    YOUR OWN
-                    <br />
-                    FREQUENCY
-                  </span>
-                </div>
-              </div>
-              <div className="quality-tag">
-                <i /> FLAC & MP3 <span>·</span> 100% TUYO
-              </div>
+          {!selectedPlaylist && (
+            <div className="hero-note">
+              <Disc3 size={26} />
+              <span>
+                Tu música.
+                <br />
+                <strong>Sin distracciones.</strong>
+              </span>
             </div>
           )}
         </section>
-        <section className="collection">
+        <section className="collection" key={view}>
           <div className="section-heading">
             <div>
-              <h2>{title}</h2>
+              <h2>Canciones</h2>
               <span>
                 {visibleTracks.length} canciones
                 {totalDuration > 0
@@ -993,7 +1072,52 @@ export default function App() {
                     return (
                       <div
                         key={track.id}
-                        className={`track-row ${isCurrent ? "current" : ""}`}
+                        className={`track-row ${isCurrent ? "current" : ""} ${dragging === track.id ? "drag-source" : ""} ${dropTarget === `track:${track.id}` ? "reorder-target" : ""}`}
+                        draggable
+                        onDragStart={(e) =>
+                          beginDrag(e, track.id, selectedPlaylist?.id)
+                        }
+                        onDragEnd={endDrag}
+                        onContextMenu={(e) =>
+                          openSongMenu(e, track.id, selectedPlaylist?.id)
+                        }
+                        onDragOver={(e) => {
+                          if (
+                            selectedPlaylist &&
+                            sort === "added" &&
+                            e.dataTransfer.types.includes(TRACK_DRAG)
+                          ) {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = "move";
+                            setDropTarget(`track:${track.id}`);
+                          }
+                        }}
+                        onDragLeave={() => setDropTarget(null)}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          const data = droppedTrack(e);
+                          if (
+                            selectedPlaylist &&
+                            sort === "added" &&
+                            data &&
+                            data.id !== track.id
+                          ) {
+                            if (data.playlistId === selectedPlaylist.id) {
+                              setSettings((s) => ({
+                                ...s,
+                                playlists: s.playlists.map((p) => {
+                                  if (p.id !== selectedPlaylist.id) return p;
+                                  const ids = p.trackIds.filter(
+                                    (id) => id !== data.id,
+                                  );
+                                  ids.splice(ids.indexOf(track.id), 0, data.id);
+                                  return { ...p, trackIds: ids };
+                                }),
+                              }));
+                            } else addToPlaylist(selectedPlaylist.id, data.id);
+                          }
+                          endDrag();
+                        }}
                         style={{
                           position: "absolute",
                           top: index * 68,
@@ -1058,8 +1182,8 @@ export default function App() {
                         </span>
                         <IconButton
                           label={`Opciones de ${track.title}`}
-                          onClick={() =>
-                            setMenu(menu === track.id ? null : track.id)
+                          onClick={(e) =>
+                            openSongMenu(e, track.id, selectedPlaylist?.id)
                           }
                         >
                           <Ellipsis size={19} />
@@ -1092,7 +1216,7 @@ export default function App() {
                 {query || filter !== "all"
                   ? "Prueba con otra búsqueda o formato."
                   : selectedPlaylist
-                    ? "Añade canciones desde las opciones de tu biblioteca."
+                    ? "Arrastra canciones al nombre de esta playlist en la barra lateral o usa «Añadir a playlist»."
                     : view === "favorites"
                       ? "Toca el corazón de una canción para guardarla."
                       : "Añade tus FLAC y MP3. Nosotros ponemos el espacio."}
@@ -1121,7 +1245,7 @@ export default function App() {
         </footer>
       </main>
       {panel && !focusView && (
-        <aside className="right-panel glass">
+        <aside className="right-panel glass" key={panel}>
           <div className="panel-tabs">
             <button
               className={panel === "lyrics" ? "selected" : ""}
@@ -1294,7 +1418,8 @@ export default function App() {
                         const t = byId.get(id);
                         return t ? (
                           <div
-                            className="queue-row"
+                            className={`queue-row ${dropTarget === `queue:${index}` ? "reorder-target" : ""}`}
+                            onContextMenu={(e) => openSongMenu(e, id)}
                             style={{
                               position: "absolute",
                               top: index * 74,
@@ -1304,19 +1429,25 @@ export default function App() {
                             }}
                             key={`${id}:${index}`}
                             draggable
-                            onDragStart={(e) =>
-                              e.dataTransfer.setData(
-                                "text/plain",
-                                String(index),
-                              )
-                            }
-                            onDragOver={(e) => e.preventDefault()}
+                            onDragStart={(e) => {
+                              beginDrag(e, id);
+                              e.dataTransfer.setData(QUEUE_DRAG, String(index));
+                            }}
+                            onDragEnd={endDrag}
+                            onDragOver={(e) => {
+                              if (e.dataTransfer.types.includes(QUEUE_DRAG)) {
+                                e.preventDefault();
+                                e.dataTransfer.dropEffect = "move";
+                                setDropTarget(`queue:${index}`);
+                              }
+                            }}
+                            onDragLeave={() => setDropTarget(null)}
                             onDrop={(e) => {
                               e.preventDefault();
-                              const value =
-                                e.dataTransfer.getData("text/plain");
+                              const value = e.dataTransfer.getData(QUEUE_DRAG);
                               if (/^\d+$/.test(value))
                                 moveQueue(Number(value), index);
+                              endDrag();
                             }}
                           >
                             <span className="queue-index">{index + 1}</span>
@@ -1413,7 +1544,13 @@ export default function App() {
         />
       )}
       <footer className="player glass">
-        <div className="player-track">
+        <div
+          className="player-track"
+          onContextMenu={(e) => current && openSongMenu(e, current.id)}
+          draggable={!!current}
+          onDragStart={(e) => current && beginDrag(e, current.id)}
+          onDragEnd={endDrag}
+        >
           <button
             className="player-art-button"
             aria-label="Ampliar portada"
@@ -1426,7 +1563,7 @@ export default function App() {
             />
             <Maximize2 size={15} />
           </button>
-          <div>
+          <div key={current?.id} className="player-track-info">
             <strong>{current?.title ?? "Dale play a tu espacio"}</strong>
             <small>{current?.artist ?? "Tu música, siempre contigo"}</small>
           </div>
@@ -1637,109 +1774,127 @@ export default function App() {
           />
         </div>
       </footer>
-      {menu && byId.get(menu) && (
-        <div className="menu-backdrop" onClick={() => setMenu(null)}>
-          <div
-            className="context-menu glass"
-            role="menu"
-            onClick={(e) => e.stopPropagation()}
+      {menu && byId.get(menu.id) && (
+        <ContextMenu x={menu.x} y={menu.y} close={() => setMenu(null)}>
+          <strong>
+            {byId.get(menu.id)!.title}
+            <small>{byId.get(menu.id)!.artist}</small>
+          </strong>
+          <button
+            role="menuitem"
+            onClick={() => {
+              playTrack(byId.get(menu.id)!);
+              setMenu(null);
+            }}
           >
-            <strong>{byId.get(menu)!.title}</strong>
-            <button role="menuitem" onClick={() => enqueue(menu, true)}>
-              Reproducir después
-            </button>
-            <button role="menuitem" onClick={() => enqueue(menu, false)}>
-              Agregar al final de la cola
-            </button>
-            <button
-              role="menuitem"
-              onClick={() => {
-                setModal({ type: "add", id: menu });
-                setMenu(null);
-              }}
-            >
-              Añadir a playlist
-            </button>
-            <button
-              role="menuitem"
-              onClick={() => {
-                setModal({ type: "track", track: { ...byId.get(menu)! } });
-                setMenu(null);
-              }}
-            >
-              Editar información y portada
-            </button>
-            <button
-              role="menuitem"
-              onClick={async () => {
-                const id = menu;
-                setMenu(null);
-                try {
-                  setModal({
-                    type: "lyrics",
-                    id,
-                    text: await api.getLyrics(id),
-                  });
-                } catch (e) {
-                  setNotice(String(e));
-                }
-              }}
-            >
-              Editar letra
-            </button>
-            {selectedPlaylist && (
-              <>
-                <button
-                  role="menuitem"
-                  onClick={() => {
-                    movePlaylist(menu, -1);
-                    setMenu(null);
-                  }}
-                >
-                  Subir en la playlist
-                </button>
-                <button
-                  role="menuitem"
-                  onClick={() => {
-                    movePlaylist(menu, 1);
-                    setMenu(null);
-                  }}
-                >
-                  Bajar en la playlist
-                </button>
-                <button
-                  role="menuitem"
-                  onClick={() => {
-                    setSettings((s) => ({
-                      ...s,
-                      playlists: s.playlists.map((p) =>
-                        p.id === selectedPlaylist.id
-                          ? {
-                              ...p,
-                              trackIds: p.trackIds.filter((id) => id !== menu),
-                            }
-                          : p,
-                      ),
-                    }));
-                    setMenu(null);
-                  }}
-                >
-                  Quitar de esta playlist
-                </button>
-              </>
-            )}
-            <button
-              className="danger"
-              role="menuitem"
-              onClick={() => {
-                setModal({ type: "remove", track: byId.get(menu)! });
-                setMenu(null);
-              }}
-            >
-              Quitar de la biblioteca…
-            </button>
-          </div>
-        </div>
+            <Play size={15} /> Reproducir ahora
+          </button>
+          <button
+            role="menuitem"
+            onClick={() => {
+              void favorite(byId.get(menu.id)!);
+              setMenu(null);
+            }}
+          >
+            <Heart size={15} />{" "}
+            {byId.get(menu.id)!.favorite
+              ? "Quitar de Me gusta"
+              : "Guardar en Me gusta"}
+          </button>
+          <button role="menuitem" onClick={() => enqueue(menu.id, true)}>
+            <SkipForward size={15} /> Reproducir después
+          </button>
+          <button role="menuitem" onClick={() => enqueue(menu.id, false)}>
+            <ListMusic size={15} /> Agregar al final de la cola
+          </button>
+          <button
+            role="menuitem"
+            onClick={() => {
+              setModal({ type: "add", id: menu.id });
+              setMenu(null);
+            }}
+          >
+            <Plus size={15} /> Añadir a playlist
+          </button>
+          <button
+            role="menuitem"
+            onClick={() => {
+              setModal({ type: "track", track: { ...byId.get(menu.id)! } });
+              setMenu(null);
+            }}
+          >
+            <Settings2 size={15} /> Editar información y portada
+          </button>
+          <button
+            role="menuitem"
+            onClick={async () => {
+              const id = menu.id;
+              setMenu(null);
+              try {
+                setModal({
+                  type: "lyrics",
+                  id,
+                  text: await api.getLyrics(id),
+                });
+              } catch (e) {
+                setNotice(String(e));
+              }
+            }}
+          >
+            <Mic2 size={15} /> Editar letra
+          </button>
+          {selectedPlaylist && menu.playlistId === selectedPlaylist.id && (
+            <>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  movePlaylist(menu.id, -1);
+                  setMenu(null);
+                }}
+              >
+                Subir en la playlist
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  movePlaylist(menu.id, 1);
+                  setMenu(null);
+                }}
+              >
+                Bajar en la playlist
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setSettings((s) => ({
+                    ...s,
+                    playlists: s.playlists.map((p) =>
+                      p.id === selectedPlaylist.id
+                        ? {
+                            ...p,
+                            trackIds: p.trackIds.filter((id) => id !== menu.id),
+                          }
+                        : p,
+                    ),
+                  }));
+                  setMenu(null);
+                }}
+              >
+                Quitar de esta playlist
+              </button>
+            </>
+          )}
+          <button
+            className="danger"
+            role="menuitem"
+            onClick={() => {
+              setModal({ type: "remove", track: byId.get(menu.id)! });
+              setMenu(null);
+            }}
+          >
+            Quitar de la biblioteca…
+          </button>
+        </ContextMenu>
       )}
       {modal && (
         <Editor
@@ -1869,7 +2024,7 @@ function Editor({
         <div className="modal-heading">
           <div>
             <span className="eyebrow">GLASS MUSIC</span>
-            <h2>{title}</h2>
+            <h2>Canciones</h2>
           </div>
           <IconButton
             label="Cerrar"
@@ -1935,27 +2090,32 @@ function Editor({
             <div className="settings-section">
               <h3>Tu color</h3>
               <div className="swatches">
-                {["#c9ed87", "#c2a4ff", "#f6a6c7", "#8ccdf3", "#ffbd88"].map(
-                  (color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      style={{ background: color }}
-                      aria-label={`Color ${color}`}
-                      aria-pressed={settings.appearance.accent === color}
-                      onClick={() =>
-                        setSettings((s) => ({
-                          ...s,
-                          appearance: { ...s.appearance, accent: color },
-                        }))
-                      }
-                    >
-                      {settings.appearance.accent === color && (
-                        <Check size={18} />
-                      )}
-                    </button>
-                  ),
-                )}
+                {[
+                  "#b8d8ff",
+                  "#c9ed87",
+                  "#c2a4ff",
+                  "#f6a6c7",
+                  "#8ccdf3",
+                  "#ffbd88",
+                ].map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    style={{ background: color }}
+                    aria-label={`Color ${color}`}
+                    aria-pressed={settings.appearance.accent === color}
+                    onClick={() =>
+                      setSettings((s) => ({
+                        ...s,
+                        appearance: { ...s.appearance, accent: color },
+                      }))
+                    }
+                  >
+                    {settings.appearance.accent === color && (
+                      <Check size={18} />
+                    )}
+                  </button>
+                ))}
                 <label className="custom-color" title="Elegir otro color">
                   <Plus size={17} />
                   <input
@@ -2190,6 +2350,7 @@ function Editor({
               settings.playlists.map((p) => (
                 <button
                   key={p.id}
+                  aria-label={p.name}
                   type="button"
                   onClick={() => {
                     setSettings((s) => ({
@@ -2209,7 +2370,10 @@ function Editor({
                   }}
                 >
                   <Cover cover={p.cover} title={p.name} />
-                  <span>{p.name}</span>
+                  <span>
+                    {p.name}
+                    <small>{p.trackIds.length} canciones</small>
+                  </span>
                   {p.trackIds.includes(modal.id) ? (
                     <Check size={18} />
                   ) : (

@@ -53,7 +53,7 @@ export interface ImportReport {
 }
 export const defaults = (): Settings => ({
   profile: { name: "Mi espacio", photo: null },
-  appearance: { accent: "#c9ed87", glass: 16, reduced: false, theme: "dark" },
+  appearance: { accent: "#b8d8ff", glass: 24, reduced: false, theme: "dark" },
   playlists: [],
   queue: { current: null, upcoming: [], history: [], context: [] },
   volume: 0.7,

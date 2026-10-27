@@ -72,7 +72,27 @@ try {
       .locator(".app")
       .evaluate((el) => el.classList.contains("reduced")),
   );
+  assert.equal(
+    await page
+      .locator(".sidebar")
+      .evaluate((el) => getComputedStyle(el).backdropFilter),
+    "none",
+  );
+  assert.equal(
+    await page
+      .locator(".hero-copy")
+      .evaluate((el) => getComputedStyle(el).animationName),
+    "none",
+  );
   await page.getByLabel("Reducir efectos").uncheck();
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  assert.equal(
+    await page
+      .locator(".hero-copy")
+      .evaluate((el) => getComputedStyle(el).animationName),
+    "none",
+  );
+  await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.getByRole("button", { name: "Día", exact: true }).click();
   assert(
     await page.locator(".app").evaluate((el) => el.classList.contains("light")),
@@ -103,16 +123,51 @@ try {
     image,
   );
   await page.getByRole("button", { name: "Guardar", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Opciones de Primera luz", exact: true })
-    .click();
-  await page
-    .getByRole("menuitem", { name: "Añadir a playlist", exact: true })
-    .click();
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "De noche", exact: true })
-    .click();
+  // Native Windows must allow HTML drag/drop; Tauri's default intercepts it.
+  const config = JSON.parse(
+    await fs.readFile("src-tauri/tauri.conf.json", "utf8"),
+  );
+  assert.equal(config.app.windows[0].dragDropEnabled, false);
+  const firstRow = page
+    .locator(".track-row")
+    .filter({ hasText: "Primera luz" });
+  const playlistTarget = page
+    .locator(".playlists-nav > button")
+    .filter({ hasText: "De noche" });
+  await firstRow.dragTo(playlistTarget);
+  await page.getByText("Añadida a «De noche»", { exact: true }).waitFor();
+  await firstRow.dragTo(playlistTarget);
+  await page.getByText("Ya está en «De noche»", { exact: true }).waitFor();
+  // Right-click uses the song menu, positioned within the viewport.
+  await firstRow.click({ button: "right" });
+  await page.getByRole("menu", { name: "Opciones de canción" }).waitFor();
+  assert.equal(
+    await page.getByRole("menuitem", { name: "Print", exact: true }).count(),
+    0,
+  );
+  await page.keyboard.press("End");
+  assert.equal(
+    await page.evaluate(() => document.activeElement?.textContent),
+    "Quitar de la biblioteca…",
+  );
+  await page.keyboard.press("Home");
+  await page.keyboard.press("ArrowDown");
+  assert.equal(
+    await page.evaluate(() => document.activeElement?.textContent?.trim()),
+    "Quitar de Me gusta",
+  );
+  await page.keyboard.press("Escape");
+  assert.equal(await page.getByRole("menu").count(), 0);
+  assert(
+    await page
+      .locator(".app")
+      .evaluate(
+        (el) =>
+          !el.dispatchEvent(
+            new MouseEvent("contextmenu", { bubbles: true, cancelable: true }),
+          ),
+      ),
+  );
   await page
     .getByRole("button", { name: "Opciones de Primera luz", exact: true })
     .click();
@@ -129,6 +184,39 @@ try {
     image,
   );
   await page.getByRole("button", { name: "Guardar", exact: true }).click();
+  await page
+    .locator(".track-row")
+    .filter({ hasText: "Otro momento" })
+    .dragTo(playlistTarget);
+  await playlistTarget.click();
+  assert.equal(await page.locator(".track-row").count(), 2);
+  await page
+    .locator(".track-row")
+    .filter({ hasText: "Otro momento" })
+    .dragTo(
+      page.locator(".track-row").filter({ hasText: "Primera luz editada" }),
+    );
+  assert.equal(
+    await page
+      .locator(".track-row")
+      .filter({ hasText: "Otro momento" })
+      .evaluate((el) => el.style.top),
+    "0px",
+  );
+  await page
+    .locator(".track-row")
+    .filter({ hasText: "Otro momento" })
+    .click({ button: "right" });
+  await page
+    .getByRole("menuitem", { name: "Quitar de esta playlist", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: /Biblioteca/ })
+    .first()
+    .click();
+  console.log(
+    "drag to playlist, duplicate protection, reordering and right-click menu passed",
+  );
   console.log("playlist and track edited");
   await page
     .getByRole("button", {
@@ -253,6 +341,14 @@ try {
   await page.getByRole("button", { name: "Pausar", exact: true }).click();
   await page.keyboard.press("Escape");
   assert.equal(await page.locator(".focus-stage").count(), 0);
+  assert.equal(
+    await page
+      .locator(".brand-mark span")
+      .first()
+      .evaluate((el) => getComputedStyle(el).animationName),
+    "none",
+    "playing animation must stop on pause",
+  );
   // Restore the first track and the explicit queue before persistence checks.
   await page
     .getByRole("button", {
@@ -267,6 +363,17 @@ try {
   await page
     .getByRole("menuitem", { name: "Reproducir después", exact: true })
     .click();
+  await page.locator(".player-track").click({ button: "right" });
+  const menuBox = await page.getByRole("menu").boundingBox();
+  assert(menuBox.y >= 12 && menuBox.y + menuBox.height <= 960 - 11);
+  await page.screenshot({ path: "artifacts/context-menu.png" });
+  await page.keyboard.press("Escape");
+  assert.equal(
+    await page.locator(".app").evaluate((el) => el.scrollTop),
+    0,
+    "lyrics must only scroll their own container",
+  );
+  assert.equal(await page.evaluate(() => window.scrollY), 0);
   await page.screenshot({ path: "artifacts/library.png" });
   await page.setViewportSize({ width: 960, height: 720 });
   assert(

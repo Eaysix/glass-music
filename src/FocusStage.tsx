@@ -31,7 +31,18 @@ export default function FocusStage({
 }) {
   const selected = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    selected.current?.scrollIntoView({ block: "center", behavior: "instant" });
+    const line = selected.current;
+    const container = line?.parentElement;
+    if (line && container)
+      container.scrollTo({
+        top:
+          container.scrollTop +
+          line.getBoundingClientRect().top -
+          container.getBoundingClientRect().top -
+          container.clientHeight / 2 +
+          line.clientHeight / 2,
+        behavior: "auto",
+      });
   }, [track?.id, active, mode]);
   return (
     <section
@@ -64,7 +75,7 @@ export default function FocusStage({
         </div>
         <span>SONANDO EN TU ESPACIO</span>
       </header>
-      <div className="focus-layout">
+      <div className="focus-layout" key={`${track?.id}:${mode}`}>
         <div className="focus-art-info">
           <div className="focus-art">
             {track?.cover ? (

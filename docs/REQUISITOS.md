@@ -15,6 +15,9 @@ Reproductor personal de música local, principalmente FLAC y también MP3, con b
 - Editar título, artista, artistas invitados, álbum y portada; agregar los datos que falten.
 - Mostrar y editar letras manuales; admitir archivos LRC sincronizados.
 - Crear playlists para distintas ocasiones, renombrarlas, cambiarles portada y ordenar canciones.
+- Arrastrar canciones desde biblioteca, cola o reproductor a las playlists de la barra lateral, con confirmación y sin duplicados. Arrastrar filas para reordenar una playlist en «Tu orden».
+- Clic derecho con acciones de música junto al cursor, sin menú de página web en las superficies del reproductor.
+- Diseño de cristal ahumado con reflejos, transparencias y fondo frío; animaciones de paneles, cambios de canción, menús y controles. Desactivarlas con efectos reducidos o la preferencia del sistema.
 - Marcar favoritas y mostrar una lista automática de Me gusta.
 - Buscar por canción, artista, invitados o álbum.
 - Cola visible que refleje el orden real: reordenar, quitar, reproducir después y agregar al final.
@@ -28,6 +31,7 @@ Reproductor personal de música local, principalmente FLAC y también MP3, con b
 - Tauri 2 + Rust; React/TypeScript para la interfaz. Sin Electron.
 - Audio nativo con Rodio/Symphonia; SQLite para biblioteca y ajustes.
 - Los cambios de información, portadas y letras se guardan en la biblioteca. No se escriben etiquetas en originales.
+- En Windows, `dragDropEnabled: false` permite el arrastre HTML dentro de la app; importar archivos sigue usando el selector de archivos/carpetas.
 - Portadas reducidas a un máximo de 512 px, almacenadas en caché.
 - Vista grande de portada o letra, que sigue la canción actual y conserva los controles visibles.
 - Enhanced LRC con sincronización por palabra y limpieza de marcas de voces.

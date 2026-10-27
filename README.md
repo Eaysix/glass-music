@@ -4,6 +4,16 @@ Tu música local, a tu manera. Reproductor para Windows centrado en FLAC y MP3, 
 
 ![Interfaz de la alpha con archivos de prueba sintéticos](docs/interface.webp)
 
+[Ver las transiciones de la interfaz](docs/motion.mp4) · Vista previa con datos y audio sintéticos.
+
+## Alpha 0.1.2
+
+Arrastra una canción desde la biblioteca, la cola o el reproductor hasta una playlist de la barra lateral. Se resalta el destino y se confirma al añadirla, sin duplicados. Dentro de una playlist, selecciona **Tu orden** para mover sus filas arrastrando. El menú de **clic derecho** aparece junto al cursor con reproducir, favoritas, cola, playlists, edición y quitar. También funciona con el botón de tres puntos y el teclado.
+
+Interfaz rediseñada con cristal ahumado, fondo frío, reflejos, bordes de luz y reproductor flotante. Transiciones de paneles, menús, letras y cambios de canción; respuesta al pasar, pulsar y arrastrar. El indicador de reproducción se anima solo mientras suena música. **Reducir efectos** y la preferencia de movimiento reducido del sistema desactivan las animaciones. El color de acento que ya elegiste se conserva.
+
+La actualización mantiene la biblioteca, las playlists y el perfil existentes.
+
 ## Alpha 0.1.1
 
 Corrige el error `SeekError(Unseekable)` al adelantar o reanudar archivos FLAC. El decodificador conoce ahora el tamaño del archivo y habilita los saltos. Añade lectura de Enhanced LRC con tiempos por palabra y voces (`v1:`, `v3:`), limpiando las marcas también en letras ya importadas.
