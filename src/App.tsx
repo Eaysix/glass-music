@@ -1587,15 +1587,23 @@ export default function App() {
           )}
           <IconButton
             label="Mostrar letra"
-            active={panel === "lyrics"}
-            onClick={() => setPanel(panel === "lyrics" ? null : "lyrics")}
+            active={focusView ? focusView === "lyrics" : panel === "lyrics"}
+            onClick={() => {
+              if (focusView) setFocusView("lyrics");
+              else setPanel(panel === "lyrics" ? null : "lyrics");
+            }}
           >
             <Mic2 size={18} />
           </IconButton>
           <IconButton
             label="Mostrar cola"
-            active={panel === "queue"}
-            onClick={() => setPanel(panel === "queue" ? null : "queue")}
+            active={!focusView && panel === "queue"}
+            onClick={() => {
+              setPanel(
+                focusView ? "queue" : panel === "queue" ? null : "queue",
+              );
+              setFocusView(null);
+            }}
           >
             <ListMusic size={19} />
           </IconButton>

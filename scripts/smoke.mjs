@@ -224,6 +224,24 @@ try {
       .evaluate((el) => el.classList.contains("cover-mode")),
   );
   await page.screenshot({ path: "artifacts/focus-cover.png" });
+  await page.getByRole("button", { name: "Mostrar cola", exact: true }).click();
+  assert.equal(await page.locator(".focus-stage").count(), 0);
+  await page
+    .getByRole("heading", { name: "A continuación", exact: true })
+    .waitFor();
+  await page
+    .getByRole("button", { name: "Ampliar portada", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Mostrar letra", exact: true })
+    .click();
+  assert(
+    await page
+      .locator(".focus-stage")
+      .evaluate((el) => el.classList.contains("lyrics-mode")),
+  );
+  await page.getByRole("button", { name: "Portada", exact: true }).click();
+
   await page.getByRole("button", { name: "Siguiente", exact: true }).click();
   await page
     .locator(".focus-stage h1")
