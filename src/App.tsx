@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -402,7 +403,7 @@ export default function App() {
       );
     return list;
   }, [tracks, view, selectedPlaylist, byId, query, filter, sort]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = queueRef.current;
     if (!el) return;
     setQueueScroll(0);
@@ -412,7 +413,7 @@ export default function App() {
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [panel]);
+  }, [panel, focusView, ready]);
   const queueStart = Math.max(0, Math.floor(queueScroll / 74) - 3),
     queueEnd = Math.min(
       settings.queue.upcoming.length,
