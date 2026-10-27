@@ -1,8 +1,6 @@
-# Glass Music — requisitos iniciales
+# Glass Music — alcance y decisiones
 
-Estado: definición del producto. No iniciar código de la aplicación hasta que el usuario lo indique.
-Nombre provisional: Glass Music.
-Plataforma inicial: Windows PC.
+Estado: primera implementación alpha autorizada por el usuario. Nombre provisional: Glass Music. Plataforma inicial: Windows PC.
 
 ## Objetivo
 
@@ -15,43 +13,48 @@ Reproductor personal de música local, principalmente FLAC y también MP3, con b
 - Controles de reproducción, pausa, avance, volumen, repetición y aleatorio.
 - Leer título, artista, álbum, portada y letras integradas cuando existan.
 - Editar título, artista, artistas invitados, álbum y portada; agregar los datos que falten.
-- Mostrar y editar letras manuales; admitir archivos LRC con líneas sincronizadas.
+- Mostrar y editar letras manuales; admitir archivos LRC sincronizados.
 - Crear playlists para distintas ocasiones, renombrarlas, cambiarles portada y ordenar canciones.
 - Marcar favoritas y mostrar una lista automática de Me gusta.
-- Buscar por canción, artista o álbum.
-- Cola visible que refleje el orden real: reordenar arrastrando, quitar, reproducir después y agregar al final.
+- Buscar por canción, artista, invitados o álbum.
+- Cola visible que refleje el orden real: reordenar, quitar, reproducir después y agregar al final.
 - Aleatorio sin repetir canciones hasta terminar la lista, conservando el orden al pausar.
 - Mezcla variada que intente separar canciones del mismo artista o álbum.
 - Personalizar colores, fondo, tema claro/oscuro e intensidad del vidrio; ofrecer efectos reducidos.
+- **Perfil local con nombre y foto editables; sin registro de usuarios ni login.**
 
-## Datos y archivos
+## Decisiones de la alpha
 
-Los cambios de metadatos, portadas y letras se guardarán inicialmente en la biblioteca de la app. Escribirlos dentro de los archivos originales requerirá una acción explícita del usuario. La reproducción y biblioteca funcionarán sin internet. La búsqueda de letras en internet se plantea como acción manual, pero proveedor y alcance siguen pendientes.
-
-## Rendimiento
-
-Dirección técnica propuesta: Tauri + Rust, pendiente de validación técnica antes de implementar. Indexar al importar y reutilizar los datos; cargar portadas y listas según se necesiten; evitar sondeos, efectos y tareas constantes. Actualizar letras sincronizadas solo cuando corresponda. Evaluar el coste del glassmorphism y permitir reducirlo.
-
-Pendiente definir equipo de prueba, tamaño de biblioteca, límites medibles de RAM/CPU/GPU y tiempo de arranque. No hay mediciones ni promesas de consumo cero.
+- Tauri 2 + Rust; React/TypeScript para la interfaz. Sin Electron.
+- Audio nativo con Rodio/Symphonia; SQLite para biblioteca y ajustes.
+- Los cambios de información, portadas y letras se guardan en la biblioteca. No se escriben etiquetas en originales.
+- Portadas reducidas a un máximo de 512 px, almacenadas en caché.
+- Vista grande de portada o letra, que sigue la canción actual y conserva los controles visibles.
+- Enhanced LRC con sincronización por palabra y limpieza de marcas de voces.
+- Letras embebidas y archivos .lrc junto al audio se leen al importar. Un LRC externo tiene prioridad. Se editan luego desde la app.
+- La mezcla variada separa artistas cuando hay alternativas; la separación por álbum queda pendiente.
+- Cambiar el modo aleatorio reordena únicamente lo que queda en la cola; no vuelve a añadir lo ya escuchado.
+- Una lista ordenada comienza desde la canción elegida. Una selección aleatoria recorre las otras canciones de la lista una vez.
+- Solo Repetir todo comienza una nueva ronda. Repetir una canción se aplica al terminar, no al pulsar Siguiente.
+- La cola permite duplicados añadidos manualmente. Las playlists no incluyen duplicados internos.
+- La cola y su orden persisten. La posición se guarda al pausar, adelantar o cerrar la app nativa; no se reanuda automáticamente al abrir.
+- Importar una ruta ya existente no vuelve a indexarla ni reemplaza ediciones. No hay deduplicación acústica.
+- Quitar una canción de la biblioteca conserva el archivo y la retira de playlists y cola.
+- No hay búsquedas online ni conexiones externas durante el uso normal.
 
 ## Control de versiones
 
-- Repositorio privado: Eaysix/glass-music.
-- main para cambios revisados; ramas por función al implementar.
-- Commits pequeños y descriptivos; issues para requisitos, tareas y errores.
-- Releases numeradas cuando existan builds verificadas para Windows.
-- No subir canciones, biblioteca personal, credenciales, cachés ni compilaciones al código fuente.
-- La existencia de esta política no significa que haya reglas de protección o CI configurados.
+Repositorio privado: Eaysix/glass-music. main para cambios revisados; ramas por función y PRs. Commits descriptivos e issues para requisitos, tareas y errores. GitHub Actions comprobará y generará el instalador Windows. No hay reglas de protección configuradas todavía.
 
-## Próximas decisiones
+No subir música personal, bibliotecas, credenciales, cachés ni compilaciones al código fuente. Se incluyen dos archivos de silencio sintético exclusivamente para pruebas.
 
-1. Nombre definitivo y referencias visuales.
-2. Distribución de biblioteca, reproductor, letras y cola.
-3. Comportamiento del aleatorio al cambiar de lista, reiniciar o terminar una ronda.
-4. Reglas para archivos movidos, duplicados y guardado de cambios.
-5. Alcance de búsqueda de letras y escritura de etiquetas.
-6. Validación de arquitectura de audio y objetivos de rendimiento.
+## Pendientes
 
-## Skills e integraciones
-
-GitHub conectado. Figma es opcional. Se propusieron skills propias de Tauri/Rust, rendimiento y pruebas de audio; todavía no se han creado ni instalado.
+1. Nombre definitivo y revisión visual con el usuario.
+2. Medir RAM/CPU/GPU y arranque con una compilación release, hardware y biblioteca representativos.
+3. Validar reproducción y seek en Windows con la colección real; gapless y salida exclusiva no implementados.
+4. Relocalización de archivos movidos, deduplicación por contenido y relectura de etiquetas.
+5. Escritura explícita de etiquetas al archivo y búsqueda de letras online.
+6. Fondo personalizado; mezcla con separación por álbum; importación de playlists CSV.
+7. Firma del instalador y actualizaciones de la app.
+8. Figma opcional y skills personalizadas: no creadas ni instaladas todavía.
