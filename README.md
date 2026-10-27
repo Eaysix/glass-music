@@ -4,7 +4,7 @@ Tu música local, a tu manera. Reproductor para Windows centrado en FLAC y MP3, 
 
 ![Interfaz de la alpha con archivos de prueba sintéticos](docs/interface.webp)
 
-## Alpha 0.3.0
+## Alpha 0.4.0
 
 - Azul **#8CCDF3** como color principal, incluido el icono de Windows. El logo de la interfaz sigue el color elegido.
 - Ajustes por secciones: apariencia, perfil, reproductor, Discord y rendimiento.
@@ -48,6 +48,18 @@ Descarga la versión publicada en **[Releases](https://github.com/Eaysix/glass-m
 Las compilaciones de desarrollo están en [Actions](https://github.com/Eaysix/glass-music/actions), en ejecuciones completadas correctamente de **Windows · comprobar y crear instalador**, artefacto **Glass-Music-Windows-x64**. Se generan solo si pasan las comprobaciones; no equivalen a una release publicada.
 
 La alpha no está firmada con un certificado de distribución. Windows puede mostrar una advertencia de editor desconocido. El instalador utiliza WebView2; si falta, su instalación inicial puede requerir internet. La reproducción y los datos de la app funcionan sin internet.
+
+## Inicio y organización
+
+Al abrir, Inicio muestra tus playlists, la última canción para continuar manualmente, playlists escuchadas recientemente y accesos a Me gusta / Sin organizar cuando tienen contenido. Todas las canciones queda como colección secundaria. Una canción puede pertenecer a varias playlists sin duplicar el archivo.
+
+Crea una playlist y usa **Añadir canciones** o **Importar carpeta** dentro de ella. Si seleccionas archivos ya importados se añaden a esa lista conservando sus ediciones. Quitar una canción de una playlist conserva las otras listas y el original. El ancho del panel de letras/cola se ajusta arrastrando su borde izquierdo o con las flechas al enfocarlo; doble clic restablece el ancho.
+
+## Windows, teclado y Nusa
+
+La versión Windows registra una sesión **System Media Transport Controls (SMTC)**: título, artista, álbum, portada local, duración, posición y estado. Los controles de Windows y las teclas multimedia envían play/pausa, siguiente, anterior y adelantar. Los botones de canción siguiente/anterior reflejan la cola de Glass Music. Se retira la sesión al cerrar y no inicia audio por sí sola al abrir.
+
+Nusa consume las sesiones multimedia de Windows, así que esta es la vía de compatibilidad; hace falta verificarla en una sesión real con Nusa y el teclado del usuario. Nusa obtiene sus letras de LRCLIB. No hay una interfaz documentada para entregarle nuestras letras locales, y esta versión no las sube a ningún servicio. Una canción sin coincidencia en LRCLIB puede tener letra dentro de Glass Music y no en Nusa.
 
 ## Editor de letras
 

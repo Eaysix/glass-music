@@ -43,7 +43,9 @@ export interface Settings {
   discord: { enabled: boolean; applicationId: string; showAlbum: boolean };
   appearanceVersion: number;
   uiScale: number;
+  panelWidth: number;
   playlists: Playlist[];
+  recentPlaylists: string[];
   queue: Queue;
   volume: number;
   shuffle: ShuffleMode;
@@ -59,6 +61,7 @@ export interface AudioStatus {
 export interface ImportReport {
   tracks: Track[];
   skipped: number;
+  existingIds: string[];
   errors: string[];
 }
 export const defaults = (): Settings => ({
@@ -75,6 +78,7 @@ export const defaults = (): Settings => ({
   },
   appearanceVersion: 1,
   uiScale: 1,
+  panelWidth: 320,
   player: { autoHide: true, volumeStep: 2 },
   performance: "balanced",
   discord: {
@@ -83,6 +87,7 @@ export const defaults = (): Settings => ({
     showAlbum: true,
   },
   playlists: [],
+  recentPlaylists: [],
   queue: { current: null, upcoming: [], history: [], context: [] },
   volume: 0.7,
   shuffle: "varied",

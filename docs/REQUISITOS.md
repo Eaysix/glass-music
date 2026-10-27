@@ -6,6 +6,14 @@ Estado: primera implementación alpha autorizada por el usuario. Nombre provisio
 
 Reproductor personal de música local, principalmente FLAC y también MP3, con biblioteca, letras y apariencia de vidrio ajustable. Priorizar consumo bajo de RAM, CPU y GPU; medirlo antes de afirmar resultados.
 
+## Inicio y Windows (0.4.0)
+
+- Inicio con portadas de playlists; continuar manualmente la última canción, playlists reproducidas recientemente y accesos a favoritas / sin organizar. No mostrar bloques vacíos.
+- Importación dentro de una playlist, incluidos archivos ya indexados, sin duplicarlos ni reemplazar ediciones. Todas las canciones es una colección secundaria.
+- Filas con separación, selección sutil, encabezado reducido, textos más legibles y columnas equilibradas. Panel de letras/cola con ancho ajustable.
+- Windows SMTC para metadata, portada, progreso y teclas multimedia, incluso al usar otra app. Integración nativa, sin red y sin APIs privadas de Nusa.
+- Nusa usa LRCLIB para letras; no existe un puente documentado a letras locales. Confirmación real de Nusa/teclado pendiente del usuario.
+
 ## Funciones acordadas
 
 - Importar canciones y carpetas sin mover los originales.

@@ -62,8 +62,8 @@ export function useMarqueeSelection(
       width: Math.abs(d.x - x),
       height: bottom - top,
     });
-    const a = Math.max(0, Math.floor(top / 68)),
-      b = Math.min(s.ids.length - 1, Math.floor(bottom / 68));
+    const a = Math.max(0, Math.floor(top / 76)),
+      b = Math.min(s.ids.length - 1, Math.floor(bottom / 76));
     s.change(new Set([...d.base, ...s.ids.slice(a, b + 1)]));
   }
   function scroll() {

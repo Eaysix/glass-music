@@ -1,4 +1,5 @@
 mod audio;
+mod media;
 mod presence;
 use lofty::{file::AudioFile, prelude::*, tag::ItemKey};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -36,6 +37,8 @@ struct Track {
 struct ImportReport {
     tracks: Vec<Track>,
     skipped: usize,
+    #[serde(rename = "existingIds")]
+    existing_ids: Vec<String>,
     errors: Vec<String>,
 }
 #[derive(Clone, Serialize)]
@@ -287,6 +290,7 @@ async fn import_music(paths: Vec<String>, app: tauri::AppHandle) -> Result<Impor
         let mut report = ImportReport {
             tracks: vec![],
             skipped: 0,
+            existing_ids: vec![],
             errors: vec![],
         };
         let mut files = Vec::<PathBuf>::new();
@@ -329,6 +333,12 @@ async fn import_music(paths: Vec<String>, app: tauri::AppHandle) -> Result<Impor
                 let absolute = fs::canonicalize(&path).map_err(|e| e.to_string())?;
                 let key = absolute.to_string_lossy().into_owned();
                 if seen.contains(&key) {
+                    let id: String = sql(connection(&database)?.query_row(
+                        "SELECT id FROM tracks WHERE path=?1",
+                        [&key],
+                        |row| row.get(0),
+                    ))?;
+                    report.existing_ids.push(id);
                     report.skipped += 1;
                     return Ok(());
                 }
@@ -384,11 +394,67 @@ async fn audio_command(
         } else {
             None
         };
-        app.state::<audio::Player>()
-            .command(action, track_id, path, value)
+        let status = app
+            .state::<audio::Player>()
+            .command(action, track_id, path, value)?;
+        #[cfg(target_os = "windows")]
+        {
+            let _apartment = media::Apartment::new().ok();
+            app.state::<media::Bridge>().update(&status);
+        }
+        Ok(status)
     })
     .await
     .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+async fn media_update(
+    track_id: Option<String>,
+    can_next: bool,
+    can_previous: bool,
+    position: f64,
+    app: tauri::AppHandle,
+) -> Result<()> {
+    #[cfg(target_os = "windows")]
+    return tauri::async_runtime::spawn_blocking(move || {
+        let _apartment = media::Apartment::new().map_err(|e| e.to_string())?;
+        let root = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
+        let metadata = track_id
+            .map(|id| {
+                let db = app.state::<Database>();
+                let conn = connection(&db)?;
+                let track = track_from_db(&conn, &id)?;
+                let cover = track
+                    .cover
+                    .filter(|path| Path::new(path).starts_with(root.join("covers")))
+                    .unwrap_or_else(|| {
+                        root.join("covers/glass-music.png")
+                            .to_string_lossy()
+                            .into_owned()
+                    });
+                Ok::<_, String>(media::Metadata {
+                    id: track.id,
+                    title: track.title,
+                    artist: track.artist,
+                    album: track.album,
+                    cover,
+                    duration: track.duration,
+                })
+            })
+            .transpose()?;
+        let status = app
+            .state::<audio::Player>()
+            .command("status".into(), None, None, None)?;
+        app.state::<media::Bridge>()
+            .configure(metadata, can_next, can_previous, position, &status)
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = (track_id, can_next, can_previous, position, app);
+        Ok(())
+    }
 }
 #[tauri::command]
 async fn discord_update(
@@ -462,7 +528,32 @@ pub fn run() {
             app.manage(Database(Mutex::new(conn)));
             app.manage(audio::Player::new());
             app.manage(presence::Presence::new());
+            #[cfg(target_os = "windows")]
+            {
+                fs::write(
+                    root.join("covers/glass-music.png"),
+                    include_bytes!("../icons/icon.png"),
+                )?;
+                let window = app
+                    .get_webview_window("main")
+                    .ok_or("No existe la ventana principal")?;
+                let handle = app.handle().clone();
+                app.manage(media::Bridge::new(
+                    window.hwnd()?.0 as usize,
+                    move |event| {
+                        let _ = handle.emit("media-control", event);
+                    },
+                ));
+            }
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            #[cfg(target_os = "windows")]
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                window.state::<media::Bridge>().clear();
+            }
+            #[cfg(not(target_os = "windows"))]
+            let _ = (window, event);
         })
         .invoke_handler(tauri::generate_handler![
             load_library,
@@ -478,6 +569,7 @@ pub fn run() {
             import_music,
             audio_command,
             discord_update,
+            media_update,
             open_discord_portal
         ])
         .run(tauri::generate_context!())

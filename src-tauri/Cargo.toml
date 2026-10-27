@@ -1,6 +1,6 @@
 [package]
 name = "glass-music"
-version = "0.3.0"
+version = "0.4.0"
 description = "Tu música local, a tu manera"
 authors = ["Eaysix"]
 edition = "2021"
@@ -32,3 +32,6 @@ lto = true
 opt-level = "s"
 panic = "abort"
 strip = true
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.62.2", features = ["Foundation", "Media", "Storage", "Storage_Streams", "Win32_Foundation", "Win32_System_WinRT"] }

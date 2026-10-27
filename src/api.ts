@@ -137,7 +137,12 @@ export async function importMusic(
   if (!files.length) return null;
   const { parseBlob } = await import("music-metadata");
   const tracks = await loadLibrary(),
-    report: ImportReport = { tracks: [], skipped: 0, errors: [] };
+    report: ImportReport = {
+      tracks: [],
+      skipped: 0,
+      existingIds: [],
+      errors: [],
+    };
   for (const file of files) {
     if (!/\.(flac|mp3)$/i.test(file.name)) {
       report.skipped++;
@@ -146,6 +151,7 @@ export async function importMusic(
     const path = file.webkitRelativePath || file.name;
     const id = `${path}:${file.size}:${file.lastModified}`;
     if (tracks.some((t) => t.id === id)) {
+      report.existingIds.push(id);
       report.skipped++;
       continue;
     }

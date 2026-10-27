@@ -63,7 +63,17 @@ const first = path.resolve("tests/fixtures/first.flac"),
 await fs.mkdir("artifacts", { recursive: true });
 try {
   await page.goto("http://127.0.0.1:1421");
-  await page.getByRole("heading", { name: "Tu biblioteca" }).waitFor();
+  await page
+    .getByRole("heading", { name: "Tu música, Mi espacio.", exact: true })
+    .waitFor();
+  assert.equal(await page.locator(".track-row").count(), 0);
+  await page
+    .getByRole("button", { name: /Todas las canciones/ })
+    .first()
+    .click();
+  await page
+    .getByRole("heading", { name: "Todas las canciones", exact: true })
+    .waitFor();
   await page.screenshot({ path: "artifacts/empty.png" });
   await page
     .getByRole("button", { name: "Ajustes de apariencia y perfil" })
@@ -162,6 +172,10 @@ try {
     image,
   );
   await page.getByRole("button", { name: "Guardar", exact: true }).click();
+  await page
+    .getByRole("button", { name: /Todas las canciones/ })
+    .first()
+    .click();
   // Native Windows must allow HTML drag/drop; Tauri's default intercepts it.
   const config = JSON.parse(
     await fs.readFile("src-tauri/tauri.conf.json", "utf8"),
@@ -250,7 +264,7 @@ try {
     .getByRole("menuitem", { name: "Quitar de esta playlist", exact: true })
     .click();
   await page
-    .getByRole("button", { name: /Biblioteca/ })
+    .getByRole("button", { name: /Todas las canciones/ })
     .first()
     .click();
   console.log(
@@ -261,6 +275,10 @@ try {
     .click();
   await page.getByLabel("Nombre de la playlist").fill("Selección");
   await page.getByRole("button", { name: "Guardar", exact: true }).click();
+  await page
+    .getByRole("button", { name: /Todas las canciones/ })
+    .first()
+    .click();
   const songTitles = page.locator(".track-title");
   await songTitles.nth(0).click();
   await songTitles.nth(1).click({ modifiers: ["Control"] });
@@ -688,13 +706,19 @@ try {
       }),
   );
   await page.reload();
-  await page.getByRole("heading", { name: "Tu biblioteca" }).waitFor();
+  await page
+    .getByRole("button", { name: /Todas las canciones/ })
+    .first()
+    .click();
+  await page
+    .getByRole("heading", { name: "Todas las canciones", exact: true })
+    .waitFor();
   await page.getByRole("button", { name: /Eaysix Perfil local/ }).waitFor();
   assert.equal(await page.locator(".track-row").count(), 2);
   await page.getByRole("button", { name: "De noche", exact: true }).click();
   assert.equal(await page.locator(".track-row").count(), 1);
   await page
-    .getByRole("button", { name: /Biblioteca/ })
+    .getByRole("button", { name: /Todas las canciones/ })
     .first()
     .click();
   await choose(
@@ -727,7 +751,7 @@ try {
     .getByRole("heading", { name: "Aquí van las que te encantan" })
     .waitFor();
   await page
-    .getByRole("button", { name: /Biblioteca/ })
+    .getByRole("button", { name: /Todas las canciones/ })
     .first()
     .click();
   assert.equal(await page.locator(".track-row").count(), 1);
@@ -741,8 +765,21 @@ try {
           const db = r.result;
           const q = db.transaction("data").objectStore("data").get("settings");
           q.onsuccess = () => {
-            resolve(q.result?.queue.current === null);
-            db.close();
+            const saved = q.result;
+            const tracks = db
+              .transaction("data")
+              .objectStore("data")
+              .get("tracks");
+            tracks.onsuccess = () => {
+              const ids = new Set(tracks.result.map((t) => t.id));
+              resolve(
+                saved?.queue.current === null &&
+                  saved.playlists.every((p) =>
+                    p.trackIds.every((id) => ids.has(id)),
+                  ),
+              );
+              db.close();
+            };
           };
         };
       }),
@@ -784,7 +821,13 @@ try {
       }),
   );
   await page.reload();
-  await page.getByRole("heading", { name: "Tu biblioteca" }).waitFor();
+  await page
+    .getByRole("button", { name: /Todas las canciones/ })
+    .first()
+    .click();
+  await page
+    .getByRole("heading", { name: "Todas las canciones", exact: true })
+    .waitFor();
   assert(
     (await page.locator(".track-row").count()) < 25,
     "library must render a bounded window",

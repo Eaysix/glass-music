@@ -20,6 +20,8 @@ import {
   Ellipsis,
   FolderPlus,
   Heart,
+  Home as HomeIcon,
+  FolderOpen,
   Library,
   ListMusic,
   Mic2,
@@ -48,9 +50,12 @@ import SeekControl from "./SeekControl";
 import VolumeControl from "./VolumeControl";
 import Atmosphere from "./Atmosphere";
 import SettingsPanel from "./SettingsPanel";
+import Home from "./Home";
+import PanelResize from "./PanelResize";
 import LyricsEditor from "./LyricsEditor";
 import { useMarqueeSelection } from "./useMarqueeSelection";
 import { useDiscordPresence } from "./useDiscordPresence";
+import { useSystemMedia } from "./useSystemMedia";
 import FocusStage from "./FocusStage";
 import ContextMenu from "./ContextMenu";
 import { LyricContent } from "./LyricContent";
@@ -140,7 +145,7 @@ export default function App() {
     [tracks, setTracks] = useState<Track[]>([]);
   const [ready, setReady] = useState(false),
     [fatal, setFatal] = useState(""),
-    [view, setView] = useState("library");
+    [view, setView] = useState("home");
   const [query, setQuery] = useState(""),
     [filter, setFilter] = useState("all"),
     [sort, setSort] = useState("added");
@@ -182,6 +187,25 @@ export default function App() {
     (p) => view === `playlist:${p.id}`,
   );
   const byId = useMemo(() => new Map(tracks.map((t) => [t.id, t])), [tracks]);
+  const assignedIds = useMemo(
+    () => new Set(settings.playlists.flatMap((p) => p.trackIds)),
+    [settings.playlists],
+  );
+  const showHome = view === "home" && !query.trim();
+  function navigate(next: string) {
+    setView(next);
+    setQuery("");
+    setFilter("all");
+  }
+  function rememberPlaylist(id: string) {
+    setSettings((s) => ({
+      ...s,
+      recentPlaylists: [
+        id,
+        ...s.recentPlaylists.filter((other) => other !== id),
+      ].slice(0, 12),
+    }));
+  }
   const timed = useMemo(() => parseLrc(lyrics), [lyrics]),
     activeLine = useActiveLine(
       focusView === "lyrics" || (!focusView && panel === "lyrics")
@@ -194,6 +218,38 @@ export default function App() {
     current,
     playing,
     transportRevision,
+  );
+  useSystemMedia(
+    ready,
+    current,
+    !!current &&
+      (!!settings.queue.upcoming.length || settings.repeat === "all"),
+    !!current,
+    settings.position,
+    (event) => {
+      const state = latest.current;
+      if (event.action === "play" && !state.playing) void togglePlay();
+      else if (event.action === "pause" && state.playing) void togglePlay();
+      else if (event.action === "next" && !busy.current) void advance();
+      else if (event.action === "previous" && !busy.current) back();
+      else if (event.action === "stop") {
+        void (async () => {
+          if (state.playing) await togglePlay();
+          await seek(0);
+        })();
+      } else if (["seek", "forward", "backward"].includes(event.action)) {
+        const duration =
+          state.tracks.find((t) => t.id === state.settings.queue.current)
+            ?.duration ?? 0;
+        const position =
+          event.action === "seek"
+            ? event.position
+            : getPosition() + (event.action === "forward" ? 10 : -10);
+        if (position !== null && Number.isFinite(position))
+          void seek(Math.max(0, Math.min(duration, position)));
+      }
+    },
+    setNotice,
   );
   const volumeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
@@ -504,7 +560,9 @@ export default function App() {
           .filter((t): t is Track => !!t)
       : view === "favorites"
         ? tracks.filter((t) => t.favorite)
-        : tracks;
+        : view === "unorganized"
+          ? tracks.filter((t) => !assignedIds.has(t.id))
+          : tracks;
     const q = query.trim().toLocaleLowerCase();
     list = list.filter(
       (t) =>
@@ -522,7 +580,7 @@ export default function App() {
             : a.title.localeCompare(b.title)) || a.title.localeCompare(b.title),
       );
     return list;
-  }, [tracks, view, selectedPlaylist, byId, query, filter, sort]);
+  }, [tracks, view, selectedPlaylist, byId, query, filter, sort, assignedIds]);
   useLayoutEffect(() => {
     const el = queueRef.current;
     if (!el) return;
@@ -580,11 +638,17 @@ export default function App() {
   const totalDuration = visibleTracks.reduce((sum, t) => sum + t.duration, 0);
   const title =
     selectedPlaylist?.name ??
-    (view === "favorites" ? "Tus favoritas" : "Tu biblioteca");
-  const start = Math.max(0, Math.floor(scroll / 68) - 4),
+    (view === "favorites"
+      ? "Tus favoritas"
+      : view === "unorganized"
+        ? "Sin organizar"
+        : view === "home"
+          ? "Resultados de búsqueda"
+          : "Todas las canciones");
+  const start = Math.max(0, Math.floor(scroll / 76) - 4),
     end = Math.min(
       visibleTracks.length,
-      Math.ceil((scroll + listHeight) / 68) + 4,
+      Math.ceil((scroll + listHeight) / 76) + 4,
     );
 
   async function playQueue(queue: Queue, from = 0) {
@@ -605,6 +669,7 @@ export default function App() {
     }
   }
   function playTrack(track: Track) {
+    if (selectedPlaylist) rememberPlaylist(selectedPlaylist.id);
     void playQueue(
       startQueue(
         visibleTracks.map((t) => t.id),
@@ -691,7 +756,7 @@ export default function App() {
       setNotice(`No se pudo adelantar: ${e}`);
     }
   }
-  async function importTracks(folder: boolean) {
+  async function importTracks(folder: boolean, target = selectedPlaylist?.id) {
     if (importing) return;
     setImporting(true);
     setProgress("Leyendo etiquetas y portadas…");
@@ -701,9 +766,33 @@ export default function App() {
       if (report) {
         setTracks(await api.loadLibrary());
         setImportErrors(report.errors);
-        setNotice(
-          `${report.tracks.length} canciones añadidas${report.skipped ? ` · ${report.skipped} ya importadas o no compatibles` : ""}${report.errors.length ? ` · ${report.errors.length} con error` : ""}`,
-        );
+        const ids = [
+          ...new Set([
+            ...report.tracks.map((t) => t.id),
+            ...(report.existingIds ?? []),
+          ]),
+        ];
+        const destination =
+          target &&
+          latest.current.settings.playlists.find((p) => p.id === target);
+        if (destination) {
+          const added = ids.filter((id) => !destination.trackIds.includes(id));
+          setSettings((s) => ({
+            ...s,
+            playlists: s.playlists.map((p) =>
+              p.id === target
+                ? { ...p, trackIds: [...new Set([...p.trackIds, ...ids])] }
+                : p,
+            ),
+          }));
+          setNotice(
+            `${added.length} canciones añadidas a «${destination.name}»${report.errors.length ? ` · ${report.errors.length} con error` : ""}`,
+          );
+        } else {
+          setNotice(
+            `${report.tracks.length} canciones añadidas${target ? " · La playlist ya no existe; las encontrarás en Sin organizar" : ""}${report.skipped ? ` · ${report.skipped} ya importadas o no compatibles` : ""}${report.errors.length ? ` · ${report.errors.length} con error` : ""}`,
+          );
+        }
       }
     } catch (e) {
       setNotice(`No se pudo importar: ${e}`);
@@ -913,6 +1002,7 @@ export default function App() {
   }
   const style = {
     "--ui-scale": settings.uiScale,
+    "--panel-width": `${settings.panelWidth}px`,
     "--accent": settings.appearance.accent,
     "--blur": `${settings.appearance.reduced || settings.performance === "economy" ? 0 : Math.min(settings.appearance.glass, settings.performance === "quality" ? 32 : 12)}px`,
     "--surface-alpha": settings.appearance.opacity / 100,
@@ -965,18 +1055,33 @@ export default function App() {
         <div className="nav-label">TU ESPACIO</div>
         <nav>
           <button
+            className={view === "home" ? "selected" : ""}
+            onClick={() => navigate("home")}
+          >
+            <HomeIcon size={19} />
+            Inicio
+          </button>
+          <button
             className={view === "library" ? "selected" : ""}
-            onClick={() => setView("library")}
+            onClick={() => navigate("library")}
           >
             <Library size={19} />
-            Biblioteca<span>{tracks.length}</span>
+            Todas las canciones<span>{tracks.length}</span>
           </button>
           <button
             className={view === "favorites" ? "selected" : ""}
-            onClick={() => setView("favorites")}
+            onClick={() => navigate("favorites")}
           >
             <Heart size={19} />
             Me gusta
+          </button>
+          <button
+            className={view === "unorganized" ? "selected" : ""}
+            onClick={() => navigate("unorganized")}
+          >
+            <FolderOpen size={19} />
+            Sin organizar
+            <span>{tracks.filter((t) => !assignedIds.has(t.id)).length}</span>
           </button>
         </nav>
         <div className="nav-label playlists-label">
@@ -1004,7 +1109,7 @@ export default function App() {
                   if (data) addToPlaylist(p.id, data.ids);
                   endDrag();
                 }}
-                onClick={() => setView(`playlist:${p.id}`)}
+                onClick={() => navigate(`playlist:${p.id}`)}
               >
                 <Cover cover={p.cover} title={p.name} />
                 <span>
@@ -1058,7 +1163,7 @@ export default function App() {
           </button>
         </div>
       </aside>
-      <main className="main glass">
+      <main className={`main glass ${showHome ? "home-main" : "songs-main"}`}>
         <header className="topbar">
           <div className="breadcrumbs">
             <Music2 size={16} />
@@ -1085,444 +1190,494 @@ export default function App() {
             <SlidersHorizontal size={19} />
           </IconButton>
         </header>
-        <section
-          className={`hero ${tracks.length ? "has-music" : ""} ${selectedPlaylist ? "playlist-hero" : ""}`}
-        >
-          {selectedPlaylist && (
-            <Cover
-              className="playlist-art"
-              cover={selectedPlaylist.cover}
-              title={selectedPlaylist.name}
-            />
-          )}
-          <div className="hero-copy" key={view}>
-            <div className="eyebrow">
-              {selectedPlaylist
-                ? "PLAYLIST"
-                : view === "favorites"
-                  ? "TUS IMPRESCINDIBLES"
-                  : "TU COLECCIÓN"}
-            </div>
-            <h1>{title}</h1>
-            <p>
-              {visibleTracks.length
-                ? `${visibleTracks.length} canciones · ${Math.floor(totalDuration / 60)} min de música`
-                : "Todo lo que quieres escuchar, en un solo lugar."}
-            </p>
-            <div className="hero-actions">
-              <button
-                className="primary"
-                disabled={!visibleTracks.length}
-                onClick={() => visibleTracks[0] && playTrack(visibleTracks[0])}
-              >
-                <Play size={16} fill="currentColor" /> Reproducir
-              </button>
-              {selectedPlaylist ? (
-                <button
-                  className="secondary"
-                  onClick={() =>
-                    setModal({
-                      type: "playlist",
-                      playlist: { ...selectedPlaylist },
-                    })
-                  }
-                >
-                  <Settings2 size={16} /> Editar playlist
-                </button>
-              ) : (
-                <button
-                  className="secondary"
-                  disabled={importing}
-                  onClick={() => importTracks(false)}
-                >
-                  <Plus size={17} />
-                  {importing ? "Importando…" : "Añadir música"}
-                </button>
+        {showHome ? (
+          <Home
+            name={settings.profile.name}
+            playlists={settings.playlists}
+            recent={settings.recentPlaylists}
+            byId={byId}
+            current={current}
+            position={settings.position}
+            playing={playing}
+            favoriteCount={tracks.filter((t) => t.favorite).length}
+            unorganizedCount={
+              tracks.filter((t) => !assignedIds.has(t.id)).length
+            }
+            open={navigate}
+            create={newPlaylist}
+            resume={() => {
+              if (!playing) void togglePlay();
+            }}
+            dragOver={allowPlaylistDrop}
+            dropTarget={dropTarget}
+            drop={(e, id) => {
+              e.preventDefault();
+              const data = droppedTrack(e);
+              if (data) addToPlaylist(id, data.ids);
+              endDrag();
+            }}
+          />
+        ) : (
+          <>
+            <section
+              className={`hero ${tracks.length ? "has-music" : ""} ${selectedPlaylist ? "playlist-hero" : ""}`}
+            >
+              {selectedPlaylist && (
+                <Cover
+                  className="playlist-art"
+                  cover={selectedPlaylist.cover}
+                  title={selectedPlaylist.name}
+                />
               )}
-            </div>
-          </div>
-          {!selectedPlaylist && (
-            <div className="hero-note">
-              <Disc3 size={26} />
-              <span>
-                Tu música.
-                <br />
-                <strong>Sin distracciones.</strong>
-              </span>
-            </div>
-          )}
-        </section>
-        <section className="collection" key={view}>
-          <div className="section-heading">
-            <div>
-              <h2>Canciones</h2>
-              <span>
-                {visibleTracks.length} canciones
-                {totalDuration > 0
-                  ? ` · ${Math.floor(totalDuration / 60)} min`
-                  : ""}
-              </span>
-            </div>
-            <div className="collection-actions">
-              <button
-                className={`shuffle-button ${settings.shuffle !== "off" ? "active" : ""}`}
-                onClick={() => {
-                  const shuffle =
-                    settings.shuffle === "off"
-                      ? "random"
-                      : settings.shuffle === "random"
-                        ? "varied"
-                        : "off";
-                  setSettings((s) => ({
-                    ...s,
-                    shuffle,
-                    queue: {
-                      ...s.queue,
-                      upcoming:
-                        shuffle === "off"
-                          ? s.queue.upcoming
-                          : mix(
-                              s.queue.upcoming,
-                              shuffle,
-                              tracks,
-                              s.queue.current,
-                            ),
-                    },
-                  }));
-                }}
-                title="Cambiar aleatorio: desactivado, sin repeticiones o mezcla variada"
-              >
-                <Shuffle size={16} />
-                <span>
-                  {settings.shuffle === "off"
-                    ? "En orden"
-                    : settings.shuffle === "random"
-                      ? "Sin repetir"
-                      : "Mezcla variada"}
-                </span>
-              </button>
-              <IconButton
-                label="Importar carpeta"
-                disabled={importing}
-                onClick={() => importTracks(true)}
-              >
-                <FolderPlus size={18} />
-              </IconButton>
-            </div>
-          </div>
-          {visibleTracks.length > 0 && (
-            <div className="selection-bar" role="status">
-              <span>
-                {selectedTracks.length
-                  ? `${selectedTracks.length} seleccionada${selectedTracks.length === 1 ? "" : "s"}`
-                  : "Ctrl + clic · Shift + clic · Arrastra para seleccionar"}
-              </span>
-              <button
-                disabled={!selectedTracks.length}
-                onClick={() => setModal({ type: "add", ids: selectedIds })}
-              >
-                Añadir a playlist
-              </button>
-              <button
-                disabled={!selectedTracks.length}
-                onClick={() => enqueue(selectedIds, false)}
-              >
-                Añadir a cola
-              </button>
-              <button
-                disabled={!selectedTracks.length}
-                className="danger"
-                onClick={() =>
-                  setModal({ type: "removeMany", tracks: selectedTracks })
-                }
-              >
-                Eliminar
-              </button>
-              <button
-                disabled={!selectedTracks.length}
-                aria-label="Limpiar selección"
-                onClick={() => setSelection(new Set())}
-              >
-                <X size={14} />
-              </button>
-            </div>
-          )}
-          <div className="filters">
-            <div className="chips">
-              {[
-                ["all", "Todo"],
-                ["FLAC", "FLAC"],
-                ["MP3", "MP3"],
-              ].map(([id, label]) => (
-                <button
-                  key={id}
-                  className={filter === id ? "selected" : ""}
-                  onClick={() => setFilter(id)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <label className="sort">
-              Ordenar por{" "}
-              <select
-                aria-label="Orden de canciones"
-                value={sort}
-                onChange={(e) => setSort(e.target.value)}
-              >
-                <option value="added">
-                  {selectedPlaylist ? "Tu orden" : "Añadidas"}
-                </option>
-                <option value="title">Título</option>
-                <option value="artist">Artista</option>
-              </select>
-            </label>
-          </div>
-          {importing && (
-            <div className="import-progress" role="status">
-              <span className="pulse-dot" />
-              Importando · {progress}
-            </div>
-          )}
-          {importErrors.length > 0 && (
-            <details className="import-errors">
-              <summary>
-                {importErrors.length} archivos no se pudieron importar
-              </summary>
-              {importErrors.map((error, i) => (
-                <p key={i}>{error}</p>
-              ))}
-            </details>
-          )}
-          {visibleTracks.length > 0 ? (
-            <>
-              <div className="table-heading">
-                <span>#</span>
-                <span>TÍTULO</span>
-                <span className="album-col">ÁLBUM</span>
-                <span>FORMATO</span>
-                <span />
-                <Clock3 size={13} />
-                <span />
-              </div>
-              <div
-                className={`track-list ${marquee.box ? "selecting-area" : ""}`}
-                ref={listRef}
-                onPointerDown={marquee.onPointerDown}
-                onPointerMove={marquee.onPointerMove}
-                onPointerUp={marquee.onPointerUp}
-                onPointerCancel={marquee.onPointerCancel}
-                onLostPointerCapture={marquee.onPointerCancel}
-                onClickCapture={marquee.onClickCapture}
-                onScroll={(e) => setScroll(e.currentTarget.scrollTop)}
-              >
-                <div
-                  className="track-canvas"
-                  style={{
-                    height: visibleTracks.length * 68,
-                    position: "relative",
-                  }}
-                >
-                  {visibleTracks.slice(start, end).map((track, offset) => {
-                    const index = start + offset,
-                      isCurrent = current?.id === track.id;
-                    return (
-                      <div
-                        key={track.id}
-                        data-track-id={track.id}
-                        className={`track-row ${isCurrent ? "current" : ""} ${selection.has(track.id) ? "selected-track" : ""} ${dragging === track.id ? "drag-source" : ""} ${dropTarget === `track:${track.id}` ? "reorder-target" : ""}`}
-                        draggable
-                        onDragStart={(e) =>
-                          beginDrag(e, track.id, selectedPlaylist?.id)
-                        }
-                        onDragEnd={endDrag}
-                        onContextMenu={(e) =>
-                          openSongMenu(e, track.id, selectedPlaylist?.id)
-                        }
-                        onDragOver={(e) => {
-                          if (
-                            selectedPlaylist &&
-                            sort === "added" &&
-                            e.dataTransfer.types.includes(TRACK_DRAG)
-                          ) {
-                            e.preventDefault();
-                            e.dataTransfer.dropEffect = "move";
-                            setDropTarget(`track:${track.id}`);
-                          }
-                        }}
-                        onDragLeave={() => setDropTarget(null)}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          const data = droppedTrack(e);
-                          if (
-                            selectedPlaylist &&
-                            sort === "added" &&
-                            data &&
-                            !data.ids.includes(track.id)
-                          ) {
-                            if (data.playlistId === selectedPlaylist.id) {
-                              setSettings((s) => ({
-                                ...s,
-                                playlists: s.playlists.map((p) => {
-                                  if (p.id !== selectedPlaylist.id) return p;
-                                  const ids = p.trackIds.filter(
-                                    (id) => !data.ids.includes(id),
-                                  );
-                                  ids.splice(
-                                    ids.indexOf(track.id),
-                                    0,
-                                    ...data.ids,
-                                  );
-                                  return { ...p, trackIds: ids };
-                                }),
-                              }));
-                            } else addToPlaylist(selectedPlaylist.id, data.ids);
-                          }
-                          endDrag();
-                        }}
-                        style={{
-                          position: "absolute",
-                          top: index * 68,
-                          left: 0,
-                          right: 0,
-                        }}
-                        onClick={(e) => {
-                          if (!(e.target as HTMLElement).closest("button"))
-                            selectTrack(e, track.id);
-                        }}
-                        onDoubleClick={(e) => {
-                          if (!e.ctrlKey && !e.metaKey && !e.shiftKey)
-                            playTrack(track);
-                        }}
-                      >
-                        <button
-                          className="track-number"
-                          aria-label={`Reproducir ${track.title}`}
-                          onClick={() =>
-                            isCurrent ? togglePlay() : playTrack(track)
-                          }
-                        >
-                          {isCurrent && playing ? (
-                            <Pause size={14} />
-                          ) : (
-                            <>
-                              <span>{index + 1}</span>
-                              <Play className="row-play" size={14} />
-                            </>
-                          )}
-                        </button>
-                        <button
-                          className="track-title"
-                          aria-pressed={selection.has(track.id)}
-                          onClick={(e) => selectTrack(e, track.id)}
-                        >
-                          <Cover cover={track.cover} title={track.album} />
-                          <span>
-                            <strong>{track.title}</strong>
-                            <small>
-                              {track.artist}
-                              {track.feats ? ` · feat. ${track.feats}` : ""}
-                            </small>
-                          </span>
-                        </button>
-                        <span className="album-col ellipsis">
-                          {track.album}
-                        </span>
-                        <span
-                          className={`format ${track.format.toLowerCase()}`}
-                        >
-                          {track.format}
-                        </span>
-                        <IconButton
-                          label={
-                            track.favorite
-                              ? `Quitar Me gusta a ${track.title}`
-                              : `Me gusta ${track.title}`
-                          }
-                          active={track.favorite}
-                          onClick={() => favorite(track)}
-                        >
-                          <Heart
-                            size={16}
-                            fill={track.favorite ? "currentColor" : "none"}
-                          />
-                        </IconButton>
-                        <span className="duration">
-                          {timeLabel(track.duration)}
-                        </span>
-                        <IconButton
-                          label={`Opciones de ${track.title}`}
-                          onClick={(e) =>
-                            openSongMenu(e, track.id, selectedPlaylist?.id)
-                          }
-                        >
-                          <Ellipsis size={19} />
-                        </IconButton>
-                      </div>
-                    );
-                  })}
+              <div className="hero-copy" key={view}>
+                <div className="eyebrow">
+                  {selectedPlaylist
+                    ? "PLAYLIST"
+                    : view === "favorites"
+                      ? "TUS IMPRESCINDIBLES"
+                      : "TU COLECCIÓN"}
                 </div>
-                {marquee.box && (
-                  <div
-                    className="selection-rectangle"
-                    style={marquee.box}
-                    aria-hidden="true"
-                  />
-                )}
+                <h1>{title}</h1>
+                <p>
+                  {visibleTracks.length
+                    ? `${visibleTracks.length} canciones · ${Math.floor(totalDuration / 60)} min de música`
+                    : "Todo lo que quieres escuchar, en un solo lugar."}
+                </p>
+                <div className="hero-actions">
+                  <button
+                    className="primary"
+                    disabled={!visibleTracks.length}
+                    onClick={() =>
+                      visibleTracks[0] && playTrack(visibleTracks[0])
+                    }
+                  >
+                    <Play size={16} fill="currentColor" /> Reproducir
+                  </button>
+                  {selectedPlaylist && (
+                    <button
+                      className="secondary"
+                      disabled={importing}
+                      onClick={() => importTracks(false)}
+                    >
+                      <Plus size={17} />
+                      {importing ? "Importando…" : "Añadir canciones"}
+                    </button>
+                  )}
+                  {selectedPlaylist ? (
+                    <button
+                      className="secondary"
+                      onClick={() =>
+                        setModal({
+                          type: "playlist",
+                          playlist: { ...selectedPlaylist },
+                        })
+                      }
+                    >
+                      <Settings2 size={16} /> Editar playlist
+                    </button>
+                  ) : (
+                    <button
+                      className="secondary"
+                      disabled={importing}
+                      onClick={() => importTracks(false)}
+                    >
+                      <Plus size={17} />
+                      {importing ? "Importando…" : "Añadir música"}
+                    </button>
+                  )}
+                </div>
               </div>
-            </>
-          ) : (
-            <div className="empty-library">
-              <div className="empty-icon">
-                {view === "favorites" ? (
-                  <Heart size={29} />
-                ) : (
-                  <Music2 size={29} />
-                )}
-              </div>
-              <h3>
-                {query || filter !== "all"
-                  ? "No hay coincidencias"
-                  : selectedPlaylist
-                    ? "Dale un sonido a esta playlist"
-                    : view === "favorites"
-                      ? "Aquí van las que te encantan"
-                      : "Tu colección empieza aquí"}
-              </h3>
-              <p>
-                {query || filter !== "all"
-                  ? "Prueba con otra búsqueda o formato."
-                  : selectedPlaylist
-                    ? "Arrastra canciones al nombre de esta playlist en la barra lateral o usa «Añadir a playlist»."
-                    : view === "favorites"
-                      ? "Toca el corazón de una canción para guardarla."
-                      : "Añade tus FLAC y MP3. Nosotros ponemos el espacio."}
-              </p>
-              {view === "library" && !query && (
-                <button
-                  className="secondary"
-                  disabled={importing}
-                  onClick={() => importTracks(true)}
-                >
-                  <FolderPlus size={17} />
-                  Elegir carpeta
-                </button>
+              {!selectedPlaylist && (
+                <div className="hero-note">
+                  <Disc3 size={26} />
+                  <span>
+                    Tu música.
+                    <br />
+                    <strong>Sin distracciones.</strong>
+                  </span>
+                </div>
               )}
-            </div>
-          )}
-        </section>
-        <footer className="library-footer">
-          <span>
-            <i /> BIBLIOTECA LOCAL
-          </span>
-          <span>
-            {tracks.filter((t) => t.format === "FLAC").length} FLAC ·{" "}
-            {tracks.filter((t) => t.format === "MP3").length} MP3
-          </span>
-        </footer>
+            </section>
+            <section className="collection" key={view}>
+              <div className="section-heading">
+                <div>
+                  <h2>Canciones</h2>
+                  <span>
+                    {visibleTracks.length} canciones
+                    {totalDuration > 0
+                      ? ` · ${Math.floor(totalDuration / 60)} min`
+                      : ""}
+                  </span>
+                </div>
+                <div className="collection-actions">
+                  <button
+                    className={`shuffle-button ${settings.shuffle !== "off" ? "active" : ""}`}
+                    onClick={() => {
+                      const shuffle =
+                        settings.shuffle === "off"
+                          ? "random"
+                          : settings.shuffle === "random"
+                            ? "varied"
+                            : "off";
+                      setSettings((s) => ({
+                        ...s,
+                        shuffle,
+                        queue: {
+                          ...s.queue,
+                          upcoming:
+                            shuffle === "off"
+                              ? s.queue.upcoming
+                              : mix(
+                                  s.queue.upcoming,
+                                  shuffle,
+                                  tracks,
+                                  s.queue.current,
+                                ),
+                        },
+                      }));
+                    }}
+                    title="Cambiar aleatorio: desactivado, sin repeticiones o mezcla variada"
+                  >
+                    <Shuffle size={16} />
+                    <span>
+                      {settings.shuffle === "off"
+                        ? "En orden"
+                        : settings.shuffle === "random"
+                          ? "Sin repetir"
+                          : "Mezcla variada"}
+                    </span>
+                  </button>
+                  <IconButton
+                    label="Importar carpeta"
+                    disabled={importing}
+                    onClick={() => importTracks(true)}
+                  >
+                    <FolderPlus size={18} />
+                  </IconButton>
+                </div>
+              </div>
+              {visibleTracks.length > 0 && (
+                <div className="selection-bar" role="status">
+                  <span>
+                    {selectedTracks.length
+                      ? `${selectedTracks.length} seleccionada${selectedTracks.length === 1 ? "" : "s"}`
+                      : "Ctrl + clic · Shift + clic · Arrastra para seleccionar"}
+                  </span>
+                  <button
+                    disabled={!selectedTracks.length}
+                    onClick={() => setModal({ type: "add", ids: selectedIds })}
+                  >
+                    Añadir a playlist
+                  </button>
+                  <button
+                    disabled={!selectedTracks.length}
+                    onClick={() => enqueue(selectedIds, false)}
+                  >
+                    Añadir a cola
+                  </button>
+                  <button
+                    disabled={!selectedTracks.length}
+                    className="danger"
+                    onClick={() =>
+                      setModal({ type: "removeMany", tracks: selectedTracks })
+                    }
+                  >
+                    Eliminar
+                  </button>
+                  <button
+                    disabled={!selectedTracks.length}
+                    aria-label="Limpiar selección"
+                    onClick={() => setSelection(new Set())}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
+              <div className="filters">
+                <div className="chips">
+                  {[
+                    ["all", "Todo"],
+                    ["FLAC", "FLAC"],
+                    ["MP3", "MP3"],
+                  ].map(([id, label]) => (
+                    <button
+                      key={id}
+                      className={filter === id ? "selected" : ""}
+                      onClick={() => setFilter(id)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <label className="sort">
+                  Ordenar por{" "}
+                  <select
+                    aria-label="Orden de canciones"
+                    value={sort}
+                    onChange={(e) => setSort(e.target.value)}
+                  >
+                    <option value="added">
+                      {selectedPlaylist ? "Tu orden" : "Añadidas"}
+                    </option>
+                    <option value="title">Título</option>
+                    <option value="artist">Artista</option>
+                  </select>
+                </label>
+              </div>
+              {importing && (
+                <div className="import-progress" role="status">
+                  <span className="pulse-dot" />
+                  Importando · {progress}
+                </div>
+              )}
+              {importErrors.length > 0 && (
+                <details className="import-errors">
+                  <summary>
+                    {importErrors.length} archivos no se pudieron importar
+                  </summary>
+                  {importErrors.map((error, i) => (
+                    <p key={i}>{error}</p>
+                  ))}
+                </details>
+              )}
+              {visibleTracks.length > 0 ? (
+                <>
+                  <div className="table-heading">
+                    <span>#</span>
+                    <span>TÍTULO</span>
+                    <span className="album-col">ÁLBUM</span>
+                    <span>FORMATO</span>
+                    <span />
+                    <Clock3 size={13} />
+                    <span />
+                  </div>
+                  <div
+                    className={`track-list ${marquee.box ? "selecting-area" : ""}`}
+                    ref={listRef}
+                    onPointerDown={marquee.onPointerDown}
+                    onPointerMove={marquee.onPointerMove}
+                    onPointerUp={marquee.onPointerUp}
+                    onPointerCancel={marquee.onPointerCancel}
+                    onLostPointerCapture={marquee.onPointerCancel}
+                    onClickCapture={marquee.onClickCapture}
+                    onScroll={(e) => setScroll(e.currentTarget.scrollTop)}
+                  >
+                    <div
+                      className="track-canvas"
+                      style={{
+                        height: visibleTracks.length * 76,
+                        position: "relative",
+                      }}
+                    >
+                      {visibleTracks.slice(start, end).map((track, offset) => {
+                        const index = start + offset,
+                          isCurrent = current?.id === track.id;
+                        return (
+                          <div
+                            key={track.id}
+                            data-track-id={track.id}
+                            className={`track-row ${isCurrent ? "current" : ""} ${selection.has(track.id) ? "selected-track" : ""} ${dragging === track.id ? "drag-source" : ""} ${dropTarget === `track:${track.id}` ? "reorder-target" : ""}`}
+                            draggable
+                            onDragStart={(e) =>
+                              beginDrag(e, track.id, selectedPlaylist?.id)
+                            }
+                            onDragEnd={endDrag}
+                            onContextMenu={(e) =>
+                              openSongMenu(e, track.id, selectedPlaylist?.id)
+                            }
+                            onDragOver={(e) => {
+                              if (
+                                selectedPlaylist &&
+                                sort === "added" &&
+                                e.dataTransfer.types.includes(TRACK_DRAG)
+                              ) {
+                                e.preventDefault();
+                                e.dataTransfer.dropEffect = "move";
+                                setDropTarget(`track:${track.id}`);
+                              }
+                            }}
+                            onDragLeave={() => setDropTarget(null)}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              const data = droppedTrack(e);
+                              if (
+                                selectedPlaylist &&
+                                sort === "added" &&
+                                data &&
+                                !data.ids.includes(track.id)
+                              ) {
+                                if (data.playlistId === selectedPlaylist.id) {
+                                  setSettings((s) => ({
+                                    ...s,
+                                    playlists: s.playlists.map((p) => {
+                                      if (p.id !== selectedPlaylist.id)
+                                        return p;
+                                      const ids = p.trackIds.filter(
+                                        (id) => !data.ids.includes(id),
+                                      );
+                                      ids.splice(
+                                        ids.indexOf(track.id),
+                                        0,
+                                        ...data.ids,
+                                      );
+                                      return { ...p, trackIds: ids };
+                                    }),
+                                  }));
+                                } else
+                                  addToPlaylist(selectedPlaylist.id, data.ids);
+                              }
+                              endDrag();
+                            }}
+                            style={{
+                              position: "absolute",
+                              top: index * 76,
+                              left: 0,
+                              right: 0,
+                            }}
+                            onClick={(e) => {
+                              if (!(e.target as HTMLElement).closest("button"))
+                                selectTrack(e, track.id);
+                            }}
+                            onDoubleClick={(e) => {
+                              if (!e.ctrlKey && !e.metaKey && !e.shiftKey)
+                                playTrack(track);
+                            }}
+                          >
+                            <button
+                              className="track-number"
+                              aria-label={`Reproducir ${track.title}`}
+                              onClick={() =>
+                                isCurrent ? togglePlay() : playTrack(track)
+                              }
+                            >
+                              {isCurrent && playing ? (
+                                <Pause size={14} />
+                              ) : (
+                                <>
+                                  <span>{index + 1}</span>
+                                  <Play className="row-play" size={14} />
+                                </>
+                              )}
+                            </button>
+                            <button
+                              className="track-title"
+                              aria-pressed={selection.has(track.id)}
+                              onClick={(e) => selectTrack(e, track.id)}
+                            >
+                              <Cover cover={track.cover} title={track.album} />
+                              <span>
+                                <strong>{track.title}</strong>
+                                <small>
+                                  {track.artist}
+                                  {track.feats ? ` · feat. ${track.feats}` : ""}
+                                </small>
+                              </span>
+                            </button>
+                            <span className="album-col ellipsis">
+                              {track.album}
+                            </span>
+                            <span
+                              className={`format ${track.format.toLowerCase()}`}
+                            >
+                              {track.format}
+                            </span>
+                            <IconButton
+                              label={
+                                track.favorite
+                                  ? `Quitar Me gusta a ${track.title}`
+                                  : `Me gusta ${track.title}`
+                              }
+                              active={track.favorite}
+                              onClick={() => favorite(track)}
+                            >
+                              <Heart
+                                size={16}
+                                fill={track.favorite ? "currentColor" : "none"}
+                              />
+                            </IconButton>
+                            <span className="duration">
+                              {timeLabel(track.duration)}
+                            </span>
+                            <IconButton
+                              label={`Opciones de ${track.title}`}
+                              onClick={(e) =>
+                                openSongMenu(e, track.id, selectedPlaylist?.id)
+                              }
+                            >
+                              <Ellipsis size={19} />
+                            </IconButton>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {marquee.box && (
+                      <div
+                        className="selection-rectangle"
+                        style={marquee.box}
+                        aria-hidden="true"
+                      />
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="empty-library">
+                  <div className="empty-icon">
+                    {view === "favorites" ? (
+                      <Heart size={29} />
+                    ) : (
+                      <Music2 size={29} />
+                    )}
+                  </div>
+                  <h3>
+                    {query || filter !== "all"
+                      ? "No hay coincidencias"
+                      : selectedPlaylist
+                        ? "Dale un sonido a esta playlist"
+                        : view === "favorites"
+                          ? "Aquí van las que te encantan"
+                          : "Tu colección empieza aquí"}
+                  </h3>
+                  <p>
+                    {query || filter !== "all"
+                      ? "Prueba con otra búsqueda o formato."
+                      : selectedPlaylist
+                        ? "Añade archivos directamente a esta playlist o arrastra canciones desde otra lista."
+                        : view === "favorites"
+                          ? "Toca el corazón de una canción para guardarla."
+                          : "Añade tus FLAC y MP3. Nosotros ponemos el espacio."}
+                  </p>
+                  {view === "library" && !query && (
+                    <button
+                      className="secondary"
+                      disabled={importing}
+                      onClick={() => importTracks(true)}
+                    >
+                      <FolderPlus size={17} />
+                      Elegir carpeta
+                    </button>
+                  )}
+                </div>
+              )}
+            </section>
+            <footer className="library-footer">
+              <span>
+                <i /> BIBLIOTECA LOCAL
+              </span>
+              <span>
+                {tracks.filter((t) => t.format === "FLAC").length} FLAC ·{" "}
+                {tracks.filter((t) => t.format === "MP3").length} MP3
+              </span>
+            </footer>
+          </>
+        )}
       </main>
       {panel && !focusView && (
         <aside className="right-panel glass" key={panel}>
+          <PanelResize
+            width={settings.panelWidth}
+            scale={settings.uiScale}
+            change={(panelWidth) => setSettings((s) => ({ ...s, panelWidth }))}
+          />
           <div className="panel-tabs">
             <button
               className={panel === "lyrics" ? "selected" : ""}
@@ -2211,6 +2366,7 @@ export default function App() {
           presence={presence}
           setSettings={setSettings}
           onClose={() => setModal(null)}
+          openPlaylist={(id) => navigate(id ? `playlist:${id}` : "home")}
           lyricTrack={modal.type === "lyrics" ? byId.get(modal.id) : undefined}
           lyricActive={modal.type === "lyrics" && modal.id === current?.id}
           lyricPlaying={playing}
@@ -2258,6 +2414,7 @@ function Editor({
   lyricPlaying,
   toggleLyrics,
   seekLyrics,
+  openPlaylist,
 }: {
   modal: NonNullable<Modal>;
   presence: api.PresenceStatus;
@@ -2273,6 +2430,7 @@ function Editor({
   lyricPlaying: boolean;
   toggleLyrics: () => void;
   seekLyrics: (position: number) => void;
+  openPlaylist: (id: string) => void;
 }) {
   const [track, setTrack] = useState(
     modal.type === "track" ? modal.track : null,
@@ -2326,6 +2484,7 @@ function Editor({
             : [...s.playlists, updated],
         }));
       }
+      if (playlist) openPlaylist(playlist.id);
       if (modal.type === "lyrics") {
         if (lyricError) throw new Error(lyricError);
         await onLyrics(modal.id, text);
@@ -2480,7 +2639,11 @@ function Editor({
                   setSettings((s) => ({
                     ...s,
                     playlists: s.playlists.filter((p) => p.id !== playlist.id),
+                    recentPlaylists: s.recentPlaylists.filter(
+                      (id) => id !== playlist.id,
+                    ),
                   }));
+                  openPlaylist("");
                   onClose();
                 }}
               >
