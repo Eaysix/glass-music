@@ -48,3 +48,15 @@ La candidata sigue pendiente de una prueba real en el PC del usuario: teclas mul
 El editor permite marcar palabras con el reloj nativo, corregir segundos, escuchar desde una palabra y deshacer. No deja guardar una sincronización incompleta o desordenada, tampoco al volver a otra pestaña. Ajustar una línea conserva sus palabras y desplaza sus tiempos; los versos repetidos, offsets, voces y milisegundos se conservan al editar. Las palabras sin espacios, como el chino, no reciben espacios artificiales en reproducción. El color de las palabras cantadas y de la palabra actual sigue el acento personalizado.
 
 Se añade un recorrido de interfaz para marcar con Espacio, impedir guardados incompletos, deshacer, corregir, conservar palabras al editar líneas, cancelar cambios, comprobar el color de acento y el retroceso, verificar el HUD pequeño y reabrir la letra guardada. Se ejecuta también en el flujo de Windows antes de generar el instalador. Las pruebas de palabras no sustituyen la comprobación de sincronía con la voz de las canciones del usuario.
+
+## Cambio de salida en 1.0.0-rc.3
+
+- Windows avisa de cambios de salida mediante `MediaDevice.DefaultAudioRenderDeviceChanged`. Las consultas existentes de play/status comprueban también el identificador del dispositivo predeterminado como respaldo; no se añade un temporizador en reposo.
+- El callback de error de Rodio avisa al hilo del reproductor. La reconstrucción y el seek se hacen fuera del callback, con hasta tres intentos y una posición congelada entre intentos. Se usan las configuraciones de la salida predeterminada, sin elegir otra salida arbitraria.
+- Se invalidan callbacks de streams anteriores. Un error tardío no interrumpe una canción nueva ni reanuda música tras pausar o detener.
+- Si no se puede abrir la salida, la canción queda pausada con un aviso y `ended = false`; no se avanza la cola. Reproducir vuelve a intentar la salida actual conservando la posición.
+- Siete pruebas del motor simulan cambio de salida, recuperación temporal, ausencia total de dispositivos, volumen/posición, pausa, callbacks antiguos, fin natural y cambio de canción fallido. Se ejecutan sin un dispositivo de audio. Las pruebas nativas y la compilación Windows se repiten en Actions.
+
+La conmutación física entre USB, Bluetooth y salida integrada queda pendiente de comprobar en el equipo del usuario. Pasar la simulación no confirma el comportamiento de sus controladores.
+
+Referencias: [evento de cambio de salida de Windows](https://learn.microsoft.com/en-us/uwp/api/windows.media.devices.mediadevice.defaultaudiorenderdevicechanged) y [builder de audio de Rodio 0.21.1](https://docs.rs/rodio/0.21.1/rodio/stream/struct.OutputStreamBuilder.html).

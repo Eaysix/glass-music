@@ -526,6 +526,13 @@ export default function App() {
           )
             return;
           setPosition(status.position);
+          if (status.outputError)
+            setNotice(
+              tr(
+                "Se perdió la salida de audio. Conecta tus audífonos y pulsa Reproducir para continuar: {p0}",
+                { p0: status.outputError },
+              ),
+            );
           if (status.ended) advanceRef.current(true);
           else if (!status.playing) setPlaying(false);
         } catch (e) {

@@ -1,4 +1,5 @@
 mod audio;
+mod audio_device;
 mod media;
 mod presence;
 use lofty::{file::AudioFile, prelude::*, tag::ItemKey};

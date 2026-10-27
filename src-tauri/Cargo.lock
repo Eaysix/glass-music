@@ -1208,7 +1208,7 @@ dependencies = [
 
 [[package]]
 name = "glass-music"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "discord-rich-presence",
  "image",

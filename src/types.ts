@@ -60,6 +60,7 @@ export interface Settings {
   position: number;
 }
 export interface AudioStatus {
+  outputError?: string | null;
   trackId: string | null;
   position: number;
   playing: boolean;

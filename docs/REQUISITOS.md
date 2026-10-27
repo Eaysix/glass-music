@@ -43,7 +43,7 @@ Reproductor personal de música local, principalmente FLAC y también MP3, con b
 ## Decisiones de la alpha
 
 - Tauri 2 + Rust; React/TypeScript para la interfaz. Sin Electron.
-- Audio nativo con Rodio/Symphonia; SQLite para biblioteca y ajustes.
+- Audio nativo con Rodio/Symphonia; SQLite para biblioteca y ajustes. Seguir cambios de salida predeterminada de Windows sin reiniciar la app; conservar canción, posición, volumen y pausa. Si no hay dispositivo, pausar sin avanzar la cola y permitir reanudar al conectar uno.
 - Los cambios de información, portadas y letras se guardan en la biblioteca. No se escriben etiquetas en originales.
 - En Windows, `dragDropEnabled: false` permite el arrastre HTML dentro de la app; importar archivos sigue usando el selector de archivos/carpetas.
 - Portadas reducidas a un máximo de 512 px, almacenadas en caché.

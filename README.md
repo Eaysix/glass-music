@@ -4,6 +4,10 @@ Tu música local, a tu manera. Reproductor para Windows centrado en FLAC y MP3, 
 
 ![Interfaz de la alpha con archivos de prueba sintéticos](docs/interface.webp)
 
+## Candidata 1.0.0-rc.3
+
+Corrige la salida de audio retenida al cambiar de audífonos o dispositivo predeterminado de Windows durante una canción. Reconstruye la salida con la canción, posición y volumen actuales. Si no hay salida disponible tras reintentar brevemente, queda en pausa y avisa; conecta una salida y pulsa **Reproducir** para continuar sin reiniciar la app. Cambiar de dispositivo mientras estaba pausada no inicia música. La publicación estable sigue pausada mientras se prueba este cambio con hardware real.
+
 ## Candidata 1.0.0-rc.2
 
 Añade **Sincronizar palabras** al editor: marca cada palabra mientras escuchas, usa Espacio con el botón enfocado, corrige segundos, escucha desde una palabra y deshaz marcas. Las palabras se resaltan con el color de acento personalizado, también en la vista grande. Los versos que solo tienen tiempo por línea conservan ese comportamiento; no se inventan tiempos automáticos. Ajustar una línea con Enhanced LRC desplaza sus palabras conservando los intervalos. Las ediciones se guardan en la biblioteca, sin modificar el archivo original.

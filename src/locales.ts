@@ -1804,4 +1804,10 @@ export const messages: Record<string, Record<string, string>> = {
       "zh-CN":
         "要添加时间，请选择“逐行同步”或“逐词同步”。导入后直接保存而不编辑，会保留原始 LRC。",
     },
+  "Se perdió la salida de audio. Conecta tus audífonos y pulsa Reproducir para continuar: {p0}":
+    {
+      en: "The audio output was lost. Connect your headphones and press Play to continue: {p0}",
+      de: "Die Audioausgabe wurde getrennt. Verbinde deine Kopfhörer und drücke Wiedergabe, um fortzufahren: {p0}",
+      "zh-CN": "音频输出已断开。连接耳机后，点击播放以继续：{p0}",
+    },
 };
