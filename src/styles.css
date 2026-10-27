@@ -3066,18 +3066,43 @@ button:active:not(:disabled) {
   grid-template-rows: minmax(0, 1fr);
 }
 .player-auto-hide > .player {
+  --player-content-opacity: 0;
+  --player-content-offset: 14px;
+  --player-content-delay: 0s;
+  --player-highlight-opacity: 0;
   position: absolute;
   left: 24px;
   right: 24px;
   bottom: 20px;
   height: 100px;
   margin: 0;
-  transform: translateY(145px);
+  transform-origin: 50% calc(100% + 20px);
+  transform: translateY(82px) scale(0.88, 0.64);
+  border-radius: 50px;
   opacity: 0;
   pointer-events: none;
   transition:
-    transform 0.3s var(--ease) 0.45s,
-    opacity 0.22s 0.45s;
+    transform 0.36s cubic-bezier(0.55, 0, 0.8, 0.45) 0.45s,
+    border-radius 0.36s ease 0.45s,
+    opacity 0.24s ease 0.51s;
+}
+/* The glass and its contents settle separately; no idle animation loop. */
+.player-auto-hide > .player::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(110deg, #ffffff1c, transparent 38%, #8ccdf30a);
+  opacity: var(--player-highlight-opacity);
+  transition: opacity 0.5s ease;
+}
+.player-auto-hide > .player > :is(.player-track, .transport, .player-extras) {
+  opacity: var(--player-content-opacity);
+  translate: 0 var(--player-content-offset);
+  transition:
+    opacity 0.2s ease calc(0.38s + var(--player-content-delay)),
+    translate 0.32s var(--ease) calc(0.38s + var(--player-content-delay));
 }
 .player-auto-hide:has(.player-reveal:hover) > .player,
 .player-auto-hide:has(.player-reveal:focus-visible) > .player,
@@ -3085,10 +3110,24 @@ button:active:not(:disabled) {
 .player-auto-hide:has(.player:focus-within) > .player,
 .player-auto-hide:has([data-volume-open="true"]) > .player,
 .player-auto-hide.controls-open > .player {
-  transform: none;
+  --player-content-opacity: 1;
+  --player-content-offset: 0px;
+  --player-content-delay: -0.32s;
+  --player-highlight-opacity: 1;
+  transform: translateY(0) scale(1);
+  border-radius: 28px;
   opacity: 1;
   pointer-events: auto;
-  transition-delay: 0s;
+  transition:
+    transform 0.56s cubic-bezier(0.16, 1.12, 0.3, 1),
+    border-radius 0.46s var(--ease),
+    opacity 0.22s ease;
+}
+.player-auto-hide > .player > .transport {
+  transition-delay: calc(0.42s + var(--player-content-delay));
+}
+.player-auto-hide > .player > .player-extras {
+  transition-delay: calc(0.46s + var(--player-content-delay));
 }
 .player-auto-hide > .focus-stage {
   bottom: 24px;
