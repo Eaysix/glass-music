@@ -4145,3 +4145,67 @@ button:active:not(:disabled) {
 .hud-narrow .panel-resize {
   display: none;
 }
+
+/* Word timing follows the same custom accent as playback. */
+.sync-words {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 8px 8px;
+}
+.word-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  text-align: left;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.word-chip small {
+  font-size: 10px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.word-chip.timed {
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.word-chip[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.word-correction {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 14px 0;
+}
+.word-correction label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.word-correction input {
+  width: 140px;
+  padding: 9px;
+  font-variant-numeric: tabular-nums;
+}
+.word-reset {
+  margin-top: 16px;
+}
+.lyric-word.current {
+  text-shadow: 0 0 14px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.reduced .lyric-word.current,
+.performance-economy .lyric-word.current {
+  text-shadow: none;
+}

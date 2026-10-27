@@ -270,6 +270,7 @@ export function shuffleQueue(
 export interface LyricWord {
   time: number;
   text: string;
+  spaceAfter?: string;
 }
 export interface LyricLine {
   time: number;
@@ -284,7 +285,7 @@ function stampSeconds(
 ): number {
   return Number(minutes) * 60 + Number(seconds) + Number(`0.${fraction ?? 0}`);
 }
-export function parseLrc(text: string): LyricLine[] {
+export function parseLrc(text: string, preserveOrder = false): LyricLine[] {
   const lines: LyricLine[] = [];
   let offset = Number(text.match(/\[offset:([+-]?\d+)\]/i)?.[1] ?? 0) / 1000;
   if (!Number.isFinite(offset)) offset = 0;
@@ -306,16 +307,25 @@ export function parseLrc(text: string): LyricLine[] {
     const voice = content.match(/^v(\d+):\s*/i)?.[1];
     content = content.replace(/^v\d+:\s*/i, "");
     const tags = [...content.matchAll(/<(\d+):(\d{2})(?:[.:](\d{1,3}))?>/g)];
+    const pieces = tags.map((tag, i) =>
+      content
+        .slice(tag.index! + tag[0].length, tags[i + 1]?.index ?? content.length)
+        .replace(/\s+/g, " "),
+    );
+    const lastWord = pieces.reduce(
+      (last, piece, i) => (piece.trim() ? i : last),
+      -1,
+    );
     const words: LyricWord[] = [];
     for (let i = 0; i < tags.length; i++) {
       const tag = tags[i],
-        start = tag.index! + tag[0].length,
-        end = tags[i + 1]?.index ?? content.length;
-      const word = content.slice(start, end).replace(/\s+/g, " ").trim();
+        rawWord = pieces[i],
+        word = rawWord.trim();
       if (word)
         words.push({
-          time: Math.max(0, stampSeconds(tag[1], tag[2], tag[3]) + offset),
+          time: stampSeconds(tag[1], tag[2], tag[3]) + offset,
           text: word,
+          ...(i < lastWord && !/\s$/.test(rawWord) ? { spaceAfter: "" } : {}),
         });
     }
     const clean = content
@@ -335,7 +345,7 @@ export function parseLrc(text: string): LyricLine[] {
       lines.push(line);
     }
   }
-  return lines.sort((a, b) => a.time - b.time);
+  return preserveOrder ? lines : lines.sort((a, b) => a.time - b.time);
 }
 export function lyricIndex(lines: LyricLine[], position: number): number {
   let lo = 0,

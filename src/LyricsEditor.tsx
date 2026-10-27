@@ -9,6 +9,10 @@ import {
   lrcStamp,
   serializeLyrics,
   timingError,
+  wordsForLyrics,
+  wordTimingError,
+  retimeLine,
+  retimeWord,
   type EditableLyric,
 } from "./lyrics-edit";
 function Clock({ active }: { active: boolean }) {
@@ -42,30 +46,62 @@ export default function LyricsEditor({
   seek: (position: number) => void;
   validate: (error: string) => void;
 }) {
-  const [mode, setMode] = useState<"write" | "sync">("write");
+  const [mode, setMode] = useState<"write" | "sync" | "words">("write");
   const [selected, setSelected] = useState(0);
+  const [word, setWord] = useState(0);
+  const [draft, setDraft] = useState<EditableLyric[] | null>(null);
   const [undo, setUndo] = useState<
     {
       text: string;
       selected: number;
+      word: number;
+      rows: EditableLyric[] | null;
     }[]
   >([]);
   const [error, setError] = useState("");
-  const rows = useMemo(() => editableLyrics(text), [text]);
+  const parsed = useMemo(() => editableLyrics(text), [text]);
+  const rows = draft ?? parsed;
+  const latest = useRef({ rows, selected, word, mode });
+  latest.current = { rows, selected, word, mode };
   const list = useRef<HTMLDivElement>(null);
-  const problem = mode === "sync" ? timingError(rows, duration) : "";
+  const problem =
+    mode === "words" || draft?.some((row) => row.words?.length)
+      ? wordTimingError(rows, duration, mode === "words")
+      : mode === "sync" || draft
+        ? timingError(rows, duration)
+        : "";
   useEffect(() => {
     validate(problem);
   }, [problem, validate]);
   useEffect(() => {
     list.current
-      ?.querySelector(`[data-sync-row="${selected}"]`)
+      ?.querySelector(
+        mode === "words"
+          ? `.word-chip[aria-pressed="true"]`
+          : `[data-sync-row="${selected}"]`,
+      )
       ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }, [selected]);
+  }, [selected, word, mode]);
   function change(next: EditableLyric[], advance = false) {
-    setUndo((history) => [...history.slice(-49), { text, selected }]);
+    setUndo((history) => [
+      ...history.slice(-49),
+      { text, selected, word, rows: draft },
+    ]);
+    setDraft(next);
     setText(serializeLyrics(next));
-    if (advance) setSelected((index) => Math.min(index + 1, rows.length - 1));
+    if (advance && mode === "words") {
+      if (word + 1 < (next[selected]?.words?.length ?? 0)) setWord(word + 1);
+      else {
+        const following = next.findIndex(
+          (row, i) => i > selected && row.words?.length,
+        );
+        if (following >= 0) {
+          setSelected(following);
+          setWord(0);
+        } else setWord(next[selected]?.words?.length ?? 0);
+      }
+    } else if (advance)
+      setSelected((index) => Math.min(index + 1, rows.length - 1));
   }
   const marking = useRef(false);
   async function mark() {
@@ -77,12 +113,21 @@ export default function LyricsEditor({
         throw new Error(
           t("Vuelve a reproducir esta canci\u00F3n para marcarla."),
         );
+      const current = latest.current;
+      if (
+        current.rows !== rows ||
+        current.selected !== selected ||
+        current.word !== word ||
+        current.mode !== mode
+      )
+        return;
+      const time = Math.round(status.position * 100) / 100;
       change(
-        rows.map((row, i) =>
-          i === selected
-            ? { ...row, time: Math.round(status.position * 100) / 100 }
-            : row,
-        ),
+        mode === "words"
+          ? retimeWord(rows, selected, word, time)
+          : rows.map((row, i) =>
+              i === selected ? retimeLine(row, time) : row,
+            ),
         true,
       );
       setError("");
@@ -96,7 +141,7 @@ export default function LyricsEditor({
     <div className="lyric-workshop">
       <p className="modal-description">
         {t(
-          "Escribe tu letra y marca cada l\u00EDnea mientras escuchas. Se guarda en tu biblioteca, sin modificar el audio.",
+          "Escribe tu letra y marca líneas o palabras mientras escuchas. Se guarda en tu biblioteca, sin modificar el audio.",
         )}
       </p>
       <div
@@ -128,6 +173,36 @@ export default function LyricsEditor({
         >
           {t("Sincronizar l\u00EDneas")}
         </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === "words"}
+          onClick={() => {
+            const next = wordsForLyrics(rows);
+            setDraft(next);
+            setMode("words");
+            const line = next.findIndex((row) =>
+              row.words?.some((part) => part.time === null),
+            );
+            const index =
+              line >= 0
+                ? line
+                : Math.max(
+                    0,
+                    next.findIndex((row) => row.words?.length),
+                  );
+            setSelected(index);
+            setWord(
+              Math.max(
+                0,
+                next[index]?.words?.findIndex((part) => part.time === null) ??
+                  0,
+              ),
+            );
+          }}
+        >
+          {t("Sincronizar palabras")}
+        </button>
       </div>
       {mode === "write" ? (
         <>
@@ -140,7 +215,9 @@ export default function LyricsEditor({
                 if (value !== null) {
                   setText(value);
                   setUndo([]);
+                  setDraft(null);
                   setSelected(0);
+                  setWord(0);
                 }
               } catch (e) {
                 setError(String(e));
@@ -158,6 +235,9 @@ export default function LyricsEditor({
             onChange={(e) => {
               setText(e.target.value);
               setUndo([]);
+              setDraft(null);
+              setSelected(0);
+              setWord(0);
             }}
             placeholder={t(
               "Una l\u00EDnea por verso\u2026\nTambi\u00E9n puedes pegar una letra con tiempos LRC.",
@@ -165,7 +245,7 @@ export default function LyricsEditor({
           />
           <p className="privacy-note">
             {t(
-              "Para a\u00F1adir tiempos, abre \u00ABSincronizar l\u00EDneas\u00BB. Importar y guardar sin editar conserva el LRC original, incluidos los tiempos por palabra.",
+              "Para añadir tiempos, elige «Sincronizar líneas» o «Sincronizar palabras». Importar y guardar sin editar conserva el LRC original.",
             )}
           </p>
         </>
@@ -199,9 +279,13 @@ export default function LyricsEditor({
           </div>
           <SeekControl duration={duration} enabled={active} seek={seek} />
           <p className="privacy-note">
-            {t(
-              "Selecciona la primera l\u00EDnea y pulsa \u00ABMarcar l\u00EDnea y seguir\u00BB cuando empiece a cantarse. El bot\u00F3n avanza a la siguiente; tambi\u00E9n funciona con Espacio si lo dejas enfocado. La sincronizaci\u00F3n manual se guarda por l\u00EDnea.",
-            )}
+            {mode === "words"
+              ? t(
+                  "Pulsa «Marcar palabra y seguir» al escuchar cada palabra. También puedes usar Espacio con el botón enfocado, corregir segundos y deshacer. El resaltado usa tu color personalizado.",
+                )
+              : t(
+                  "Selecciona la primera línea y pulsa «Marcar línea y seguir» cuando empiece a cantarse. El botón avanza a la siguiente; también funciona con Espacio si lo dejas enfocado. La sincronización manual se guarda por línea.",
+                )}
           </p>
           <div
             className="sync-lines"
@@ -225,7 +309,10 @@ export default function LyricsEditor({
                     p0: index + 1,
                   })}
                   aria-pressed={selected === index}
-                  onClick={() => setSelected(index)}
+                  onClick={() => {
+                    setSelected(index);
+                    setWord(0);
+                  }}
                 >
                   <small>{index + 1}</small>
                   <span>{row.text || t("Pausa instrumental")}</span>
@@ -247,8 +334,10 @@ export default function LyricsEditor({
                         rows.map((item, i) =>
                           i === index
                             ? {
-                                ...item,
-                                time: value === "" ? null : Number(value),
+                                ...retimeLine(
+                                  item,
+                                  value === "" ? null : Number(value),
+                                ),
                               }
                             : item,
                         ),
@@ -270,10 +359,82 @@ export default function LyricsEditor({
                 >
                   {t("Ir")}
                 </button>
+                {mode === "words" && row.words?.length ? (
+                  <div
+                    className="sync-words"
+                    aria-label={t("Palabras de la línea {p0}", {
+                      p0: index + 1,
+                    })}
+                  >
+                    {row.words.map((part, at) => (
+                      <button
+                        type="button"
+                        key={at}
+                        aria-label={t(
+                          "Seleccionar palabra {p0} de la línea {p1}: {p2}",
+                          { p0: at + 1, p1: index + 1, p2: part.text },
+                        )}
+                        aria-pressed={selected === index && word === at}
+                        className={
+                          part.time === null ? "word-chip" : "word-chip timed"
+                        }
+                        onClick={() => {
+                          setSelected(index);
+                          setWord(at);
+                        }}
+                      >
+                        <span>{part.text}</span>
+                        <small>
+                          {part.time === null
+                            ? t("Sin marcar")
+                            : lrcStamp(part.time)}
+                        </small>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             ))}
             {!rows.length && <p>{t("Escribe o importa la letra primero.")}</p>}
           </div>
+          {mode === "words" && rows[selected]?.words?.[word] && (
+            <div className="word-correction">
+              <label>
+                {t("Palabra seleccionada: {p0}", {
+                  p0: rows[selected].words![word].text,
+                })}
+                <input
+                  type="number"
+                  min="0"
+                  max={duration || undefined}
+                  step="0.01"
+                  aria-label={t(
+                    "Tiempo de la palabra seleccionada en segundos",
+                  )}
+                  value={rows[selected].words![word].time ?? ""}
+                  placeholder={t("Sin marcar")}
+                  onChange={(e) =>
+                    change(
+                      retimeWord(
+                        rows,
+                        selected,
+                        word,
+                        e.target.value === "" ? null : Number(e.target.value),
+                      ),
+                    )
+                  }
+                />
+              </label>
+              <button
+                type="button"
+                className="text-button"
+                disabled={!active || rows[selected].words![word].time === null}
+                onClick={() => seek(rows[selected].words![word].time!)}
+              >
+                {t("Escuchar palabra")}
+              </button>
+            </div>
+          )}
           <div className="sync-actions">
             <button
               type="button"
@@ -283,6 +444,8 @@ export default function LyricsEditor({
                 const last = undo.at(-1)!;
                 setText(last.text);
                 setSelected(last.selected);
+                setWord(last.word);
+                setDraft(last.rows);
                 setUndo((history) => history.slice(0, -1));
               }}
             >
@@ -290,18 +453,55 @@ export default function LyricsEditor({
               {t("Deshacer marca")}
             </button>
             <span>
-              {rows.filter((row) => row.time !== null).length} / {rows.length}{" "}
-              {t("l\u00EDneas")}
+              {mode === "words" ? (
+                <>
+                  {
+                    rows
+                      .flatMap((row) => row.words ?? [])
+                      .filter((part) => part.time !== null).length
+                  }{" "}
+                  / {rows.flatMap((row) => row.words ?? []).length}{" "}
+                  {t("palabras")}
+                </>
+              ) : (
+                <>
+                  {rows.filter((row) => row.time !== null).length} /{" "}
+                  {rows.length} {t("líneas")}
+                </>
+              )}
             </span>
             <button
               type="button"
               className="primary"
-              disabled={!active || !rows.length}
+              disabled={
+                !active ||
+                !rows.length ||
+                (mode === "words" && !rows[selected]?.words?.[word])
+              }
+              onKeyDown={(e) => {
+                if (e.repeat && (e.key === " " || e.key === "Enter"))
+                  e.preventDefault();
+              }}
               onClick={mark}
             >
-              {t("Marcar l\u00EDnea y seguir")}
+              {mode === "words"
+                ? t("Marcar palabra y seguir")
+                : t("Marcar línea y seguir")}
             </button>
           </div>
+          {mode === "words" && (
+            <button
+              type="button"
+              className="text-button word-reset"
+              onClick={() => {
+                change(rows.map(({ words: _words, ...row }) => row));
+                setMode("sync");
+                setWord(0);
+              }}
+            >
+              {t("Quitar tiempos por palabra")}
+            </button>
+          )}
           {problem && (
             <p className="form-error" role="status">
               {problem}

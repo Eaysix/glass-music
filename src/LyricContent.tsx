@@ -38,9 +38,12 @@ function ActiveWords({
   return (
     <>
       {line.words.map((part, i) => (
-        <span key={i} className={i <= word ? "lyric-word sung" : "lyric-word"}>
+        <span
+          key={i}
+          className={`lyric-word${i <= word ? " sung" : ""}${i === word ? " current" : ""}`}
+        >
           {part.text}
-          {i < line.words!.length - 1 ? " " : ""}
+          {i < line.words!.length - 1 ? (part.spaceAfter ?? " ") : ""}
         </span>
       ))}
     </>

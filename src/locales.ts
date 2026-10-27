@@ -1726,4 +1726,82 @@ export const messages: Record<string, Record<string, string>> = {
     de: "GEÄNDERT",
     "zh-CN": "修改日期",
   },
+  "Sincronizar palabras": {
+    en: "Sync words",
+    de: "Wörter synchronisieren",
+    "zh-CN": "逐词同步",
+  },
+  "Faltan palabras por marcar. Completa sus tiempos antes de guardar.": {
+    en: "Some words are not timed yet. Mark them before saving.",
+    de: "Einige Wörter haben noch keine Zeitmarke. Ergänze sie vor dem Speichern.",
+    "zh-CN": "还有词语未标记时间，请完成后再保存。",
+  },
+  "Revisa la palabra {p0} de la línea {p1}: sus tiempos deben ir en orden y dentro del verso.":
+    {
+      en: "Check word {p0} in line {p1}: times must be in order and within the verse.",
+      de: "Prüfe Wort {p0} in Zeile {p1}: Die Zeiten müssen aufeinanderfolgen und innerhalb der Zeile liegen.",
+      "zh-CN":
+        "请检查第 {p1} 行的第 {p0} 个词：时间须按顺序排列，且位于本行范围内。",
+    },
+  "Pulsa «Marcar palabra y seguir» al escuchar cada palabra. También puedes usar Espacio con el botón enfocado, corregir segundos y deshacer. El resaltado usa tu color personalizado.":
+    {
+      en: "Press “Mark word and continue” as you hear each word. With the button focused, you can also press Space, adjust seconds and undo. Highlighting uses your custom color.",
+      de: "Drücke „Wort markieren und weiter“, sobald du das Wort hörst. Bei fokussierter Schaltfläche geht auch die Leertaste. Du kannst Sekunden korrigieren und Marken rückgängig machen. Die Hervorhebung nutzt deine gewählte Farbe.",
+      "zh-CN":
+        "听到每个词时，点击“标记词语并继续”。按钮获得焦点后也可按空格键。你可以调整秒数或撤销标记，高亮使用你自定义的颜色。",
+    },
+  "Palabras de la línea {p0}": {
+    en: "Words in line {p0}",
+    de: "Wörter in Zeile {p0}",
+    "zh-CN": "第 {p0} 行的词语",
+  },
+  "Seleccionar palabra {p0} de la línea {p1}: {p2}": {
+    en: "Select word {p0} in line {p1}: {p2}",
+    de: "Wort {p0} in Zeile {p1} auswählen: {p2}",
+    "zh-CN": "选择第 {p1} 行的第 {p0} 个词：{p2}",
+  },
+  "Palabra seleccionada: {p0}": {
+    en: "Selected word: {p0}",
+    de: "Ausgewähltes Wort: {p0}",
+    "zh-CN": "已选词语：{p0}",
+  },
+  "Tiempo de la palabra seleccionada en segundos": {
+    en: "Selected word time in seconds",
+    de: "Zeit des ausgewählten Wortes in Sekunden",
+    "zh-CN": "已选词语的时间（秒）",
+  },
+  "Escuchar palabra": {
+    en: "Listen from word",
+    de: "Ab Wort anhören",
+    "zh-CN": "从该词开始试听",
+  },
+  palabras: {
+    en: "words",
+    de: "Wörter",
+    "zh-CN": "词语",
+  },
+  "Marcar palabra y seguir": {
+    en: "Mark word and continue",
+    de: "Wort markieren und weiter",
+    "zh-CN": "标记词语并继续",
+  },
+  "Quitar tiempos por palabra": {
+    en: "Remove word timing",
+    de: "Wortzeitmarken entfernen",
+    "zh-CN": "移除逐词时间标记",
+  },
+  "Escribe tu letra y marca líneas o palabras mientras escuchas. Se guarda en tu biblioteca, sin modificar el audio.":
+    {
+      en: "Write your lyrics and mark lines or words while listening. They are saved in your library without changing the audio.",
+      de: "Schreibe deinen Text und markiere beim Hören Zeilen oder Wörter. Er wird in deiner Bibliothek gespeichert, ohne die Audiodatei zu verändern.",
+      "zh-CN":
+        "写下歌词，边听边标记行或词语。歌词保存在曲库中，不会修改音频文件。",
+    },
+  "Para añadir tiempos, elige «Sincronizar líneas» o «Sincronizar palabras». Importar y guardar sin editar conserva el LRC original.":
+    {
+      en: "To add timing, choose “Sync lines” or “Sync words”. Importing and saving without editing preserves the original LRC.",
+      de: "Wähle „Zeilen synchronisieren“ oder „Wörter synchronisieren“, um Zeiten hinzuzufügen. Importieren und Speichern ohne Bearbeitung erhält das ursprüngliche LRC.",
+      "zh-CN":
+        "要添加时间，请选择“逐行同步”或“逐词同步”。导入后直接保存而不编辑，会保留原始 LRC。",
+    },
 };

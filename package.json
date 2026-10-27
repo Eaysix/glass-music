@@ -1,7 +1,7 @@
 {
   "name": "glass-music",
   "private": true,
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0-rc.2",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -13,7 +13,8 @@
     "test:home": "node scripts/home-smoke.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test:stability": "node scripts/stability-smoke.mjs"
+    "test:stability": "node scripts/stability-smoke.mjs",
+    "test:words": "node scripts/words-smoke.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",

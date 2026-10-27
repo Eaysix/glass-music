@@ -48,7 +48,7 @@ Reproductor personal de música local, principalmente FLAC y también MP3, con b
 - En Windows, `dragDropEnabled: false` permite el arrastre HTML dentro de la app; importar archivos sigue usando el selector de archivos/carpetas.
 - Portadas reducidas a un máximo de 512 px, almacenadas en caché.
 - Vista grande de portada o letra, que sigue la canción actual y conserva los controles visibles.
-- Enhanced LRC con sincronización por palabra y limpieza de marcas de voces.
+- Enhanced LRC con sincronización por palabra y limpieza de marcas de voces. El editor permite marcar palabras con el reloj de reproducción, corregir, escuchar y deshacer. Usa el color personalizado; no distribuye tiempos ficticios. Ajustar tiempos de línea conserva y desplaza las palabras existentes.
 - Letras embebidas y archivos .lrc junto al audio se leen al importar. Un LRC externo tiene prioridad. Se editan luego desde la app.
 - La mezcla variada separa artistas cuando hay alternativas; la separación por álbum queda pendiente.
 - Cambiar el modo aleatorio reordena únicamente lo que queda en la cola; no vuelve a añadir lo ya escuchado.

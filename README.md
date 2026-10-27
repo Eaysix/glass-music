@@ -4,6 +4,12 @@ Tu música local, a tu manera. Reproductor para Windows centrado en FLAC y MP3, 
 
 ![Interfaz de la alpha con archivos de prueba sintéticos](docs/interface.webp)
 
+## Candidata 1.0.0-rc.2
+
+Añade **Sincronizar palabras** al editor: marca cada palabra mientras escuchas, usa Espacio con el botón enfocado, corrige segundos, escucha desde una palabra y deshaz marcas. Las palabras se resaltan con el color de acento personalizado, también en la vista grande. Los versos que solo tienen tiempo por línea conservan ese comportamiento; no se inventan tiempos automáticos. Ajustar una línea con Enhanced LRC desplaza sus palabras conservando los intervalos. Las ediciones se guardan en la biblioteca, sin modificar el archivo original.
+
+La publicación de la 1.0.0 estable está pausada mientras se prueba esta candidata.
+
 ## Candidata 1.0.0-rc.1
 
 - Cola vinculada al origen de reproducción: las nuevas importaciones se incorporan a las pendientes, y al quitar una búsqueda se recupera la playlist completa conservando la canción y la posición actuales.
@@ -72,7 +78,7 @@ Nusa consume las sesiones multimedia de Windows, así que esta es la vía de com
 
 ## Editor de letras
 
-Desde **Editar letra**, escribe o pega un verso por línea. En **Sincronizar líneas**, reproduce la canción y pulsa **Marcar línea y seguir** al comenzar cada verso. Con el botón enfocado puedes usar Espacio. Puedes deshacer, corregir segundos manualmente y escuchar desde una línea marcada. Completa todos los tiempos en orden antes de guardar. Cancelar conserva la letra anterior; el audio original no se modifica. El LRC por palabra se conserva si solo lo importas y guardas; la sincronización manual genera tiempos por línea.
+Desde **Editar letra**, escribe o pega un verso por línea. En **Sincronizar líneas**, reproduce la canción y pulsa **Marcar línea y seguir** al comenzar cada verso. Con el botón enfocado puedes usar Espacio. Puedes deshacer, corregir segundos manualmente y escuchar desde una línea marcada. Completa todos los tiempos en orden antes de guardar. Para resaltar palabra por palabra, abre **Sincronizar palabras** y marca cada una cuando se canta; al terminar un verso, el editor pasa al siguiente. Puedes ajustar el tiempo de la palabra seleccionada y escuchar desde ella. Cancelar conserva la letra anterior; el audio original no se modifica. El LRC por palabra se conserva si solo lo importas y guardas; el modo de líneas guarda tiempos por línea y el de palabras genera Enhanced LRC. Quitar los tiempos por palabra es una acción explícita que puedes deshacer antes de guardar.
 
 ## Discord: configuración inicial del proyecto
 

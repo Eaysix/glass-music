@@ -42,3 +42,9 @@ La prueba de decodificación sin dispositivo reproduce y corrige el error del le
 - Se añadieron pruebas de cola con 1.500 canciones, entradas manuales, filtros e importaciones, cobertura del catálogo y un recorrido de interfaz que cambia los cuatro idiomas y verifica su persistencia. El flujo de Windows ejecuta estos recorridos además de los de letras, edición, selección, inicio y virtualización de 5.000 registros.
 
 La candidata sigue pendiente de una prueba real en el PC del usuario: teclas multimedia de Windows con la ventana en segundo plano, metadatos en Nusa y letras de sus archivos, presencia de Discord con su aplicación configurada y rendimiento con su biblioteca. Compilar correctamente y pasar pruebas sintéticas no confirma por sí solo esas integraciones ni autoriza a describir la candidata como estable.
+
+## Sincronización por palabras en 1.0.0-rc.2
+
+El editor permite marcar palabras con el reloj nativo, corregir segundos, escuchar desde una palabra y deshacer. No deja guardar una sincronización incompleta o desordenada, tampoco al volver a otra pestaña. Ajustar una línea conserva sus palabras y desplaza sus tiempos; los versos repetidos, offsets, voces y milisegundos se conservan al editar. Las palabras sin espacios, como el chino, no reciben espacios artificiales en reproducción. El color de las palabras cantadas y de la palabra actual sigue el acento personalizado.
+
+Se añade un recorrido de interfaz para marcar con Espacio, impedir guardados incompletos, deshacer, corregir, conservar palabras al editar líneas, cancelar cambios, comprobar el color de acento y el retroceso, verificar el HUD pequeño y reabrir la letra guardada. Se ejecuta también en el flujo de Windows antes de generar el instalador. Las pruebas de palabras no sustituyen la comprobación de sincronía con la voz de las canciones del usuario.
