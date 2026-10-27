@@ -3,11 +3,13 @@ import { useLayoutEffect, useRef, type ReactNode } from "react";
 /** A pointer-anchored menu with keyboard navigation and focus restoration. */
 export default function ContextMenu({
   x,
+  scale = 1,
   y,
   close,
   children,
 }: {
   x: number;
+  scale?: number;
   y: number;
   close: () => void;
   children: ReactNode;
@@ -18,8 +20,8 @@ export default function ContextMenu({
     const menu = ref.current!;
     const place = () => {
       const rect = menu.getBoundingClientRect();
-      menu.style.left = `${Math.max(12, Math.min(x, innerWidth - rect.width - 12))}px`;
-      menu.style.top = `${Math.max(12, Math.min(y, innerHeight - rect.height - 12))}px`;
+      menu.style.left = `${Math.max(12, Math.min(x, innerWidth - rect.width - 12)) / scale}px`;
+      menu.style.top = `${Math.max(12, Math.min(y, innerHeight - rect.height - 12)) / scale}px`;
     };
     place();
     menu.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
@@ -28,7 +30,7 @@ export default function ContextMenu({
       window.removeEventListener("resize", close);
       if (previous?.isConnected) previous.focus({ preventScroll: true });
     };
-  }, [x, y]);
+  }, [x, y, scale]);
   return (
     <div
       className="menu-backdrop"

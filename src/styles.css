@@ -2986,3 +2986,597 @@ button:active:not(:disabled) {
     scroll-behavior: auto !important;
   }
 }
+/* 0.2 controls and configurable surfaces */
+.app {
+  --surface-rgb: 31 45 66;
+  zoom: var(--ui-scale, 1);
+  width: calc(100vw / var(--ui-scale, 1));
+  height: calc(100dvh / var(--ui-scale, 1));
+  min-width: 0;
+  min-height: 0;
+}
+.app.light {
+  --surface-rgb: 245 249 255;
+}
+.brand-mark span {
+  background: var(--accent);
+}
+.app .glass {
+  background:
+    linear-gradient(135deg, #eef6ff0c, transparent 45%, #bcd9ff05),
+    rgb(var(--surface-rgb) / var(--surface-alpha));
+}
+.performance-balanced .ambient,
+.performance-economy .ambient {
+  display: none;
+}
+.app .album-atmosphere,
+.app .focus-backdrop {
+  filter: none;
+  opacity: 0.26;
+}
+.app .focus-backdrop {
+  opacity: 0.34;
+}
+.app.performance-economy .glass,
+.app.reduced .glass {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: var(--solid);
+  box-shadow: inset 0 1px 0 #ffffff14;
+}
+.performance-economy .brand-mark span {
+  animation: none;
+}
+.no-motion *,
+.no-motion *::before,
+.no-motion *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+.lyric-line {
+  font-size: calc(23px * var(--lyrics-scale, 1));
+}
+.focus-line {
+  font-size: clamp(
+    26px,
+    calc(3.5vw * var(--lyrics-scale, 1)),
+    calc(60px * var(--lyrics-scale, 1))
+  );
+}
+.player-reveal {
+  position: absolute;
+  z-index: 12;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.player-reveal span {
+  width: 44px;
+  height: 4px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.player-auto-hide {
+  grid-template-rows: minmax(0, 1fr);
+}
+.player-auto-hide > .player {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  bottom: 20px;
+  height: 100px;
+  margin: 0;
+  transform: translateY(145px);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 0.3s var(--ease) 0.45s,
+    opacity 0.22s 0.45s;
+}
+.player-auto-hide:has(.player-reveal:hover) > .player,
+.player-auto-hide:has(.player-reveal:focus-visible) > .player,
+.player-auto-hide:has(.player:hover) > .player,
+.player-auto-hide:has(.player:focus-within) > .player,
+.player-auto-hide:has([data-volume-open="true"]) > .player,
+.player-auto-hide.controls-open > .player {
+  transform: none;
+  opacity: 1;
+  pointer-events: auto;
+  transition-delay: 0s;
+}
+.player-auto-hide > .focus-stage {
+  bottom: 24px;
+}
+.volume-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+.player .volume {
+  width: 100px;
+  height: 22px;
+  accent-color: var(--accent);
+}
+.volume-percent {
+  min-width: 43px;
+  padding: 6px 3px;
+  font-size: 11px;
+  color: var(--text);
+  border-radius: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.volume-percent:hover {
+  background: var(--hover);
+}
+.volume-popover {
+  position: absolute;
+  bottom: calc(100% + 24px);
+  right: 0;
+  width: 280px;
+  padding: 18px;
+  border-radius: 22px;
+  z-index: 50;
+  animation: surface-arrive 0.2s var(--ease);
+}
+.app .volume-popover {
+  background: var(--solid);
+}
+.volume-popover header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+.volume-popover > input {
+  width: 100%;
+  height: 22px;
+}
+.volume-exact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin: 16px 0;
+}
+.volume-exact > button {
+  width: 32px;
+  height: 32px;
+  background: var(--hover);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+.volume-exact label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 19px;
+}
+.volume-exact input {
+  width: 58px;
+  text-align: center;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  font-size: 22px;
+  appearance: textfield;
+}
+.volume-exact input::-webkit-inner-spin-button {
+  appearance: none;
+}
+.volume-presets {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  margin: 15px 0;
+}
+.volume-presets button {
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--hover);
+  font-size: 11px;
+}
+.volume-popover > small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: center;
+}
+.player {
+  grid-template-columns: minmax(180px, 1fr) minmax(250px, 1.05fr) minmax(
+      260px,
+      1fr
+    );
+  gap: 20px;
+}
+.player-extras {
+  gap: 4px;
+}
+.player-quality {
+  display: none;
+}
+.settings-tabs {
+  display: flex;
+  gap: 5px;
+  padding: 5px;
+  border-radius: 16px;
+  background: var(--hover);
+  margin: 20px 0;
+  overflow-x: auto;
+}
+.settings-tabs button {
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.settings-tabs button[aria-selected="true"] {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--text);
+  box-shadow: inset 0 1px 0 #ffffff20;
+}
+.settings-content {
+  animation: track-arrive 0.22s var(--ease);
+  min-height: 200px;
+}
+.editor:has(.settings-panel) {
+  width: 620px;
+}
+.settings-content .settings-section:first-of-type {
+  border: 0;
+  margin-top: 0;
+  padding-top: 0;
+}
+.settings-content .range-label {
+  margin-top: 24px;
+}
+.settings-content .color-hex {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 20px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.settings-content .color-hex input {
+  max-width: 125px;
+  font-family: monospace;
+}
+.settings-select,
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text);
+  margin: 26px 0 14px;
+}
+.settings-select select {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--solid);
+  color: var(--text);
+  font-size: 12px;
+}
+.settings-help {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.8;
+  margin-top: 15px;
+}
+.settings-help .text-button {
+  display: inline;
+  text-decoration: underline;
+}
+.restore-appearance {
+  margin-top: 26px;
+}
+.performance-options {
+  display: grid;
+  gap: 10px;
+}
+.performance-options > button {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+}
+.performance-options > button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.performance-options span {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.performance-options strong {
+  font-size: 13px;
+}
+.performance-options small {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.presence-status {
+  margin-top: 20px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--hover);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+.presence-status i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+.presence-status.connected i {
+  background: var(--accent);
+}
+.discord-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--line);
+  background: var(--hover);
+  border-radius: 16px;
+  padding: 18px;
+  margin-top: 22px;
+}
+.discord-preview small {
+  font-size: 8px;
+  letter-spacing: 1.7px;
+  color: var(--muted);
+}
+.discord-preview strong {
+  font-size: 15px;
+  color: var(--accent);
+}
+.discord-preview span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.editor {
+  max-width: calc(100vw / var(--ui-scale, 1) - 24px);
+  max-height: calc(100dvh / var(--ui-scale, 1) - 24px);
+}
+.context-menu {
+  max-height: calc(100dvh / var(--ui-scale, 1) - 24px);
+}
+.app.hud-narrow {
+  grid-template-columns: 168px minmax(320px, 1fr) 252px;
+  gap: 10px;
+  padding: 10px;
+}
+.app.hud-narrow:not(:has(.right-panel)) {
+  grid-template-columns: 168px minmax(0, 1fr);
+}
+.hud-narrow .hero-note,
+.hud-narrow .breadcrumbs > span {
+  display: none;
+}
+.hud-narrow .topbar {
+  padding: 0 20px;
+}
+.hud-narrow .search {
+  max-width: none;
+  flex: 1;
+}
+.hud-narrow .collection {
+  padding: 0 18px;
+}
+.hud-narrow .table-heading,
+.hud-narrow .track-row {
+  grid-template-columns: 22px minmax(100px, 1fr) 43px 28px 32px 25px;
+  gap: 5px;
+}
+.hud-narrow .album-col {
+  display: none;
+}
+.app.hud-compact,
+.app.hud-compact:not(:has(.right-panel)) {
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+.hud-compact .sidebar {
+  padding: 22px 7px 12px;
+}
+.hud-compact .brand {
+  padding: 0 0 28px;
+  justify-content: center;
+}
+.hud-compact .brand > span,
+.hud-compact .brand small,
+.hud-compact .nav-label:not(.playlists-label) {
+  display: none;
+}
+.hud-compact nav button {
+  justify-content: center;
+  padding: 12px 0;
+  font-size: 0;
+  gap: 0;
+}
+.hud-compact nav button span {
+  display: none;
+}
+.hud-compact .playlists-label {
+  padding: 24px 0 8px;
+  justify-content: center;
+}
+.hud-compact .playlists-label > span,
+.hud-compact .playlists-nav > button > span,
+.hud-compact .local-status,
+.hud-compact .profile > span,
+.hud-compact .profile > svg {
+  display: none;
+}
+.hud-compact .playlists-nav > button {
+  justify-content: center;
+  padding: 8px 0;
+}
+.hud-compact .profile {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+.hud-compact .right-panel {
+  position: absolute;
+  z-index: 11;
+  right: 10px;
+  top: 10px;
+  bottom: 124px;
+  width: 270px;
+  background: var(--solid);
+}
+.hud-compact.player-auto-hide .right-panel {
+  bottom: 10px;
+}
+.hud-compact .player {
+  grid-template-columns: minmax(125px, 0.8fr) minmax(180px, 1fr) minmax(
+      145px,
+      0.8fr
+    );
+  padding: 10px 12px;
+  gap: 8px;
+}
+.hud-compact .player .volume {
+  display: none;
+}
+.hud-compact .player-track {
+  gap: 8px;
+}
+.hud-compact .player-track > .icon-button {
+  display: none;
+}
+.hud-compact .player-extras {
+  gap: 0;
+}
+.hud-compact .player-track .cover {
+  width: 42px;
+  height: 42px;
+}
+.hud-compact .transport-buttons {
+  gap: 10px;
+}
+.hud-compact .focus-layout {
+  grid-template-columns: minmax(130px, 0.7fr) minmax(220px, 1.3fr);
+  gap: 5%;
+  padding-left: 5%;
+  padding-right: 5%;
+}
+.hud-compact .focus-header {
+  padding: 16px 20px;
+  gap: 10px;
+}
+.hud-compact .focus-header > span {
+  display: none;
+}
+.hud-compact .focus-switch button {
+  padding: 8px 12px;
+}
+.hud-compact .focus-line {
+  font-size: calc(30px * var(--lyrics-scale, 1));
+}
+.hud-compact .focus-art-info h1 {
+  font-size: 22px;
+}
+.app.hud-short .hero,
+.app.hud-short .hero.has-music {
+  min-height: 130px;
+  padding: 12px 22px 18px;
+}
+.hud-short .hero h1,
+.hud-short .hero.has-music h1 {
+  font-size: 32px;
+  margin: 8px 0;
+  letter-spacing: -1px;
+}
+.hud-short .hero .eyebrow,
+.hud-short .hero-note {
+  display: none;
+}
+.hud-short .hero-actions {
+  margin-top: 12px;
+}
+.hud-short .topbar {
+  height: 58px;
+}
+.hud-short .main {
+  overflow-y: auto;
+}
+.hud-short .collection {
+  flex: 1 0 260px;
+}
+.hud-short .section-heading {
+  padding: 5px 0 8px;
+}
+.hud-short .filters {
+  padding: 4px 0 10px;
+}
+.hud-short .library-footer {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.hud-short .lyric-track > .cover {
+  height: 110px;
+}
+@media (max-width: 1250px) {
+  .player {
+    grid-template-columns: minmax(150px, 0.8fr) minmax(230px, 1fr) minmax(
+        220px,
+        1fr
+      );
+    gap: 12px;
+  }
+  .player .volume {
+    width: 70px;
+  }
+  .player-auto-hide > .player {
+    left: 16px;
+    right: 16px;
+  }
+}
+@media (max-width: 1000px) {
+  .player {
+    grid-template-columns: minmax(145px, 0.8fr) minmax(210px, 1fr) minmax(
+        230px,
+        1fr
+      );
+    padding: 10px 14px;
+    gap: 10px;
+  }
+  .player-track {
+    gap: 9px;
+  }
+  .player-track > .icon-button {
+    display: none;
+  }
+  .player .volume {
+    width: 60px;
+  }
+  .player-auto-hide > .player {
+    left: 10px;
+    right: 10px;
+  }
+}

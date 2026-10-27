@@ -43,7 +43,16 @@ export const loadSettings = async (): Promise<Settings> => {
     ...base,
     ...saved,
     profile: { ...base.profile, ...saved?.profile },
-    appearance: { ...base.appearance, ...saved?.appearance },
+    appearance: {
+      ...base.appearance,
+      ...saved?.appearance,
+      accent: saved?.appearanceVersion
+        ? (saved.appearance?.accent ?? base.appearance.accent)
+        : base.appearance.accent,
+    },
+    appearanceVersion: 1,
+    player: { ...base.player, ...saved?.player },
+    discord: { ...base.discord, ...saved?.discord },
     queue: { ...base.queue, ...saved?.queue },
   };
 };
@@ -284,4 +293,37 @@ export async function audioCommand(
     playing: !!webId && !audio.paused && !audio.ended,
     ended: audio.ended,
   };
+}
+
+export interface PresenceStatus {
+  state:
+    | "disabled"
+    | "needs-id"
+    | "paused"
+    | "connected"
+    | "unavailable"
+    | "browser";
+  message: string;
+}
+export async function discordUpdate(
+  config: Settings["discord"],
+  trackId: string | null,
+  playing: boolean,
+  position: number,
+): Promise<PresenceStatus> {
+  if (!native)
+    return {
+      state: "browser",
+      message:
+        "La conexión con Discord está disponible en la aplicación de Windows.",
+    };
+  return invoke("discord_update", { config, trackId, playing, position });
+}
+export async function openDiscordPortal() {
+  if (native) return invoke<void>("open_discord_portal");
+  window.open(
+    "https://discord.com/developers/applications",
+    "_blank",
+    "noopener,noreferrer",
+  );
 }

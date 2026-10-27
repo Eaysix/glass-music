@@ -43,13 +43,18 @@ import {
   X,
 } from "lucide-react";
 import * as api from "./api";
+import { getPosition, setPosition, useActiveLine } from "./playback";
+import SeekControl from "./SeekControl";
+import VolumeControl from "./VolumeControl";
+import Atmosphere from "./Atmosphere";
+import SettingsPanel from "./SettingsPanel";
+import { useDiscordPresence } from "./useDiscordPresence";
 import FocusStage from "./FocusStage";
 import ContextMenu from "./ContextMenu";
 import { LyricContent } from "./LyricContent";
 import type { Playlist, Queue, Settings, Track } from "./types";
 import { defaults } from "./types";
 import {
-  lyricIndex,
   mix,
   nextQueue,
   parseLrc,
@@ -58,6 +63,7 @@ import {
   timeLabel,
 } from "./queue";
 
+const NO_LINES: ReturnType<typeof parseLrc> = [];
 const TRACK_DRAG = "application/x-glass-track";
 const QUEUE_DRAG = "application/x-glass-queue";
 type SongMenu = { id: string; x: number; y: number; playlistId?: string };
@@ -130,10 +136,13 @@ export default function App() {
     [filter, setFilter] = useState("all"),
     [sort, setSort] = useState("added");
   const [playing, setPlaying] = useState(false),
-    [position, setPosition] = useState(0),
     [panel, setPanel] = useState<"lyrics" | "queue" | null>("lyrics");
+  const [transportRevision, setTransportRevision] = useState(0);
+  const [viewport, setViewport] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  });
   const [focusView, setFocusView] = useState<"lyrics" | "cover" | null>(null);
-  const [scrub, setScrub] = useState<number | null>(null);
   const [lyrics, setLyrics] = useState(""),
     [modal, setModal] = useState<Modal>(null),
     [notice, setNotice] = useState("");
@@ -150,8 +159,8 @@ export default function App() {
   const queueRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null),
     busy = useRef(false),
-    latest = useRef({ settings, tracks, position, playing });
-  latest.current = { settings, tracks, position, playing };
+    latest = useRef({ settings, tracks, playing });
+  latest.current = { settings, tracks, playing };
   const saveChain = useRef(Promise.resolve()),
     advanceRef = useRef<(automatic?: boolean) => void>(() => {});
   const current = useMemo(
@@ -163,7 +172,60 @@ export default function App() {
   );
   const byId = useMemo(() => new Map(tracks.map((t) => [t.id, t])), [tracks]);
   const timed = useMemo(() => parseLrc(lyrics), [lyrics]),
-    activeLine = lyricIndex(timed, position);
+    activeLine = useActiveLine(
+      focusView === "lyrics" || (!focusView && panel === "lyrics")
+        ? timed
+        : NO_LINES,
+    );
+  const presence = useDiscordPresence(
+    ready,
+    settings.discord,
+    current,
+    playing,
+    transportRevision,
+  );
+  const volumeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  useEffect(() => () => clearTimeout(volumeTimer.current), []);
+  function changeVolume(value: number) {
+    const volume = Math.max(0, Math.min(1, value));
+    setSettings((s) => ({ ...s, volume }));
+    latest.current.settings = { ...latest.current.settings, volume };
+    if (volumeTimer.current !== undefined) return;
+    volumeTimer.current = setTimeout(() => {
+      volumeTimer.current = undefined;
+      api
+        .audioCommand("volume", null, latest.current.settings.volume)
+        .catch((e) => setNotice(String(e)));
+    }, 50);
+  }
+  useEffect(() => {
+    const resize = () =>
+      setViewport({ width: window.innerWidth, height: window.innerHeight });
+    const wheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      if (e.deltaY)
+        setSettings((s) => ({
+          ...s,
+          uiScale: Math.max(
+            0.75,
+            Math.min(
+              1.5,
+              Math.round((s.uiScale + (e.deltaY < 0 ? 0.05 : -0.05)) * 100) /
+                100,
+            ),
+          ),
+        }));
+    };
+    window.addEventListener("resize", resize);
+    window.addEventListener("wheel", wheel, { passive: false });
+    return () => {
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("wheel", wheel);
+    };
+  }, []);
   const activeLyricRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -227,8 +289,16 @@ export default function App() {
               position:
                 status.trackId === snapshot.queue.current
                   ? status.position
-                  : latest.current.position,
+                  : getPosition(),
             });
+            await api
+              .discordUpdate(
+                { ...latest.current.settings.discord, enabled: false },
+                null,
+                false,
+                0,
+              )
+              .catch(() => {});
             await window.destroy();
           } catch (error) {
             closing = false;
@@ -306,36 +376,62 @@ export default function App() {
     if (!playing) return;
     let alive = true,
       polling = false;
-    const timer = setInterval(async () => {
-      if (polling || busy.current) return;
-      polling = true;
-      try {
-        const status = await api.audioCommand("status");
-        if (
-          !alive ||
-          busy.current ||
-          status.trackId !== latest.current.settings.queue.current
-        )
-          return;
-        setPosition(status.position);
-        if (status.ended) advanceRef.current(true);
-        else if (!status.playing) setPlaying(false);
-      } catch (e) {
-        if (alive) {
-          setPlaying(false);
-          setNotice(String(e));
+    const timer = setInterval(
+      async () => {
+        if (polling || busy.current) return;
+        polling = true;
+        try {
+          const status = await api.audioCommand("status");
+          if (
+            !alive ||
+            busy.current ||
+            status.trackId !== latest.current.settings.queue.current
+          )
+            return;
+          setPosition(status.position);
+          if (status.ended) advanceRef.current(true);
+          else if (!status.playing) setPlaying(false);
+        } catch (e) {
+          if (alive) {
+            setPlaying(false);
+            setNotice(String(e));
+          }
+        } finally {
+          polling = false;
         }
-      } finally {
-        polling = false;
-      }
-    }, 500);
+      },
+      settings.performance === "quality" ? 500 : 1000,
+    );
     return () => {
       alive = false;
       clearInterval(timer);
     };
-  }, [playing]);
+  }, [playing, settings.performance]);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        ["+", "=", "-", "_", "0"].includes(e.key)
+      ) {
+        e.preventDefault();
+        setSettings((s) => ({
+          ...s,
+          uiScale:
+            e.key === "0"
+              ? 1
+              : Math.max(
+                  0.75,
+                  Math.min(
+                    1.5,
+                    Math.round(
+                      (s.uiScale + (["+", "="].includes(e.key) ? 0.1 : -0.1)) *
+                        100,
+                    ) / 100,
+                  ),
+                ),
+        }));
+        return;
+      }
       if (e.code === "Escape" && menu) {
         setMenu(null);
         return;
@@ -436,6 +532,7 @@ export default function App() {
       const status = await api.audioCommand("play", queue.current, from);
       setSettings((s) => ({ ...s, queue, position: status.position }));
       setPosition(status.position);
+      setTransportRevision((n) => n + 1);
       setPlaying(status.playing);
     } catch (e) {
       await api.audioCommand("pause").catch(() => {});
@@ -470,7 +567,7 @@ export default function App() {
         state.tracks.find((t) => t.id === state.settings.queue.current)
           ?.duration ?? 0;
       const resumeAt =
-        duration > 0 && state.position >= duration - 0.5 ? 0 : state.position;
+        duration > 0 && getPosition() >= duration - 0.5 ? 0 : getPosition();
       const status = await api.audioCommand(
         state.playing ? "pause" : "play",
         state.settings.queue.current,
@@ -478,6 +575,7 @@ export default function App() {
       );
       setPlaying(status.playing);
       setPosition(status.position);
+      setTransportRevision((n) => n + 1);
       setSettings((s) => ({ ...s, position: status.position }));
     } catch (e) {
       setNotice(String(e));
@@ -510,7 +608,7 @@ export default function App() {
       setPlaying(false);
       const endPosition =
         library.find((t) => t.id === s.queue.current)?.duration ??
-        latest.current.position;
+        getPosition();
       setPosition(endPosition);
       void api.audioCommand("pause").catch((e) => setNotice(String(e)));
       setSettings((s) => ({ ...s, position: endPosition }));
@@ -518,13 +616,14 @@ export default function App() {
   }
   advanceRef.current = advance;
   function back() {
-    if (position > 3 || !settings.queue.history.length) void seek(0);
+    if (getPosition() > 3 || !settings.queue.history.length) void seek(0);
     else void playQueue(previousQueue(settings.queue));
   }
   async function seek(value: number) {
     try {
       const status = await api.audioCommand("seek", null, value);
       setPosition(status.position);
+      setTransportRevision((n) => n + 1);
       setSettings((s) => ({ ...s, position: status.position }));
     } catch (e) {
       setNotice(`No se pudo adelantar: ${e}`);
@@ -700,8 +799,11 @@ export default function App() {
     }));
   }
   const style = {
+    "--ui-scale": settings.uiScale,
     "--accent": settings.appearance.accent,
-    "--blur": `${settings.appearance.reduced ? 0 : settings.appearance.glass}px`,
+    "--blur": `${settings.appearance.reduced || settings.performance === "economy" ? 0 : Math.min(settings.appearance.glass, settings.performance === "quality" ? 32 : 12)}px`,
+    "--surface-alpha": settings.appearance.opacity / 100,
+    "--lyrics-scale": settings.appearance.lyricScale,
   } as CSSProperties;
   if (fatal)
     return (
@@ -727,15 +829,11 @@ export default function App() {
         )
           e.preventDefault();
       }}
-      className={`app ${playing ? "is-playing" : ""} ${dragging ? "is-dragging" : ""} ${focusView ? "focus-open" : ""} ${settings.appearance.theme} ${settings.appearance.reduced ? "reduced" : ""}`}
+      className={`app ${viewport.width / settings.uiScale < 1250 ? "hud-narrow" : ""} ${viewport.width / settings.uiScale < 850 ? "hud-compact" : ""} ${viewport.height / settings.uiScale < 790 ? "hud-short" : ""} ${playing ? "is-playing" : ""} ${dragging ? "is-dragging" : ""} ${focusView ? "focus-open" : ""} ${settings.appearance.theme} performance-${settings.performance} ${settings.appearance.animations ? "" : "no-motion"} ${settings.player.autoHide ? "player-auto-hide" : ""} ${modal || menu ? "controls-open" : ""} ${settings.appearance.reduced ? "reduced" : ""}`}
       style={style}
     >
-      {current?.cover && (
-        <img
-          className="album-atmosphere"
-          src={api.coverUrl(current.cover)}
-          alt=""
-        />
+      {current?.cover && settings.appearance.albumBackground && (
+        <Atmosphere className="album-atmosphere" cover={current.cover} />
       )}
       <div className="ambient ambient-one" />
       <div className="ambient ambient-two" />
@@ -1315,7 +1413,6 @@ export default function App() {
                         >
                           <LyricContent
                             line={line}
-                            position={position}
                             playing={playing}
                             active={i === activeLine}
                           />
@@ -1534,8 +1631,8 @@ export default function App() {
           lyrics={lyrics}
           lines={timed}
           active={activeLine}
-          position={position}
           playing={playing}
+          albumBackground={settings.appearance.albumBackground}
           seek={seek}
           close={() => setFocusView(null)}
           edit={() =>
@@ -1543,6 +1640,15 @@ export default function App() {
             setModal({ type: "lyrics", id: current.id, text: lyrics })
           }
         />
+      )}
+      {settings.player.autoHide && (
+        <button
+          className="player-reveal"
+          aria-label="Mostrar controles de reproducción"
+          title="Acerca el mouse para mostrar el reproductor"
+        >
+          <span />
+        </button>
       )}
       <footer className="player glass">
         <div
@@ -1660,48 +1766,11 @@ export default function App() {
               )}
             </IconButton>
           </div>
-          <div className="seek">
-            <span>{timeLabel(position)}</span>
-            <input
-              aria-label="Posición de reproducción"
-              type="range"
-              min="0"
-              max={current?.duration || 1}
-              step="0.1"
-              value={Math.min(scrub ?? position, current?.duration || 1)}
-              disabled={!current}
-              onChange={(e) => setScrub(Number(e.target.value))}
-              onPointerUp={(e) => {
-                void seek(Number(e.currentTarget.value));
-                setScrub(null);
-              }}
-              onPointerCancel={() => setScrub(null)}
-              onKeyUp={(e) => {
-                if (
-                  [
-                    "ArrowLeft",
-                    "ArrowRight",
-                    "ArrowUp",
-                    "ArrowDown",
-                    "Home",
-                    "End",
-                    "PageUp",
-                    "PageDown",
-                  ].includes(e.key)
-                ) {
-                  void seek(Number(e.currentTarget.value));
-                  setScrub(null);
-                }
-              }}
-              onBlur={(e) => {
-                if (scrub !== null) {
-                  void seek(Number(e.currentTarget.value));
-                  setScrub(null);
-                }
-              }}
-            />
-            <span>{timeLabel(current?.duration ?? 0)}</span>
-          </div>
+          <SeekControl
+            duration={current?.duration ?? 0}
+            enabled={!!current}
+            seek={seek}
+          />
         </div>
         <div className="player-extras">
           <IconButton
@@ -1745,38 +1814,20 @@ export default function App() {
           >
             <ListMusic size={19} />
           </IconButton>
-          <IconButton
-            label={settings.volume ? "Silenciar" : "Activar sonido"}
-            onClick={() => {
-              const volume = settings.volume ? 0 : 0.7;
-              setSettings((s) => ({ ...s, volume }));
-              api
-                .audioCommand("volume", null, volume)
-                .catch((e) => setNotice(String(e)));
-            }}
-          >
-            {settings.volume ? <Volume2 size={18} /> : <VolumeX size={18} />}
-          </IconButton>
-          <input
-            className="volume"
-            aria-label="Volumen"
-            type="range"
-            min="0"
-            max="1"
-            step="0.01"
+          <VolumeControl
             value={settings.volume}
-            onChange={(e) => {
-              const volume = Number(e.target.value);
-              setSettings((s) => ({ ...s, volume }));
-              api
-                .audioCommand("volume", null, volume)
-                .catch((e) => setNotice(String(e)));
-            }}
+            step={settings.player.volumeStep}
+            change={changeVolume}
           />
         </div>
       </footer>
       {menu && byId.get(menu.id) && (
-        <ContextMenu x={menu.x} y={menu.y} close={() => setMenu(null)}>
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          scale={settings.uiScale}
+          close={() => setMenu(null)}
+        >
           <strong>
             {byId.get(menu.id)!.title}
             <small>{byId.get(menu.id)!.artist}</small>
@@ -1901,6 +1952,7 @@ export default function App() {
         <Editor
           modal={modal}
           settings={settings}
+          presence={presence}
           setSettings={setSettings}
           onClose={() => setModal(null)}
           changeTrack={changeTrack}
@@ -1926,6 +1978,7 @@ export default function App() {
 
 function Editor({
   modal,
+  presence,
   settings,
   setSettings,
   onClose,
@@ -1934,6 +1987,7 @@ function Editor({
   onLyrics,
 }: {
   modal: NonNullable<Modal>;
+  presence: api.PresenceStatus;
   settings: Settings;
   setSettings: React.Dispatch<React.SetStateAction<Settings>>;
   onClose: () => void;
@@ -2025,7 +2079,7 @@ function Editor({
         <div className="modal-heading">
           <div>
             <span className="eyebrow">GLASS MUSIC</span>
-            <h2>Canciones</h2>
+            <h2>{title}</h2>
           </div>
           <IconButton
             label="Cerrar"
@@ -2037,168 +2091,12 @@ function Editor({
           </IconButton>
         </div>
         {modal.type === "settings" && (
-          <>
-            <p className="modal-description">
-              Tu espacio personal. Todo se guarda en este equipo.
-            </p>
-            <div className="profile-editor">
-              <button
-                type="button"
-                className="photo-picker"
-                onClick={() => image("profile")}
-              >
-                {settings.profile.photo ? (
-                  <img
-                    src={api.coverUrl(settings.profile.photo)}
-                    alt="Foto de perfil"
-                  />
-                ) : (
-                  <UserRound size={28} />
-                )}
-                <span>
-                  <Plus size={14} />
-                </span>
-              </button>
-              <label>
-                Nombre del perfil
-                <input
-                  maxLength={60}
-                  value={settings.profile.name}
-                  onChange={(e) =>
-                    setSettings((s) => ({
-                      ...s,
-                      profile: { ...s.profile, name: e.target.value },
-                    }))
-                  }
-                  placeholder="¿Cómo te llamas?"
-                />
-              </label>
-              {settings.profile.photo && (
-                <button
-                  type="button"
-                  className="text-button"
-                  onClick={() =>
-                    setSettings((s) => ({
-                      ...s,
-                      profile: { ...s.profile, photo: null },
-                    }))
-                  }
-                >
-                  Quitar foto
-                </button>
-              )}
-            </div>
-            <div className="settings-section">
-              <h3>Tu color</h3>
-              <div className="swatches">
-                {[
-                  "#b8d8ff",
-                  "#c9ed87",
-                  "#c2a4ff",
-                  "#f6a6c7",
-                  "#8ccdf3",
-                  "#ffbd88",
-                ].map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    style={{ background: color }}
-                    aria-label={`Color ${color}`}
-                    aria-pressed={settings.appearance.accent === color}
-                    onClick={() =>
-                      setSettings((s) => ({
-                        ...s,
-                        appearance: { ...s.appearance, accent: color },
-                      }))
-                    }
-                  >
-                    {settings.appearance.accent === color && (
-                      <Check size={18} />
-                    )}
-                  </button>
-                ))}
-                <label className="custom-color" title="Elegir otro color">
-                  <Plus size={17} />
-                  <input
-                    type="color"
-                    aria-label="Color personalizado"
-                    value={settings.appearance.accent}
-                    onChange={(e) =>
-                      setSettings((s) => ({
-                        ...s,
-                        appearance: { ...s.appearance, accent: e.target.value },
-                      }))
-                    }
-                  />
-                </label>
-              </div>
-            </div>
-            <div className="settings-section">
-              <h3>Ambiente</h3>
-              <div className="theme-options">
-                {(["dark", "light"] as const).map((theme) => (
-                  <button
-                    type="button"
-                    className={
-                      settings.appearance.theme === theme ? "selected" : ""
-                    }
-                    key={theme}
-                    onClick={() =>
-                      setSettings((s) => ({
-                        ...s,
-                        appearance: { ...s.appearance, theme },
-                      }))
-                    }
-                  >
-                    {theme === "dark" ? "Noche" : "Día"}
-                  </button>
-                ))}
-              </div>
-              <label className="range-label">
-                Intensidad del vidrio <span>{settings.appearance.glass}px</span>
-                <input
-                  aria-label="Intensidad del vidrio"
-                  type="range"
-                  min="0"
-                  max="32"
-                  step="4"
-                  disabled={settings.appearance.reduced}
-                  value={settings.appearance.glass}
-                  onChange={(e) =>
-                    setSettings((s) => ({
-                      ...s,
-                      appearance: {
-                        ...s.appearance,
-                        glass: Number(e.target.value),
-                      },
-                    }))
-                  }
-                />
-              </label>
-              <label className="toggle-label">
-                <span>
-                  <strong>Reducir efectos</strong>
-                  <small>Desactiva desenfoques, sombras y transiciones.</small>
-                </span>
-                <input
-                  type="checkbox"
-                  checked={settings.appearance.reduced}
-                  onChange={(e) =>
-                    setSettings((s) => ({
-                      ...s,
-                      appearance: {
-                        ...s.appearance,
-                        reduced: e.target.checked,
-                      },
-                    }))
-                  }
-                />
-              </label>
-            </div>
-            <p className="privacy-note">
-              Sin registro, sin login y sin telemetría. Tu perfil es solo tuyo.
-            </p>
-          </>
+          <SettingsPanel
+            settings={settings}
+            setSettings={setSettings}
+            photo={() => image("profile")}
+            presence={presence}
+          />
         )}
         {track && (
           <>

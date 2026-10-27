@@ -3,6 +3,7 @@ import { ArrowLeft, Disc3, Image, Mic2 } from "lucide-react";
 import type { Track } from "./types";
 import type { LyricLine } from "./queue";
 import { coverUrl } from "./api";
+import Atmosphere from "./Atmosphere";
 import { LyricContent } from "./LyricContent";
 export default function FocusStage({
   track,
@@ -11,8 +12,8 @@ export default function FocusStage({
   lyrics,
   lines,
   active,
-  position,
   playing,
+  albumBackground,
   seek,
   close,
   edit,
@@ -23,8 +24,8 @@ export default function FocusStage({
   lyrics: string;
   lines: LyricLine[];
   active: number;
-  position: number;
   playing: boolean;
+  albumBackground: boolean;
   seek: (time: number) => void;
   close: () => void;
   edit: () => void;
@@ -49,8 +50,8 @@ export default function FocusStage({
       className={`focus-stage ${mode === "cover" ? "cover-mode" : "lyrics-mode"}`}
       aria-label="Reproductor ampliado"
     >
-      {track?.cover && (
-        <img className="focus-backdrop" src={coverUrl(track.cover)} alt="" />
+      {track?.cover && albumBackground && (
+        <Atmosphere className="focus-backdrop" cover={track.cover} />
       )}
       <header className="focus-header">
         <button className="secondary" onClick={close}>
@@ -106,7 +107,6 @@ export default function FocusStage({
                 >
                   <LyricContent
                     line={line}
-                    position={position}
                     playing={playing}
                     active={i === active}
                   />

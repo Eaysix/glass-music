@@ -1,3 +1,4 @@
+export const DISCORD_APPLICATION_ID = ""; // Public application ID, never a token.
 export interface Track {
   id: string;
   path: string;
@@ -32,7 +33,16 @@ export interface Settings {
     glass: number;
     reduced: boolean;
     theme: "dark" | "light";
+    animations: boolean;
+    albumBackground: boolean;
+    opacity: number;
+    lyricScale: number;
   };
+  player: { autoHide: boolean; volumeStep: number };
+  performance: "balanced" | "quality" | "economy";
+  discord: { enabled: boolean; applicationId: string; showAlbum: boolean };
+  appearanceVersion: number;
+  uiScale: number;
   playlists: Playlist[];
   queue: Queue;
   volume: number;
@@ -53,7 +63,25 @@ export interface ImportReport {
 }
 export const defaults = (): Settings => ({
   profile: { name: "Mi espacio", photo: null },
-  appearance: { accent: "#b8d8ff", glass: 24, reduced: false, theme: "dark" },
+  appearance: {
+    accent: "#8CCDF3",
+    glass: 20,
+    reduced: false,
+    theme: "dark",
+    animations: true,
+    albumBackground: true,
+    opacity: 45,
+    lyricScale: 1,
+  },
+  appearanceVersion: 1,
+  uiScale: 1,
+  player: { autoHide: true, volumeStep: 2 },
+  performance: "balanced",
+  discord: {
+    enabled: false,
+    applicationId: DISCORD_APPLICATION_ID,
+    showAlbum: true,
+  },
   playlists: [],
   queue: { current: null, upcoming: [], history: [], context: [] },
   volume: 0.7,

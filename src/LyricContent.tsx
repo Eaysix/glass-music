@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
+import { usePosition } from "./playback";
 import type { LyricLine } from "./queue";
 function ActiveWords({
   line,
-  position,
   playing,
   active,
 }: {
   line: LyricLine;
-  position: number;
   playing: boolean;
   active: boolean;
 }) {
+  const position = usePosition();
   const [word, setWord] = useState(-1);
   useEffect(() => {
     const words = line.words;
