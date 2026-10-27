@@ -48,6 +48,7 @@ import SeekControl from "./SeekControl";
 import VolumeControl from "./VolumeControl";
 import Atmosphere from "./Atmosphere";
 import SettingsPanel from "./SettingsPanel";
+import LyricsEditor from "./LyricsEditor";
 import { useMarqueeSelection } from "./useMarqueeSelection";
 import { useDiscordPresence } from "./useDiscordPresence";
 import FocusStage from "./FocusStage";
@@ -2210,6 +2211,16 @@ export default function App() {
           presence={presence}
           setSettings={setSettings}
           onClose={() => setModal(null)}
+          lyricTrack={modal.type === "lyrics" ? byId.get(modal.id) : undefined}
+          lyricActive={modal.type === "lyrics" && modal.id === current?.id}
+          lyricPlaying={playing}
+          toggleLyrics={() => {
+            if (modal.type !== "lyrics") return;
+            if (modal.id === current?.id) void togglePlay();
+            else
+              void playQueue(startQueue([modal.id], modal.id, "off", tracks));
+          }}
+          seekLyrics={seek}
           changeTrack={changeTrack}
           deleteTrack={deleteTrack}
           deleteTracks={deleteTracks}
@@ -2242,6 +2253,11 @@ function Editor({
   deleteTrack,
   deleteTracks,
   onLyrics,
+  lyricTrack,
+  lyricActive,
+  lyricPlaying,
+  toggleLyrics,
+  seekLyrics,
 }: {
   modal: NonNullable<Modal>;
   presence: api.PresenceStatus;
@@ -2252,6 +2268,11 @@ function Editor({
   deleteTrack: (t: Track) => Promise<void>;
   deleteTracks: (ids: string[]) => Promise<void>;
   onLyrics: (id: string, text: string) => Promise<void>;
+  lyricTrack: Track | undefined;
+  lyricActive: boolean;
+  lyricPlaying: boolean;
+  toggleLyrics: () => void;
+  seekLyrics: (position: number) => void;
 }) {
   const [track, setTrack] = useState(
     modal.type === "track" ? modal.track : null,
@@ -2262,6 +2283,10 @@ function Editor({
   const [text, setText] = useState(modal.type === "lyrics" ? modal.text : ""),
     [error, setError] = useState(""),
     [saving, setSaving] = useState(false);
+  const [lyricError, setLyricError] = useState("");
+  useEffect(() => {
+    if (!lyricError) setError("");
+  }, [lyricError]);
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const el = dialog.current!;
@@ -2301,7 +2326,10 @@ function Editor({
             : [...s.playlists, updated],
         }));
       }
-      if (modal.type === "lyrics") await onLyrics(modal.id, text);
+      if (modal.type === "lyrics") {
+        if (lyricError) throw new Error(lyricError);
+        await onLyrics(modal.id, text);
+      }
       if (modal.type === "remove") await deleteTrack(modal.track);
       if (modal.type === "removeMany")
         await deleteTracks(modal.tracks.map((t) => t.id));
@@ -2329,7 +2357,7 @@ function Editor({
   return (
     <dialog
       ref={dialog}
-      className={`editor ${settings.appearance.theme}`}
+      className={`editor ${settings.appearance.theme} ${modal.type === "lyrics" ? "editor-lyrics" : ""}`}
       onCancel={onClose}
       onClick={(e) => {
         if (e.target === dialog.current && !saving) onClose();
@@ -2462,40 +2490,18 @@ function Editor({
           </>
         )}
         {modal.type === "lyrics" && (
-          <>
-            <p className="modal-description">
-              Pega una letra o importa un .lrc con tiempos para sincronizarla.
-            </p>
-            <button
-              type="button"
-              className="secondary"
-              onClick={async () => {
-                try {
-                  const content = await api.pickLyrics();
-                  if (content !== null) setText(content);
-                } catch (e) {
-                  setError(String(e));
-                }
-              }}
-            >
-              <Upload size={16} />
-              Importar .lrc o .txt
-            </button>
-            <textarea
-              className="lyrics-editor"
-              aria-label="Letra de la canción"
-              value={text}
-              maxLength={1024 * 1024}
-              onChange={(e) => setText(e.target.value)}
-              placeholder={
-                "[00:12.30] La primera línea…\n[00:17.00] Y la siguiente…"
-              }
-            />
-            <p className="privacy-note">
-              Puedes escribir texto sin tiempos. Se guarda aparte de tu archivo
-              de música.
-            </p>
-          </>
+          <LyricsEditor
+            text={text}
+            setText={setText}
+            active={lyricActive}
+            playing={lyricPlaying}
+            duration={lyricTrack?.duration ?? 0}
+            title={lyricTrack?.title ?? "Letra de la canción"}
+            trackId={modal.id}
+            toggle={toggleLyrics}
+            seek={seekLyrics}
+            validate={setLyricError}
+          />
         )}
         {modal.type === "remove" && (
           <p className="modal-description">
@@ -2579,7 +2585,9 @@ function Editor({
               ? "Los cambios se guardan automáticamente"
               : ""}
           </span>
-          {(modal.type === "remove" || modal.type === "removeMany") && (
+          {(modal.type === "remove" ||
+            modal.type === "removeMany" ||
+            modal.type === "lyrics") && (
             <button
               type="button"
               className="secondary"

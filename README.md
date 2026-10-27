@@ -4,7 +4,7 @@ Tu música local, a tu manera. Reproductor para Windows centrado en FLAC y MP3, 
 
 ![Interfaz de la alpha con archivos de prueba sintéticos](docs/interface.webp)
 
-## Alpha 0.2.0
+## Alpha 0.3.0
 
 - Azul **#8CCDF3** como color principal, incluido el icono de Windows. El logo de la interfaz sigue el color elegido.
 - Ajustes por secciones: apariencia, perfil, reproductor, Discord y rendimiento.
@@ -49,9 +49,13 @@ Las compilaciones de desarrollo están en [Actions](https://github.com/Eaysix/gl
 
 La alpha no está firmada con un certificado de distribución. Windows puede mostrar una advertencia de editor desconocido. El instalador utiliza WebView2; si falta, su instalación inicial puede requerir internet. La reproducción y los datos de la app funcionan sin internet.
 
+## Editor de letras
+
+Desde **Editar letra**, escribe o pega un verso por línea. En **Sincronizar líneas**, reproduce la canción y pulsa **Marcar línea y seguir** al comenzar cada verso. Con el botón enfocado puedes usar Espacio. Puedes deshacer, corregir segundos manualmente y escuchar desde una línea marcada. Completa todos los tiempos en orden antes de guardar. Cancelar conserva la letra anterior; el audio original no se modifica. El LRC por palabra se conserva si solo lo importas y guardas; la sincronización manual genera tiempos por línea.
+
 ## Discord: configuración inicial del proyecto
 
-La presencia se conecta al cliente local de Discord; no pide contraseña ni token. El propietario debe crear una aplicación llamada **Glass Music** en el [portal de Discord](https://discord.com/developers/applications), configurar su icono y aportar su **Application ID público**. Este ID todavía no se ha proporcionado; no se ha confirmado una actividad real con la cuenta del usuario.
+La presencia se conecta al cliente local de Discord; no pide contraseña ni token. El propietario debe crear una aplicación llamada **Glass Music** en el [portal de Discord](https://discord.com/developers/applications), configurar su icono y aportar su **Application ID público**. Para la imagen de la actividad, sube también el logo en **Rich Presence → Art Assets** con el nombre exacto **`glass_music`**. Configurar solo el icono de Información general no completa este paso. La actividad ya fue observada por el usuario; la imagen del nuevo payload queda pendiente de confirmar en Discord real.
 
 En esta alpha se introduce en **Ajustes → Discord**. Para distribuirlo listo para todos, se configura una sola vez `DISCORD_APPLICATION_ID` en `src/types.ts` antes de compilar. No es un secreto. Activa compartir actividad en Glass Music y en Discord; la conexión requiere Discord de escritorio. Al pausar o desactivar la opción se retira la actividad. Solo se envían título, artista, álbum opcional y tiempos. No se publican rutas, portadas locales ni letras.
 

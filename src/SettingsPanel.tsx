@@ -383,9 +383,9 @@ export default function SettingsPanel({
               >
                 portal de desarrolladores de Discord
               </button>{" "}
-              y copia su Application ID. Es público; no pegues tokens ni
-              secretos. Con ese ID podemos incluir la integración lista para
-              todos en el siguiente instalador.
+              y copia su Application ID. En Rich Presence → Art Assets, sube el
+              logo con el nombre glass_music para mostrarlo en la actividad. El
+              ID es público; no pegues tokens ni secretos.
             </p>
             {error && <p className="form-error">{error}</p>}
             <div className="discord-preview">

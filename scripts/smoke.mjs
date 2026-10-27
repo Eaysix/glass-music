@@ -356,6 +356,94 @@ try {
     .click();
   await page
     .getByLabel("Letra de la canción")
+    .fill("Primera línea manual\nSegunda línea manual");
+  await page
+    .getByRole("tab", { name: "Sincronizar líneas", exact: true })
+    .click();
+  const syncSeek = page.locator(".editor .seek input");
+  await syncSeek.fill("1.2");
+  await syncSeek.press("ArrowRight");
+  await page
+    .getByRole("button", { name: "Marcar línea y seguir", exact: true })
+    .click();
+  await page.waitForFunction(
+    () =>
+      Number(
+        document.querySelector('[aria-label="Tiempo de línea 1 en segundos"]')
+          .value,
+      ) > 0,
+  );
+  await page.getByRole("button", { name: "Guardar", exact: true }).click();
+  await page.getByRole("alert").filter({ hasText: "Faltan líneas" }).waitFor();
+  await syncSeek.fill("3.4");
+  await syncSeek.press("ArrowRight");
+  await page
+    .getByRole("button", { name: "Marcar línea y seguir", exact: true })
+    .click();
+  await page.waitForFunction(
+    () =>
+      Number(
+        document.querySelector('[aria-label="Tiempo de línea 2 en segundos"]')
+          .value,
+      ) > 3,
+  );
+  await page
+    .getByRole("button", { name: "Deshacer marca", exact: true })
+    .click();
+  assert.equal(
+    await page
+      .getByLabel("Tiempo de línea 2 en segundos", { exact: true })
+      .inputValue(),
+    "",
+  );
+  await page
+    .getByRole("button", { name: "Marcar línea y seguir", exact: true })
+    .click();
+  await page.waitForFunction(
+    () =>
+      Number(
+        document.querySelector('[aria-label="Tiempo de línea 2 en segundos"]')
+          .value,
+      ) > 3,
+  );
+  await page
+    .getByLabel("Tiempo de línea 1 en segundos", { exact: true })
+    .fill("1.25");
+  await page.screenshot({ path: "artifacts/lyrics-sync.png" });
+  await page.getByRole("button", { name: "Guardar", exact: true }).click();
+  await page
+    .getByRole("button", {
+      name: "Opciones de Primera luz editada",
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole("menuitem", { name: "Editar letra", exact: true })
+    .click();
+  assert.match(
+    await page.getByLabel("Letra de la canción").inputValue(),
+    /\[00:01\.25\]Primera línea manual/,
+  );
+  await page.getByLabel("Letra de la canción").fill("Esto no debe guardarse");
+  await page.getByRole("button", { name: "Cancelar", exact: true }).click();
+  await page
+    .getByRole("button", {
+      name: "Opciones de Primera luz editada",
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole("menuitem", { name: "Editar letra", exact: true })
+    .click();
+  assert.match(
+    await page.getByLabel("Letra de la canción").inputValue(),
+    /Primera línea manual/,
+  );
+  console.log(
+    "manual lyrics timing, undo, persistence and cancellation passed",
+  );
+  await page
+    .getByLabel("Letra de la canción")
     .fill(
       "[00:00.00]v3:<00:00.00>Una <00:00.20><00:00.20>letra <00:00.50>guardada<00:04.00>\n[00:05.00]v2:<00:05.00>Otra <00:05.30>línea",
     );

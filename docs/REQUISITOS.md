@@ -13,7 +13,7 @@ Reproductor personal de música local, principalmente FLAC y también MP3, con b
 - Controles de reproducción, pausa, avance, volumen, repetición y aleatorio.
 - Leer título, artista, álbum, portada y letras integradas cuando existan.
 - Editar título, artista, artistas invitados, álbum y portada; agregar los datos que falten.
-- Mostrar y editar letras manuales; admitir archivos LRC sincronizados.
+- Mostrar y editar letras manuales; admitir archivos LRC sincronizados. Editor integrado para marcar líneas con la posición real del audio, corregir tiempos, deshacer y guardar sin tocar originales.
 - Crear playlists para distintas ocasiones, renombrarlas, cambiarles portada y ordenar canciones.
 - Arrastrar canciones desde biblioteca, cola o reproductor a las playlists de la barra lateral, con confirmación y sin duplicados. Arrastrar filas para reordenar una playlist en «Tu orden».
 - Clic derecho con acciones de música junto al cursor, sin menú de página web en las superficies del reproductor.
@@ -29,7 +29,7 @@ Reproductor personal de música local, principalmente FLAC y también MP3, con b
 - Color principal #8CCDF3 en interfaz e icono instalado; los colores posteriores personalizados se conservan.
 - Barra inferior autoocultable con mouse o teclado. Volumen ampliado/exacto, rueda, pasos y nivel previo al silenciar.
 - Ajustes separados: perfil, apariencia, reproductor, Discord y rendimiento. Fondo de portada, opacidad, tamaño de letra y animaciones.
-- Discord Rich Presence opcional: título, artista, álbum opcional y progreso; se retira al pausar/desactivar. Requiere cliente de escritorio y Application ID público de Glass Music, pendiente del propietario. Sin token ni subida de archivos.
+- Discord Rich Presence opcional: título, artista, álbum opcional y progreso e imagen del logo con el asset `glass_music`; se retira al pausar/desactivar. Requiere cliente de escritorio y Application ID público de Glass Music, pendiente del propietario. Sin token ni subida de archivos.
 - **Perfil local con nombre y foto editables; sin registro de usuarios ni login.**
 
 ## Decisiones de la alpha

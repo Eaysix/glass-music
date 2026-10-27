@@ -3701,3 +3701,121 @@ button:active:not(:disabled) {
 .editor.light {
   --solid: #edf3fc;
 }
+
+.editor.editor-lyrics {
+  width: min(820px, calc(100vw - 40px));
+}
+.lyric-modes {
+  display: flex;
+  gap: 6px;
+  padding: 5px;
+  border-radius: 15px;
+  background: var(--hover);
+  margin-bottom: 18px;
+}
+.lyric-modes button {
+  flex: 1;
+  padding: 10px;
+  border-radius: 11px;
+  color: var(--muted);
+}
+.lyric-modes [aria-selected="true"] {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--text);
+}
+.sync-transport {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 14px 0;
+}
+.sync-transport > div {
+  min-width: 0;
+  flex: 1;
+}
+.sync-transport strong,
+.sync-transport small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sync-transport small {
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 5px;
+}
+.sync-clock {
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  font-size: 18px;
+}
+.sync-lines {
+  max-height: min(300px, 35vh);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  margin: 14px 0;
+  scroll-padding: 8px;
+}
+.sync-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 95px 30px;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+  padding: 8px;
+}
+.sync-row:last-child {
+  border-bottom: 0;
+}
+.sync-row.selected {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow: inset 3px 0 var(--accent);
+}
+.sync-line-select {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  padding: 8px;
+  min-width: 0;
+}
+.sync-line-select small {
+  color: var(--muted);
+  font-size: 10px;
+  width: 18px;
+  flex-shrink: 0;
+}
+.sync-line-select span {
+  overflow-wrap: anywhere;
+}
+.sync-row input {
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+  padding: 8px;
+  font-size: 11px;
+}
+.sync-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.sync-actions > span {
+  flex: 1;
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+}
+.sync-lines > p {
+  padding: 20px;
+  color: var(--muted);
+}
+.lyric-workshop .seek {
+  width: 100%;
+  margin: 16px 0;
+}
+.lyric-workshop .lyrics-editor {
+  min-height: 240px;
+}

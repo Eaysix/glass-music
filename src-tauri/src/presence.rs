@@ -72,7 +72,7 @@ fn activity(song: &Song, position: f64, show_album: bool, now: i64) -> Value {
         0.0
     };
     let start = now - position as i64;
-    let mut data = json!({"type":2,"details":short_text(&song.title),"state":short_text(&state),"timestamps":{"start":start}});
+    let mut data = json!({"type":2,"details":short_text(&song.title),"state":short_text(&state),"assets":{"large_image":"glass_music","large_text":"Glass Music · Tu música, siempre contigo"},"timestamps":{"start":start}});
     if song.duration.is_finite() && song.duration > 0.0 {
         data["timestamps"]["end"] = json!(start + song.duration as i64);
     }
@@ -303,7 +303,12 @@ mod tests {
         assert_eq!(v["state"], "Artista · Álbum");
         assert_eq!(activity(&song(), 0.0, false, 1000)["state"], "Artista");
         assert!(v.get("path").is_none());
-        assert!(v.get("assets").is_none());
+        assert_eq!(v["assets"]["large_image"], "glass_music");
+        assert_eq!(v["assets"].as_object().unwrap().len(), 2);
+        assert_eq!(
+            v["assets"]["large_text"],
+            "Glass Music · Tu música, siempre contigo"
+        );
         assert!(short_text(&"💙".repeat(200)).len() <= 120);
     }
     #[test]
