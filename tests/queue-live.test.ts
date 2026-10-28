@@ -154,3 +154,34 @@ describe("live playback context", () => {
     expect(new Set(seen).size).toBe(1500);
   });
 });
+
+describe("song date order", () => {
+  it("sorts both date directions, puts unknown dates last and leaves input unchanged", () => {
+    const input = [
+      { ...tracks[0], modifiedAt: undefined },
+      tracks[2],
+      tracks[1],
+    ];
+    const oldest = collectionTracks(input, [], {
+      ...source,
+      sort: "modified-oldest",
+    });
+    expect(oldest.map((t) => t.id)).toEqual(["1", "2", "0"]);
+    expect(collectionTracks(input, [], source).map((t) => t.id)).toEqual([
+      "2",
+      "1",
+      "0",
+    ]);
+    expect(input.map((t) => t.id)).toEqual(["0", "2", "1"]);
+    const queue = {
+      ...startQueue(
+        oldest.map((t) => t.id),
+        "1",
+        "off",
+        input,
+      ),
+      source: { ...source, sort: "modified-oldest" },
+    };
+    expect(nextQueue(queue).current).toBe("2");
+  });
+});

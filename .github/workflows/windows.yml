@@ -2,7 +2,9 @@ name: Windows · comprobar y crear instalador
 on:
   push:
     branches: [main, "feat/**"]
+    paths-ignore: ["ios/**", "docs/**", ".github/workflows/ios.yml"]
   pull_request:
+    paths-ignore: ["ios/**", "docs/**", ".github/workflows/ios.yml"]
   workflow_dispatch:
 concurrency:
   group: windows-${{ github.head_ref || github.ref_name }}
@@ -37,9 +39,16 @@ jobs:
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
       - run: cargo test --locked --manifest-path src-tauri/Cargo.toml
       - run: npm run tauri -- build --bundles nsis
+      - name: Identify Windows package
+        id: package
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          $shortSha = $env:GITHUB_SHA.Substring(0, 7)
+          "name=Glass-Music-Windows-$version-$shortSha" >> $env:GITHUB_OUTPUT
       - uses: actions/upload-artifact@v4
         with:
-          name: Glass-Music-Windows-x64
+          name: ${{ steps.package.outputs.name }}
           path: src-tauri/target/release/bundle/nsis/*-setup.exe
           if-no-files-found: error
           retention-days: 14

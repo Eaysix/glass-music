@@ -57,7 +57,11 @@ import LyricsEditor from "./LyricsEditor";
 import { useMarqueeSelection } from "./useMarqueeSelection";
 import { useDiscordPresence } from "./useDiscordPresence";
 import { useSystemMedia } from "./useSystemMedia";
-import { collectionTracks } from "./collection";
+import {
+  collectionTracks,
+  savedSongSort,
+  rememberSongSort,
+} from "./collection";
 import FocusStage from "./FocusStage";
 import ContextMenu from "./ContextMenu";
 import { LyricContent } from "./LyricContent";
@@ -177,7 +181,7 @@ export default function App() {
     [view, setView] = useState("home");
   const [query, setQuery] = useState(""),
     [filter, setFilter] = useState("all"),
-    [sort, setSort] = useState("modified");
+    [sort, setSort] = useState(savedSongSort);
   const [playing, setPlaying] = useState(false),
     [panel, setPanel] = useState<"lyrics" | "queue" | null>("lyrics");
   const [transportRevision, setTransportRevision] = useState(0);
@@ -1587,10 +1591,16 @@ export default function App() {
                   <select
                     aria-label={tr("Orden de canciones")}
                     value={sort}
-                    onChange={(e) => setSort(e.target.value)}
+                    onChange={(e) => {
+                      setSort(e.target.value);
+                      rememberSongSort(e.target.value);
+                    }}
                   >
                     <option value="modified">
-                      {tr("Fecha de modificaci\u00F3n")}
+                      {tr("Fecha: nuevas primero")}
+                    </option>
+                    <option value="modified-oldest">
+                      {tr("Fecha: antiguas primero")}
                     </option>
                     <option value="added">
                       {selectedPlaylist ? tr("Tu orden") : tr("A\u00F1adidas")}
@@ -1624,7 +1634,9 @@ export default function App() {
                     <span>#</span>
                     <span>{tr("T\u00CDTULO")}</span>
                     <span className="album-col">
-                      {sort === "modified" ? tr("MODIFICADO") : tr("ÁLBUM")}
+                      {sort.startsWith("modified")
+                        ? tr("MODIFICADO")
+                        : tr("ÁLBUM")}
                     </span>
                     <span>{tr("FORMATO")}</span>
                     <span />
@@ -1762,10 +1774,12 @@ export default function App() {
                             <span
                               className="album-col ellipsis"
                               title={
-                                sort === "modified" ? track.album : undefined
+                                sort.startsWith("modified")
+                                  ? track.album
+                                  : undefined
                               }
                             >
-                              {sort === "modified"
+                              {sort.startsWith("modified")
                                 ? dateLabel(track.modifiedAt)
                                 : track.album}
                             </span>
@@ -2613,7 +2627,7 @@ export default function App() {
               view: "library",
               query: "",
               filter: "all",
-              sort: "modified",
+              sort,
             });
             void playQueue(
               {
@@ -2627,7 +2641,7 @@ export default function App() {
                   view: "library",
                   query: "",
                   filter: "all",
-                  sort: "modified",
+                  sort,
                 },
               },
               position,
