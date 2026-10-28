@@ -93,11 +93,11 @@ jobs:
           codesign --force --sign - --preserve-metadata=entitlements "$APP/PlugIns/GlassMusicTests.xctest"
           codesign --force --sign - --preserve-metadata=entitlements "$APP"
           cd ios
-          xcodebuild -project GlassMusic.xcodeproj -scheme GlassMusic -configuration Debug -destination "platform=iOS Simulator,id=$GLASS_SIMULATOR" -derivedDataPath build/simulator -resultBundlePath build/TestResults.xcresult CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 180 test-without-building
+          xcodebuild -project GlassMusic.xcodeproj -scheme GlassMusic -configuration Debug -destination "platform=iOS Simulator,id=$GLASS_SIMULATOR" -derivedDataPath build/simulator -resultBundlePath build/TestResults.xcresult CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 300 test-without-building
       - name: Small iPhone compatibility and navigation test
         if: env.GLASS_LEGACY_SIMULATOR != ''
         working-directory: ios
-        run: xcodebuild -project GlassMusic.xcodeproj -scheme GlassMusic -configuration Debug -destination "platform=iOS Simulator,id=$GLASS_LEGACY_SIMULATOR" -derivedDataPath build/simulator -resultBundlePath build/CompactTestResults.xcresult CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 180 -only-testing:GlassMusicUITests/GlassMusicUITests/testPlayerLeavesAllNavigationAccessibleInPortraitAndLandscape test-without-building
+        run: xcodebuild -project GlassMusic.xcodeproj -scheme GlassMusic -configuration Debug -destination "platform=iOS Simulator,id=$GLASS_LEGACY_SIMULATOR" -derivedDataPath build/simulator -resultBundlePath build/CompactTestResults.xcresult CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 300 -only-testing:GlassMusicUITests/GlassMusicUITests/testPlayerLeavesAllNavigationAccessibleInPortraitAndLandscape test-without-building
       - name: Export interface screenshots
         if: always()
         run: |

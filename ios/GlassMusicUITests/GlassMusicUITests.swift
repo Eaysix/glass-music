@@ -34,11 +34,14 @@ final class GlassMusicUITests: XCTestCase {
         let open = app.buttons["Abrir reproductor"]
         XCTAssertFalse(app.tabBars.firstMatch.exists, "Native tab bar must not duplicate the glass navigation")
         XCTAssertTrue(open.isHittable)
+        let playerFrame = open.frame
+        let screenFrame = app.frame
         for name in ["home", "library", "downloads", "sync", "settings"] {
             let button = app.buttons["nav-" + name]
             XCTAssertTrue(button.isHittable, "Navigation obscured: " + name)
-            XCTAssertLessThanOrEqual(open.frame.maxY, button.frame.minY + 1, "Mini player overlaps navigation")
-            XCTAssertLessThanOrEqual(button.frame.maxY, app.frame.maxY)
+            let frame = button.frame
+            XCTAssertLessThanOrEqual(playerFrame.maxY, frame.minY + 1, "Mini player overlaps navigation")
+            XCTAssertLessThanOrEqual(frame.maxY, screenFrame.maxY)
         }
     }
     func testOfflineLibraryAndPlayer() throws {
