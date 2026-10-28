@@ -1810,4 +1810,130 @@ export const messages: Record<string, Record<string, string>> = {
       de: "Die Audioausgabe wurde getrennt. Verbinde deine Kopfhörer und drücke Wiedergabe, um fortzufahren: {p0}",
       "zh-CN": "音频输出已断开。连接耳机后，点击播放以继续：{p0}",
     },
+  iPhone: {
+    en: "iPhone",
+    de: "iPhone",
+    "zh-CN": "iPhone",
+  },
+  "La canción ya no está en tu biblioteca.": {
+    en: "This track is no longer in your library.",
+    de: "Dieser Titel ist nicht mehr in deiner Bibliothek.",
+    "zh-CN": "这首歌曲已不在你的曲库中。",
+  },
+  "Tu música, también en el iPhone": {
+    en: "Your music, on iPhone too",
+    de: "Deine Musik auch auf dem iPhone",
+    "zh-CN": "在 iPhone 上畅听你的音乐",
+  },
+  "Reproducción local y sincronización por la misma red, sin cuentas ni datos móviles.":
+    {
+      en: "Offline playback and sync over the same network, without accounts or mobile data.",
+      de: "Lokale Wiedergabe und Synchronisierung im selben Netzwerk, ohne Konten oder mobile Daten.",
+      "zh-CN": "本地播放，同一网络同步，无需账号或移动数据。",
+    },
+  "Conexión cifrada. Solo los dispositivos que vincules pueden acceder a la biblioteca.":
+    {
+      en: "Encrypted connection. Only paired devices can access your library.",
+      de: "Verschlüsselte Verbindung. Nur gekoppelte Geräte können auf deine Bibliothek zugreifen.",
+      "zh-CN": "连接已加密，只有已配对设备可以访问曲库。",
+    },
+  "La sincronización está disponible en la app de Windows.": {
+    en: "Sync is available in the Windows app.",
+    de: "Die Synchronisierung ist in der Windows-App verfügbar.",
+    "zh-CN": "同步功能仅在 Windows 应用中可用。",
+  },
+  "Sincronización local activa": {
+    en: "Local sync is active",
+    de: "Lokale Synchronisierung aktiv",
+    "zh-CN": "本地同步已启用",
+  },
+  Desactivar: {
+    en: "Turn off",
+    de: "Deaktivieren",
+    "zh-CN": "停用",
+  },
+  "Dirección de la PC en tu Wi-Fi": {
+    en: "PC address on your Wi-Fi",
+    de: "PC-Adresse in deinem WLAN",
+    "zh-CN": "电脑在 Wi-Fi 中的地址",
+  },
+  "Conecta la PC a una red local para generar el código.": {
+    en: "Connect the PC to a local network to generate a code.",
+    de: "Verbinde den PC mit einem lokalen Netzwerk, um einen Code zu erstellen.",
+    "zh-CN": "请将电脑连接到本地网络，以生成配对码。",
+  },
+  "Generar QR para vincular": {
+    en: "Generate pairing QR",
+    de: "Kopplungs-QR erstellen",
+    "zh-CN": "生成配对二维码",
+  },
+  Actualizar: {
+    en: "Refresh",
+    de: "Aktualisieren",
+    "zh-CN": "刷新",
+  },
+  "QR para vincular tu iPhone": {
+    en: "QR code to pair your iPhone",
+    de: "QR-Code zum Koppeln deines iPhone",
+    "zh-CN": "用于配对 iPhone 的二维码",
+  },
+  "En el iPhone abre Sincronizar → Vincular mi PC y escanea este QR. El código dura 5 minutos y se usa una sola vez.":
+    {
+      en: "On iPhone open Sync → Pair my PC and scan this QR. The code lasts 5 minutes and can be used once.",
+      de: "Öffne auf dem iPhone Synchronisieren → PC koppeln und scanne diesen QR-Code. Der Code ist 5 Minuten gültig und einmal verwendbar.",
+      "zh-CN":
+        "在 iPhone 上打开“同步 → 配对我的电脑”，扫描此二维码。配对码有效期为 5 分钟，仅限使用一次。",
+    },
+  "Usar un código en lugar de la cámara": {
+    en: "Use a code instead of the camera",
+    de: "Code statt Kamera verwenden",
+    "zh-CN": "使用配对码代替相机",
+  },
+  "Código de vinculación": {
+    en: "Pairing code",
+    de: "Kopplungscode",
+    "zh-CN": "配对码",
+  },
+  "Copiar código": {
+    en: "Copy code",
+    de: "Code kopieren",
+    "zh-CN": "复制配对码",
+  },
+  "Dispositivos vinculados": {
+    en: "Paired devices",
+    de: "Gekoppelte Geräte",
+    "zh-CN": "已配对设备",
+  },
+  "Todavía no has vinculado ningún dispositivo.": {
+    en: "No devices have been paired yet.",
+    de: "Noch keine Geräte gekoppelt.",
+    "zh-CN": "尚未配对任何设备。",
+  },
+  Desvincular: {
+    en: "Unpair",
+    de: "Entkoppeln",
+    "zh-CN": "取消配对",
+  },
+  "Continuar desde el iPhone": {
+    en: "Continue from iPhone",
+    de: "Vom iPhone fortsetzen",
+    "zh-CN": "从 iPhone 继续播放",
+  },
+  "Continuar en esta PC": {
+    en: "Continue on this PC",
+    de: "Auf diesem PC fortsetzen",
+    "zh-CN": "在此电脑上继续播放",
+  },
+  "Activar sincronización local": {
+    en: "Enable local sync",
+    de: "Lokale Synchronisierung aktivieren",
+    "zh-CN": "启用本地同步",
+  },
+  "Mantén Glass Music abierto en la PC y usa la misma red en el iPhone. Si Windows pide acceso de red, permite la red privada. Al cerrar o desactivar la sincronización deja de compartir.":
+    {
+      en: "Keep Glass Music open on the PC and use the same network on iPhone. If Windows asks for network access, allow the private network. Sharing stops when you close the app or turn off sync.",
+      de: "Lass Glass Music auf dem PC geöffnet und nutze auf dem iPhone dasselbe Netzwerk. Erlaube bei der Windows-Abfrage das private Netzwerk. Beim Schließen der App oder Deaktivieren der Synchronisierung endet die Freigabe.",
+      "zh-CN":
+        "请保持电脑上的 Glass Music 开启，并让 iPhone 使用同一网络。若 Windows 请求网络访问，请允许专用网络。关闭应用或停用同步后，将停止共享。",
+    },
 };

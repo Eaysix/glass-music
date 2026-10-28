@@ -18,7 +18,8 @@ import UIKit
         return url
     }
     func cover(_ id: String) -> UIImage? { UIImage(contentsOfFile: database.coverURL(id).path) }
-    var downloaded: [Song] { state.songs.filter { file($0.id) != nil } }
+    func isDownloaded(_ id: String) -> Bool { state.files[id] != nil }
+    var downloaded: [Song] { state.songs.filter { isDownloaded($0.id) } }
     func setLink(_ link: Link) throws {
         if let current = state.link, current.serverId != link.serverId {
             throw AppError.message("Desvincula la PC anterior antes de conectar otra. Tus descargas se conservarán.")
@@ -33,6 +34,7 @@ import UIKit
     func merge(_ manifest: Manifest) throws {
         guard manifest.protocolVersion == 1, manifest.serverId == state.link?.serverId else { throw AppError.message("La PC y el iPhone no usan el mismo protocolo.") }
         let remoteIds = Set(manifest.tracks.map(\.id))
+        state.localIds.subtract(remoteIds)
         let local = state.songs.filter { state.localIds.contains($0.id) || (!remoteIds.contains($0.id) && file($0.id) != nil) }
         state.localIds.formUnion(local.map(\.id))
         state.songs = manifest.tracks + local.filter { !remoteIds.contains($0.id) }
@@ -103,7 +105,7 @@ import UIKit
         guard UIImage(data: data) != nil else { return }
         try data.write(to: database.coverURL(id), options: .atomic); state.coverRevisions[id] = revision; persist()
     }
-    func remember(_ id: String?, position: Double) { state.currentId = id; state.position = max(0, position.isFinite ? position : 0); persist() }
+    func remember(_ id: String?, position: Double, queue: PhoneQueue? = nil) { state.currentId = id; state.position = max(0, position.isFinite ? position : 0); if let queue { state.queue = queue }; persist() }
     func finishSync() { state.lastSync = Date(); persist() }
     func importFiles(_ urls: [URL]) async {
         for url in urls {

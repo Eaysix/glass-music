@@ -1,3 +1,4 @@
+import LANPanel from "./LANPanel";
 import { t, setLanguage, type Language } from "./i18n";
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { Check, Plus, UserRound } from "lucide-react";
@@ -9,17 +10,20 @@ const tabs = [
   ["player", "Reproductor"],
   ["discord", "Discord"],
   ["performance", "Rendimiento"],
+  ["sync", "iPhone"],
 ] as const;
 export default function SettingsPanel({
   settings: s,
   setSettings: set,
   photo,
   presence,
+  resumePhone,
 }: {
   settings: Settings;
   setSettings: Dispatch<SetStateAction<Settings>>;
   photo: () => void;
   presence: PresenceStatus;
+  resumePhone: (id: string, position: number) => void;
 }) {
   const [tab, setTab] = useState<(typeof tabs)[number][0]>("appearance"),
     [hex, setHex] = useState(s.appearance.accent.toUpperCase()),
@@ -61,6 +65,7 @@ export default function SettingsPanel({
         aria-labelledby={`tab-${tab}`}
         className="settings-content"
       >
+        {tab === "sync" && <LANPanel resume={resumePhone} />}
         {tab === "profile" && (
           <>
             <p className="modal-description">

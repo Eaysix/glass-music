@@ -67,4 +67,46 @@ final class GlassMusicTests: XCTestCase {
         XCTAssertEqual(decoded.changes[0].text, change.text)
         XCTAssertEqual(digest(Data()), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
     }
+    @MainActor func testNativeClientPairsDownloadsAndSyncsWithRealPCHub() async throws {
+        guard let fixture = Bundle(for: Self.self).url(forResource: "HubFixture", withExtension: "json") else {
+            throw XCTSkip("Run the Rust test_hub fixture to exercise the native LAN client.")
+        }
+        let code = try JSONDecoder().decode(PairingCode.self, from: Data(contentsOf: fixture))
+        // Loopback is allowed only for this in-process Simulator fixture. QR parsing
+        // in the app still rejects loopback and public addresses.
+        let link = try await LANClient.pair(code, name: "Simulator integration test")
+        defer { DeviceKeychain.remove(link.serverId) }
+        let client = LANClient(link: link, token: try DeviceKeychain.read(link.serverId))
+        let manifest: Manifest = try await client.json("manifest")
+        XCTAssertEqual(manifest.tracks.count, 2)
+        let song = try XCTUnwrap(manifest.tracks.first(where: { $0.id == "first" }))
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let library = try Library(database: SnapshotDatabase(root: folder))
+        try library.setLink(link); try library.merge(manifest)
+        let file = try await client.audio(song, resumeFile: library.database.resumeURL(song.id))
+        try library.install(file, song: song)
+        let stored = try XCTUnwrap(library.file(song.id))
+        XCTAssertEqual(try Data(contentsOf: stored).prefix(4), Data("fLaC".utf8))
+        XCTAssertEqual(try FileManager.default.attributesOfItem(atPath: stored.path)[.size] as? Int64, song.fileSize)
+        let lyrics: LyricPayload = try await client.json("lyrics/first")
+        library.cacheLyrics(song.id, payload: lyrics)
+        let text = "[00:01]<00:01>Letra <00:02>del iPhone 世界"
+        let edit = PendingChange(id: song.id, kind: "lyrics", baseRevision: lyrics.revision, text: text)
+        let applied: [ChangeResult] = try await client.json("changes", body: JSONEncoder().encode(ChangeEnvelope(changes: [edit])))
+        XCTAssertTrue(try XCTUnwrap(applied.first).applied)
+        let refreshed: LyricPayload = try await client.json("lyrics/first")
+        XCTAssertEqual(refreshed.text, text)
+        let stale = PendingChange(id: song.id, kind: "lyrics", baseRevision: lyrics.revision, text: "Otra edición")
+        let rejected: [ChangeResult] = try await client.json("changes", body: JSONEncoder().encode(ChangeEnvelope(changes: [stale])))
+        XCTAssertFalse(try XCTUnwrap(rejected.first).applied)
+        XCTAssertEqual(rejected.first?.conflict?.text, text)
+        var incorrect = link; incorrect.fingerprint = String(repeating: "0", count: 64)
+        do {
+            let _: Manifest = try await LANClient(link: incorrect, token: try DeviceKeychain.read(link.serverId)).json("manifest")
+            XCTFail("A server certificate that differs from the QR must be rejected")
+        } catch { /* Expected: the TLS certificate pin differs. */ }
+        XCTAssertNotNil(library.file(song.id)) // The downloaded file remains available offline.
+    }
+
 }

@@ -132,12 +132,12 @@ struct SongRow: View {
             else { Image(systemName: "checkmark.circle.fill").font(.caption).foregroundStyle(.secondary).accessibilityLabel("Disponible sin conexión") }
             Menu {
                 Button(song.favorite ? "Quitar de Me gusta" : "Me gusta", systemImage: song.favorite ? "heart.slash" : "heart") { library.favorite(song.id) }
-                Button("Editar letra", systemImage: "text.quote") { editor = true }
+                Button("Editar letra", systemImage: "text.quote") { editor = true }.disabled(library.state.lyrics[song.id] == nil && !library.state.localIds.contains(song.id) && song.lyricsRevision != digest(Data()))
                 if library.file(song.id) != nil { Button("Quitar descarga del iPhone", systemImage: "trash", role: .destructive) { removing = true } }
             } label: { Image(systemName: "ellipsis").padding(.vertical, 10) }.accessibilityLabel("Opciones de \(song.title)")
         }.padding(.vertical, 5)
         .sheet(isPresented: $editor) { LyricsEditorView(song: song).environmentObject(library) }
-        .confirmationDialog("¿Quitar la descarga de este iPhone?", isPresented: $removing, titleVisibility: .visible) { Button("Quitar descarga", role: .destructive) { if player.current?.id == song.id { player.pause() }; library.removeDownload(song.id) } } message: { Text("La canción y su letra se conservan en la PC.") }
+        .confirmationDialog("¿Quitar la descarga de este iPhone?", isPresented: $removing, titleVisibility: .visible) { Button("Quitar descarga", role: .destructive) { player.unload(song.id); library.removeDownload(song.id) } } message: { Text("La canción y su letra se conservan en la PC.") }
     }
 }
 struct MiniPlayer: View {

@@ -100,12 +100,6 @@ pub enum Change {
         id: String,
         value: bool,
     },
-    Playlist {
-        id: String,
-        base_revision: Option<String>,
-        name: String,
-        track_ids: Vec<String>,
-    },
     Resume {
         track_id: String,
         position: f64,

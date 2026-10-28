@@ -4,7 +4,6 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::HashSet,
     fs,
     path::{Path, PathBuf},
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -312,56 +311,6 @@ impl Store {
                             "UPDATE tracks SET metadata=?1 WHERE id=?2",
                             params![t.to_string(), id],
                         ))?;
-                    }
-                    Change::Playlist {
-                        id,
-                        base_revision,
-                        name,
-                        track_ids,
-                    } => {
-                        if id.is_empty()
-                            || id.len() > 100
-                            || name.trim().is_empty()
-                            || name.len() > 200
-                            || track_ids.len() > 100000
-                        {
-                            return Err("Invalid playlist".into());
-                        }
-                        let mut settings = Self::settings(&tx)?;
-                        let mut lists = settings["playlists"]
-                            .as_array()
-                            .cloned()
-                            .unwrap_or_default();
-                        let at = lists.iter().position(|p| p["id"] == id);
-                        if let Some(i) = at {
-                            if base_revision.as_deref() != Some(&playlist_revision(&lists[i])) {
-                                return Ok(Some(
-                                    json!({"kind":"playlist","playlist":self.playlist(&lists[i])}),
-                                ));
-                            }
-                        } else if base_revision.is_some() {
-                            return Err("Playlist was removed on PC".into());
-                        }
-                        let mut seen = HashSet::new();
-                        let mut ids = Vec::new();
-                        for id in track_ids {
-                            Self::track(&tx, &id)?;
-                            if seen.insert(id.clone()) {
-                                ids.push(id);
-                            }
-                        }
-                        let cover = at
-                            .and_then(|i| lists[i].get("cover").cloned())
-                            .unwrap_or(Value::Null);
-                        let value =
-                            json!({"id":id,"name":name.trim(),"cover":cover,"trackIds":ids});
-                        if let Some(i) = at {
-                            lists[i] = value;
-                        } else {
-                            lists.push(value);
-                        }
-                        settings["playlists"] = json!(lists);
-                        db_result(tx.execute("INSERT INTO settings VALUES('app',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value",[settings.to_string()]))?;
                     }
                     Change::Resume { track_id, position } => {
                         let t = Self::track(&tx, &track_id)?;

@@ -4209,3 +4209,71 @@ button:active:not(:disabled) {
 .performance-economy .lyric-word.current {
   text-shadow: none;
 }
+
+.lan-heading {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin: 20px 0;
+}
+.lan-heading > svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.lan-heading h3 {
+  font-size: 18px;
+  margin: 0 0 8px;
+}
+.lan-heading p,
+.lan-pairing p {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+.lan-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 20px 0;
+}
+.lan-actions > span,
+.lan-panel .privacy-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.lan-qr {
+  display: block;
+  width: min(320px, 100%);
+  height: auto;
+  margin: 20px auto;
+  border-radius: 16px;
+}
+.lan-pairing details {
+  margin: 16px 0;
+  font-size: 12px;
+}
+.lan-pairing summary {
+  cursor: pointer;
+  color: var(--accent);
+}
+.lan-pairing textarea {
+  display: block;
+  width: 100%;
+  height: 90px;
+  margin: 12px 0;
+  font: 11px monospace;
+  resize: vertical;
+}
+.lan-device {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0;
+  font-size: 13px;
+}
+.lan-device > span {
+  flex: 1;
+}

@@ -36,10 +36,20 @@ import UIKit
                 if let song = self.player.current, !self.library.state.localIds.contains(song.id) {
                     outgoing.append(PendingChange(id: nil, kind: "resume", trackId: song.id, position: self.player.position))
                 }
-                if !outgoing.isEmpty {
-                    let results: [ChangeResult] = try await client.json("changes", body: JSONEncoder().encode(ChangeEnvelope(changes: outgoing)))
-                    for result in results where outgoing.indices.contains(result.index) {
-                        let change = outgoing[result.index]
+                // Bound both operation count and UTF-8 JSON size; large offline libraries
+                // must not exceed the PC's five-megabyte request limit.
+                while !outgoing.isEmpty {
+                    try Task.checkCancellation()
+                    var batch: [PendingChange] = []
+                    var size = 0
+                    while let change = outgoing.first {
+                        let count = try JSONEncoder().encode(change).count
+                        if !batch.isEmpty && (batch.count >= 50 || size + count > 3_000_000) { break }
+                        batch.append(outgoing.removeFirst()); size += count
+                    }
+                    let results: [ChangeResult] = try await client.json("changes", body: JSONEncoder().encode(ChangeEnvelope(changes: batch)))
+                    for result in results where batch.indices.contains(result.index) {
+                        let change = batch[result.index]
                         if result.applied { self.library.acknowledge(change) }
                         else if let conflict = result.conflict { self.library.conflict(change, remote: conflict) }
                         else if let error = result.error { self.library.message = "Un cambio sigue pendiente: " + error }

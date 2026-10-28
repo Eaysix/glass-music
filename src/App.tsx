@@ -398,6 +398,44 @@ export default function App() {
   useEffect(() => {
     if (!ready || !api.native) return;
     let alive = true,
+      stop: (() => void) | undefined,
+      revision = 0;
+    void import("@tauri-apps/api/event")
+      .then(({ listen }) =>
+        listen("lan-library-changed", () => {
+          const ticket = ++revision;
+          void Promise.all([api.loadLibrary(), api.loadSettings()])
+            .then(async ([library]) => {
+              if (!alive || ticket !== revision) return;
+              setTracks(library);
+              const id = latest.current.settings.queue.current;
+              if (id) {
+                const text = await api.getLyrics(id);
+                if (
+                  alive &&
+                  ticket === revision &&
+                  latest.current.settings.queue.current === id
+                )
+                  setLyrics(text);
+              }
+            })
+            .catch((e) => {
+              if (alive) setNotice(String(e));
+            });
+        }),
+      )
+      .then((unlisten) => {
+        if (alive) stop = unlisten;
+        else unlisten();
+      });
+    return () => {
+      alive = false;
+      stop?.();
+    };
+  }, [ready]);
+  useEffect(() => {
+    if (!ready || !api.native) return;
+    let alive = true,
       closing = false,
       unlisten: (() => void) | undefined;
     import("@tauri-apps/api/window")
@@ -918,8 +956,15 @@ export default function App() {
     }
   }
   async function changeTrack(track: Track) {
-    await api.updateTrack(track);
-    setTracks((list) => list.map((t) => (t.id === track.id ? track : t)));
+    const original = byId.get(track.id);
+    const favoriteOnly =
+      !!original &&
+      original.favorite !== track.favorite &&
+      ["title", "artist", "album", "feats", "cover"].every(
+        (key) => original[key as keyof Track] === track[key as keyof Track],
+      );
+    const saved = await api.updateTrack(track, favoriteOnly);
+    setTracks((list) => list.map((t) => (t.id === saved.id ? saved : t)));
   }
   async function favorite(track: Track) {
     try {
@@ -2559,6 +2604,36 @@ export default function App() {
           setSettings={setSettings}
           onClose={() => setModal(null)}
           openPlaylist={(id) => navigate(id ? `playlist:${id}` : "home")}
+          resumePhone={(id, position) => {
+            if (!byId.has(id)) {
+              setNotice(tr("La canción ya no está en tu biblioteca."));
+              return;
+            }
+            const context = collectionTracks(tracks, settings.playlists, {
+              view: "library",
+              query: "",
+              filter: "all",
+              sort: "modified",
+            });
+            void playQueue(
+              {
+                ...startQueue(
+                  context.map((t) => t.id),
+                  id,
+                  settings.shuffle,
+                  tracks,
+                ),
+                source: {
+                  view: "library",
+                  query: "",
+                  filter: "all",
+                  sort: "modified",
+                },
+              },
+              position,
+            );
+            setModal(null);
+          }}
           lyricTrack={modal.type === "lyrics" ? byId.get(modal.id) : undefined}
           lyricActive={modal.type === "lyrics" && modal.id === current?.id}
           lyricPlaying={playing}
@@ -2573,7 +2648,11 @@ export default function App() {
           deleteTrack={deleteTrack}
           deleteTracks={deleteTracks}
           onLyrics={async (id, text) => {
-            await api.saveLyrics(id, text);
+            await api.saveLyrics(
+              id,
+              text,
+              modal.type === "lyrics" ? modal.text : undefined,
+            );
             if (id === settings.queue.current) setLyrics(text);
           }}
         />
@@ -2606,6 +2685,7 @@ function Editor({
   toggleLyrics,
   seekLyrics,
   openPlaylist,
+  resumePhone,
 }: {
   modal: NonNullable<Modal>;
   presence: api.PresenceStatus;
@@ -2622,6 +2702,7 @@ function Editor({
   toggleLyrics: () => void;
   seekLyrics: (position: number) => void;
   openPlaylist: (id: string) => void;
+  resumePhone: (id: string, position: number) => void;
 }) {
   const [track, setTrack] = useState(
     modal.type === "track" ? modal.track : null,
@@ -2734,6 +2815,7 @@ function Editor({
             setSettings={setSettings}
             photo={() => image("profile")}
             presence={presence}
+            resumePhone={resumePhone}
           />
         )}
         {track && (

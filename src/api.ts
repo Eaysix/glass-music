@@ -64,22 +64,40 @@ export const loadLibrary = async (): Promise<Track[]> =>
   native
     ? invoke("load_library")
     : ((await read<Track[]>("data", "tracks")) ?? []);
-export async function updateTrack(track: Track) {
-  if (native) return invoke<void>("update_track", { track });
+export async function updateTrack(
+  track: Track,
+  favoriteOnly = false,
+): Promise<Track> {
+  if (native)
+    return favoriteOnly
+      ? invoke<Track>("set_favorite", {
+          id: track.id,
+          favorite: track.favorite,
+        })
+      : invoke<Track>("update_track", { track });
   const tracks = await loadLibrary();
   await write(
     "data",
     "tracks",
     tracks.map((t) => (t.id === track.id ? track : t)),
   );
+  return track;
 }
 export const getLyrics = async (id: string): Promise<string> =>
   native
     ? invoke("get_lyrics", { id })
     : ((await read<string>("data", `lyrics:${id}`)) ?? "");
-export const saveLyrics = (id: string, lyrics: string) =>
+export const saveLyrics = (
+  id: string,
+  lyrics: string,
+  expectedLyrics?: string,
+) =>
   native
-    ? invoke<void>("save_lyrics", { id, lyrics })
+    ? invoke<void>("save_lyrics", {
+        id,
+        lyrics,
+        expectedLyrics: expectedLyrics ?? null,
+      })
     : write("data", `lyrics:${id}`, lyrics);
 export async function removeTrack(id: string) {
   if (native) return invoke<void>("remove_track", { id });
@@ -351,3 +369,40 @@ export async function removeTracks(ids: string[]) {
     tx.onerror = () => reject(tx.error);
   });
 }
+
+export interface LANStatus {
+  running: boolean;
+  serverId: string;
+  addresses: string[];
+  port: number;
+  fingerprint: string;
+  devices: { id: string; name: string; lastSeen: number }[];
+  latestResume: {
+    trackId: string;
+    title: string;
+    position: number;
+    deviceName: string;
+  } | null;
+}
+export interface LANPairing {
+  protocolVersion: number;
+  serverId: string;
+  host: string;
+  port: number;
+  fingerprint: string;
+  secret: string;
+  expiresAt: number;
+}
+export const lanStatus = (): Promise<LANStatus | null> =>
+  native ? invoke("lan_status") : Promise.resolve(null);
+export const lanStart = (): Promise<LANStatus> =>
+  native
+    ? invoke("lan_start")
+    : Promise.reject(
+        new Error("La sincronización está disponible en la app de Windows."),
+      );
+export const lanStop = (): Promise<void> => invoke("lan_stop");
+export const lanPair = (host: string): Promise<LANPairing> =>
+  invoke("lan_pair", { host });
+export const lanRevoke = (id: string): Promise<void> =>
+  invoke("lan_revoke", { id });

@@ -50,9 +50,38 @@ jobs:
           assert iphones, 'No iPhone simulator available'
           with open(os.environ['GITHUB_ENV'],'a') as f:f.write('GLASS_SIMULATOR='+iphones[0]['udid']+'\n')
           PY
-      - name: Unit and interface tests
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/glass-sync
+      - name: Build LAN integration fixture
+        run: cargo build --locked --manifest-path crates/glass-sync/Cargo.toml --example test_hub
+      - name: Build simulator tests
         working-directory: ios
-        run: xcodebuild -project GlassMusic.xcodeproj -scheme GlassMusic -configuration Debug -destination "platform=iOS Simulator,id=$GLASS_SIMULATOR" -derivedDataPath build/simulator -resultBundlePath build/TestResults.xcresult CODE_SIGNING_ALLOWED=NO test
+        run: xcodebuild -project GlassMusic.xcodeproj -scheme GlassMusic -configuration Debug -destination "platform=iOS Simulator,id=$GLASS_SIMULATOR" -derivedDataPath build/simulator CODE_SIGNING_ALLOWED=NO build-for-testing
+      - name: Unit, native LAN and interface tests
+        run: |
+          APP=ios/build/simulator/Build/Products/Debug-iphonesimulator/GlassMusic.app
+          test -f "$APP/first.flac" || test -f "$APP/Fixtures/first.flac"
+          crates/glass-sync/target/debug/examples/test_hub /tmp/HubFixture.json > /tmp/glass-hub.log 2>&1 &
+          HUB_PID=$!
+          trap 'kill "$HUB_PID" || true' EXIT
+          for attempt in $(seq 1 30); do
+            if test -f /tmp/HubFixture.json; then break; fi
+            sleep 1
+          done
+          cp /tmp/HubFixture.json "$APP/PlugIns/GlassMusicTests.xctest/HubFixture.json"
+          cd ios
+          xcodebuild -project GlassMusic.xcodeproj -scheme GlassMusic -configuration Debug -destination "platform=iOS Simulator,id=$GLASS_SIMULATOR" -derivedDataPath build/simulator -resultBundlePath build/TestResults.xcresult CODE_SIGNING_ALLOWED=NO test-without-building
+      - name: Export interface screenshots
+        if: always()
+        run: xcrun xcresulttool export attachments --path ios/build/TestResults.xcresult --output-path ios/build/screenshots --only-failures false
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Glass-Music-iPhone-Screenshots
+          path: ios/build/screenshots
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         with:
           name: Glass-Music-iPhone-IPA-unsigned

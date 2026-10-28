@@ -20,8 +20,8 @@ targets:
     platform: iOS
     sources:
       - GlassMusic
-    resources:
-      - Resources
+      - path: Resources
+        buildPhase: resources
     info:
       path: Info.plist
       properties:

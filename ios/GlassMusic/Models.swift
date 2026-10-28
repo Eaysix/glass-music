@@ -114,7 +114,15 @@ struct OfflineFile: Codable {
     var relativePath: String
     var revision: String
 }
+struct PhoneQueue: Codable {
+    var collection: String
+    var context: [String]
+    var upcoming: [String]
+    var history: [String]
+    var heard: Set<String>
+}
 struct LibraryState: Codable {
+    var queue: PhoneQueue?
     var songs: [Song] = []
     var playlists: [Playlist] = []
     var localPlaylists: [Playlist] = []

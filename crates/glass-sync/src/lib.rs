@@ -31,6 +31,15 @@ struct Hub {
     store: Store,
     invitation: Mutex<Option<Invitation>>,
     changed: Arc<dyn Fn() + Send + Sync>,
+    resume: Mutex<Option<Arc<dyn Fn() -> Option<Resume> + Send + Sync>>>,
+}
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResumeSummary {
+    pub track_id: String,
+    pub title: String,
+    pub position: f64,
+    pub device_name: String,
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -41,6 +50,7 @@ pub struct Status {
     pub port: u16,
     pub fingerprint: String,
     pub devices: Vec<Device>,
+    pub latest_resume: Option<ResumeSummary>,
 }
 pub struct Server {
     hub: Arc<Hub>,
@@ -63,9 +73,11 @@ impl Server {
         let cert_path = folder.join("certificate.pem");
         let key_path = folder.join("private-key.pem");
         if !cert_path.exists() || !key_path.exists() {
-            let rcgen::CertifiedKey { cert, key_pair } =
-                rcgen::generate_simple_self_signed(vec!["glass-music.local".into()])
-                    .map_err(|e| e.to_string())?;
+            let rcgen::CertifiedKey { cert, key_pair } = rcgen::generate_simple_self_signed(vec![
+                "glass-music.local".into(),
+                "127.0.0.1".into(),
+            ])
+            .map_err(|e| e.to_string())?;
             fs::write(&cert_path, cert.pem()).map_err(|e| e.to_string())?;
             fs::write(&key_path, key_pair.serialize_pem()).map_err(|e| e.to_string())?;
             #[cfg(unix)]
@@ -93,6 +105,7 @@ impl Server {
             store,
             invitation: Mutex::new(None),
             changed: Arc::new(changed),
+            resume: Mutex::new(None),
         });
         let router = Router::new()
             .route("/v1/pair", post(pair))
@@ -114,7 +127,7 @@ impl Server {
                 .await;
         });
         let mut addresses: Vec<String> = if_addrs::get_if_addrs()
-            .map_err(|e| e.to_string())?
+            .unwrap_or_default()
             .into_iter()
             .filter_map(|i| match i.ip() {
                 IpAddr::V4(ip) if ip.is_private() && !ip.is_loopback() => Some(ip.to_string()),
@@ -132,6 +145,14 @@ impl Server {
             certificate: der,
         })
     }
+    pub fn set_resume_provider(
+        &self,
+        provider: impl Fn() -> Option<Resume> + Send + Sync + 'static,
+    ) {
+        if let Ok(mut p) = self.hub.resume.lock() {
+            *p = Some(Arc::new(provider));
+        }
+    }
     pub fn status(&self) -> Result<Status> {
         Ok(Status {
             running: true,
@@ -140,6 +161,24 @@ impl Server {
             port: self.port,
             fingerprint: self.fingerprint.clone(),
             devices: self.hub.store.devices()?,
+            latest_resume: {
+                let manifest = self.hub.store.manifest()?;
+                manifest
+                    .resumes
+                    .iter()
+                    .find(|r| r.device_id != "pc")
+                    .map(|r| ResumeSummary {
+                        track_id: r.track_id.clone(),
+                        title: manifest
+                            .tracks
+                            .iter()
+                            .find(|t| t.id == r.track_id)
+                            .map(|t| t.title.clone())
+                            .unwrap_or_else(|| "Canción".into()),
+                        position: r.position,
+                        device_name: r.device_name.clone(),
+                    })
+            },
         })
     }
     pub fn invitation(&self, host: &str) -> Result<Pairing> {
@@ -230,15 +269,24 @@ async fn pair(
     }
     let response = hub.store.add_device(&body.device_name).map_err(failed)?;
     *invitation = None;
+    (hub.changed)();
     Ok(Json(response))
 }
 async fn manifest(State(hub): State<Arc<Hub>>, headers: HeaderMap) -> ApiResult<Json<Manifest>> {
     auth(&hub, &headers)?;
     let store = hub.store.clone();
-    let result = tokio::task::spawn_blocking(move || store.manifest())
-        .await
-        .map_err(|e| failed(e.to_string()))?
-        .map_err(failed)?;
+    let provider = hub.resume.lock().ok().and_then(|p| p.clone());
+    let result = tokio::task::spawn_blocking(move || {
+        let mut manifest = store.manifest()?;
+        if let Some(resume) = provider.and_then(|p| p()) {
+            manifest.resumes.retain(|r| r.device_id != "pc");
+            manifest.resumes.push(resume);
+        }
+        Ok::<Manifest, String>(manifest)
+    })
+    .await
+    .map_err(|e| failed(e.to_string()))?
+    .map_err(failed)?;
     Ok(Json(result))
 }
 async fn lyrics(
@@ -308,6 +356,15 @@ async fn file_response(path: PathBuf, headers: HeaderMap, ranges: bool) -> ApiRe
     let (size, revision) =
         store::file_info(&path).ok_or((StatusCode::NOT_FOUND, "File unavailable".into()))?;
     let etag = format!("\"{revision}\"");
+    if headers
+        .get(header::IF_MATCH)
+        .is_some_and(|h| h.to_str().ok() != Some(&etag))
+    {
+        return Err((
+            StatusCode::PRECONDITION_FAILED,
+            "File changed on PC. Sync again.".into(),
+        ));
+    }
     let content_type = match path
         .extension()
         .and_then(|e| e.to_str())

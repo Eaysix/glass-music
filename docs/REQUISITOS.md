@@ -62,7 +62,7 @@ Reproductor personal de música local, principalmente FLAC y también MP3, con b
 
 ## Control de versiones
 
-Repositorio privado: Eaysix/glass-music. main para cambios revisados; ramas por función y PRs. Commits descriptivos e issues para requisitos, tareas y errores. GitHub Actions comprobará y generará el instalador Windows. No hay reglas de protección configuradas todavía.
+Repositorio público: Eaysix/glass-music. main para cambios revisados; ramas por función y PRs. Commits descriptivos e issues para requisitos, tareas y errores. GitHub Actions comprobará y generará el instalador Windows. No hay reglas de protección configuradas todavía.
 
 No subir música personal, bibliotecas, credenciales, cachés ni compilaciones al código fuente. Se incluyen dos archivos de silencio sintético exclusivamente para pruebas.
 
@@ -80,3 +80,11 @@ No subir música personal, bibliotecas, credenciales, cachés ni compilaciones a
 ## Rendimiento 0.2.0
 
 El usuario informó aproximadamente 8% de CPU y menos de 300 MB de RAM con 0.1.2; no es una medición controlada. El reloj de 0.2.0 no vuelve a evaluar la biblioteca cada segundo. El fondo se prepara en un canvas de 32px una vez por portada. Equilibrado limita el desenfoque a 12px; Ahorro lo desactiva. El audio se consulta cada segundo (500ms en máxima apariencia) solo al reproducir. Discord se actualiza por eventos y cada 15s únicamente cuando reproduce y está habilitado. Falta comparar el resultado en Windows con el mismo archivo, vista y equipo.
+
+## iPhone · primera versión
+
+- App nativa iOS 17+, reproducción local FLAC/MP3, audio en segundo plano y controles de pantalla bloqueada. Sin reproducción automática al abrir.
+- Vinculación de una PC mediante QR temporal, TLS con certificado fijado y credencial guardada en Keychain; sincronización manual en la misma red, sin datos móviles ni servidor en internet.
+- Catálogo y playlists de PC al teléfono; descarga selectiva de archivos para escuchar sin conexión. Letras editadas y favoritas en ambos sentidos, con resolución explícita de conflictos. Progreso para continuar sin alterar la reproducción activa del otro equipo.
+- Playlists nuevas en iPhone e importaciones desde Archivos son locales en esta etapa. Sin compartir archivos SQLite entre dispositivos.
+- IPA sin firma para pruebas. CarPlay, publicación en App Store y sincronización por servidor quedan para después. Guía: [IPHONE.md](IPHONE.md).

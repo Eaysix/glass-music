@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Ventana local: selector de archivos y eventos; sin red ni comandos del sistema.",
+  "description": "Ventana local y selectores de archivos; la sincronización LAN cifrada se activa desde Ajustes. Sin servicios externos.",
   "windows": ["main"],
   "permissions": [
     "core:default",

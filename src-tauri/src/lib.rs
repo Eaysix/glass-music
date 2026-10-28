@@ -1,5 +1,6 @@
 mod audio;
 mod audio_device;
+mod lan;
 mod media;
 mod presence;
 use lofty::{file::AudioFile, prelude::*, tag::ItemKey};
@@ -82,8 +83,8 @@ fn load_library(db: State<'_, Database>) -> Result<Vec<Track>> {
             if track.modified_at != Some(modified) {
                 track.modified_at = Some(modified);
                 sql(conn.execute(
-                    "UPDATE tracks SET metadata=?1 WHERE id=?2",
-                    params![serialize(&track)?, track.id],
+                    "UPDATE tracks SET metadata=json_set(metadata,'$.modifiedAt',?1) WHERE id=?2",
+                    params![modified, track.id],
                 ))?;
             }
         }
@@ -114,24 +115,40 @@ fn save_settings(settings: serde_json::Value, db: State<'_, Database>) -> Result
     Ok(())
 }
 #[tauri::command]
-fn update_track(mut track: Track, db: State<'_, Database>) -> Result<()> {
-    let conn = connection(&db)?;
-    let original = track_from_db(&conn, &track.id)?;
+fn update_track(mut track: Track, db: State<'_, Database>) -> Result<Track> {
+    let mut conn = connection(&db)?;
+    let tx = sql(conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate))?;
+    let original = track_from_db(&tx, &track.id)?;
     if track.title.trim().is_empty() {
         return Err("El título no puede estar vacío.".into());
     }
-    // Only editable fields may change. Never accept a replacement media path.
     track.path = original.path;
     track.duration = original.duration;
     track.format = original.format;
     track.sample_rate = original.sample_rate;
     track.bit_depth = original.bit_depth;
     track.modified_at = original.modified_at;
-    sql(conn.execute(
+    // A metadata edit must not reset a favorite received concurrently from iPhone.
+    track.favorite = original.favorite;
+    sql(tx.execute(
         "UPDATE tracks SET metadata=?1 WHERE id=?2",
         params![serialize(&track)?, track.id],
     ))?;
-    Ok(())
+    sql(tx.commit())?;
+    Ok(track)
+}
+#[tauri::command]
+fn set_favorite(id: String, favorite: bool, db: State<'_, Database>) -> Result<Track> {
+    let mut conn = connection(&db)?;
+    let tx = sql(conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate))?;
+    let mut track = track_from_db(&tx, &id)?;
+    track.favorite = favorite;
+    sql(tx.execute(
+        "UPDATE tracks SET metadata=?1 WHERE id=?2",
+        params![serialize(&track)?, id],
+    ))?;
+    sql(tx.commit())?;
+    Ok(track)
 }
 #[tauri::command]
 fn get_lyrics(id: String, db: State<'_, Database>) -> Result<String> {
@@ -142,16 +159,29 @@ fn get_lyrics(id: String, db: State<'_, Database>) -> Result<String> {
     )
 }
 #[tauri::command]
-fn save_lyrics(id: String, lyrics: String, db: State<'_, Database>) -> Result<()> {
+fn save_lyrics(
+    id: String,
+    lyrics: String,
+    expected_lyrics: Option<String>,
+    db: State<'_, Database>,
+) -> Result<()> {
     if lyrics.len() > 1024 * 1024 {
         return Err("La letra supera 1 MB.".into());
     }
-    let changed = sql(connection(&db)?.execute(
-        "UPDATE tracks SET lyrics=?1 WHERE id=?2",
-        params![lyrics, id],
-    ))?;
+    let conn = connection(&db)?;
+    let changed = if let Some(expected) = expected_lyrics {
+        sql(conn.execute(
+            "UPDATE tracks SET lyrics=?1 WHERE id=?2 AND (lyrics=?3 OR lyrics=?1)",
+            params![lyrics, id, expected],
+        ))?
+    } else {
+        sql(conn.execute(
+            "UPDATE tracks SET lyrics=?1 WHERE id=?2",
+            params![lyrics, id],
+        ))?
+    };
     if changed == 0 {
-        return Err("La canción ya no está en la biblioteca.".into());
+        return Err("La letra cambió en otro dispositivo o la canción ya no está. Conserva tu borrador y vuelve a abrir la letra antes de guardar.".into());
     }
     Ok(())
 }
@@ -539,6 +569,7 @@ fn open_discord_portal() -> Result<()> {
         .map_err(|_| "Abre https://discord.com/developers/applications en tu navegador.".into())
 }
 fn initialize_database(conn: &Connection) -> rusqlite::Result<()> {
+    conn.busy_timeout(std::time::Duration::from_secs(5))?;
     conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;
         CREATE TABLE IF NOT EXISTS tracks(id TEXT PRIMARY KEY, path TEXT NOT NULL UNIQUE, metadata TEXT NOT NULL, lyrics TEXT NOT NULL DEFAULT '');
         CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -554,6 +585,7 @@ pub fn run() {
             let conn = Connection::open(root.join("library.db"))?;
             initialize_database(&conn)?;
             app.manage(Database(Mutex::new(conn)));
+            app.manage(lan::Hub::default());
             app.manage(audio::Player::new());
             app.manage(presence::Presence::new());
             #[cfg(target_os = "windows")]
@@ -588,6 +620,7 @@ pub fn run() {
             load_settings,
             save_settings,
             update_track,
+            set_favorite,
             get_lyrics,
             save_lyrics,
             remove_track,
@@ -598,7 +631,12 @@ pub fn run() {
             audio_command,
             discord_update,
             media_update,
-            open_discord_portal
+            open_discord_portal,
+            lan::lan_status,
+            lan::lan_start,
+            lan::lan_stop,
+            lan::lan_pair,
+            lan::lan_revoke
         ])
         .run(tauri::generate_context!())
         .expect("No se pudo iniciar Glass Music");
