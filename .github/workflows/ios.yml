@@ -46,14 +46,18 @@ jobs:
         working-directory: ios
       - name: Build unsigned device app
         working-directory: ios
-        run: xcodebuild -project GlassMusic.xcodeproj -scheme GlassMusic -configuration Release -destination 'generic/platform=iOS' -derivedDataPath build/device CODE_SIGNING_ALLOWED=NO build
+        run: xcodebuild -project GlassMusic.xcodeproj -scheme GlassMusic -configuration Release -destination 'generic/platform=iOS' -derivedDataPath build/device CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" CODE_SIGNING_ALLOWED=NO build
       - name: Package unsigned IPA
         working-directory: ios
         run: |
           mkdir -p build/ipa/Payload
           cp -R build/device/Build/Products/Release-iphoneos/GlassMusic.app build/ipa/Payload/
           cd build/ipa
-          zip -qry Glass-Music-iPhone-0.1.1-unsigned.ipa Payload
+          VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" Payload/GlassMusic.app/Info.plist)
+          BUILD=$(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" Payload/GlassMusic.app/Info.plist)
+          IPA="Glass-Music-iPhone-$VERSION-build$BUILD-${GITHUB_SHA:0:7}-unsigned.ipa"
+          zip -qry "$IPA" Payload
+          echo "GLASS_IPA=$IPA" >> "$GITHUB_ENV"
       - name: Select simulator
         run: |
           xcrun simctl list devices available -j > /tmp/glass-simulators.json
@@ -77,7 +81,11 @@ jobs:
         run: cargo build --locked --manifest-path crates/glass-sync/Cargo.toml --example test_hub
       - name: Build simulator tests
         working-directory: ios
-        run: xcodebuild -project GlassMusic.xcodeproj -scheme GlassMusic -configuration Debug -destination "platform=iOS Simulator,id=$GLASS_SIMULATOR" -derivedDataPath build/simulator CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- build-for-testing
+        run: xcodebuild -project GlassMusic.xcodeproj -scheme GlassMusic -configuration Debug -destination "platform=iOS Simulator,id=$GLASS_SIMULATOR" -derivedDataPath build/simulator CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- build-for-testing
+      - name: Boot simulator before generating the five-minute pairing code
+        run: |
+          xcrun simctl boot "$GLASS_SIMULATOR" || true
+          xcrun simctl bootstatus "$GLASS_SIMULATOR" -b
       - name: Unit, native LAN and interface tests
         run: |
           APP=ios/build/simulator/Build/Products/Debug-iphonesimulator/GlassMusic.app
@@ -93,11 +101,11 @@ jobs:
           codesign --force --sign - --preserve-metadata=entitlements "$APP/PlugIns/GlassMusicTests.xctest"
           codesign --force --sign - --preserve-metadata=entitlements "$APP"
           cd ios
-          xcodebuild -project GlassMusic.xcodeproj -scheme GlassMusic -configuration Debug -destination "platform=iOS Simulator,id=$GLASS_SIMULATOR" -derivedDataPath build/simulator -resultBundlePath build/TestResults.xcresult CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 300 test-without-building
+          xcodebuild -project GlassMusic.xcodeproj -scheme GlassMusic -configuration Debug -destination "platform=iOS Simulator,id=$GLASS_SIMULATOR" -derivedDataPath build/simulator -resultBundlePath build/TestResults.xcresult CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 300 test-without-building
       - name: Small iPhone compatibility and navigation test
         if: env.GLASS_LEGACY_SIMULATOR != ''
         working-directory: ios
-        run: xcodebuild -project GlassMusic.xcodeproj -scheme GlassMusic -configuration Debug -destination "platform=iOS Simulator,id=$GLASS_LEGACY_SIMULATOR" -derivedDataPath build/simulator -resultBundlePath build/CompactTestResults.xcresult CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 300 -only-testing:GlassMusicUITests/GlassMusicUITests/testPlayerLeavesAllNavigationAccessibleInPortraitAndLandscape test-without-building
+        run: xcodebuild -project GlassMusic.xcodeproj -scheme GlassMusic -configuration Debug -destination "platform=iOS Simulator,id=$GLASS_LEGACY_SIMULATOR" -derivedDataPath build/simulator -resultBundlePath build/CompactTestResults.xcresult CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 300 -only-testing:GlassMusicUITests/GlassMusicUITests/testPlayerLeavesAllNavigationAccessibleInPortraitAndLandscape test-without-building
       - name: Export interface screenshots
         if: always()
         run: |
@@ -115,8 +123,8 @@ jobs:
           retention-days: 7
       - uses: actions/upload-artifact@v4
         with:
-          name: Glass-Music-iPhone-IPA-unsigned
-          path: ios/build/ipa/Glass-Music-iPhone-0.1.1-unsigned.ipa
+          name: ${{ env.GLASS_IPA }}
+          path: ios/build/ipa/${{ env.GLASS_IPA }}
           if-no-files-found: error
           retention-days: 14
       - uses: actions/upload-artifact@v4

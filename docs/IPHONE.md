@@ -16,7 +16,7 @@ Descargar una canción copia el archivo completo al almacenamiento de la app. Qu
 
 ## IPA sin firma
 
-Actions genera `Glass-Music-iPhone-0.1.1-unsigned.ipa`. Es un paquete para pruebas: un iPhone normal necesita que se firme después con una identidad y un perfil válidos antes de instalarlo. No se incluyen certificados, perfiles ni credenciales en el repositorio. Esta compilación no está publicada en App Store y no prueba el funcionamiento en un teléfono físico.
+Actions genera `Glass-Music-iPhone-0.2.0-build<N>-<commit>-unsigned.ipa`. Es un paquete para pruebas: un iPhone normal necesita que se firme después con una identidad y un perfil válidos antes de instalarlo. No se incluyen certificados, perfiles ni credenciales en el repositorio. Esta compilación no está publicada en App Store y no prueba el funcionamiento en un teléfono físico.
 
 ## Comprobaciones
 
@@ -24,7 +24,7 @@ El flujo `ios.yml` ejecuta las pruebas del protocolo Rust, compila para disposit
 
 Antes de uso cotidiano, comprobar en el iPhone real: permiso de red local/cámara, FLAC/MP3 propios, pausa/siguiente/seek desde pantalla bloqueada, Bluetooth y llamadas, reproducción sin Wi-Fi, sincronización de letras editadas y descarga interrumpida. La transferencia se realiza con la app abierta; la continuación en segundo plano de una sincronización larga queda pendiente.
 
-## Interfaz 0.1.1
+## Interfaz 0.2.0
 
 La barra inferior reserva espacio para el minirreproductor y los cinco destinos: Inicio, Biblioteca, Descargas, Sincronizar y Ajustes. El contenido puede desplazarse hasta el final sin quedar tapado. El reproductor grande se abre a pantalla completa y permite desplazarse en pantallas pequeñas o en horizontal.
 
@@ -33,3 +33,7 @@ En Ajustes se puede cambiar el nombre y la foto del perfil local, elegir color p
 Las portadas se normalizan a RGB y se reducen a 512 píxeles reales; las fotos de perfil a 256. El fondo se dibuja una vez y se reutiliza, sin animaciones continuas ni degradados de SwiftUI sobre la portada. La comprobación en el iPhone físico sigue siendo necesaria para confirmar la desaparición de los bloques de color informados.
 
 En iOS 26, la navegación y el minirreproductor usan Liquid Glass nativo. En iOS 17/18 se usa material translúcido compatible. Actions selecciona Xcode 26 estable, prueba el diseño principal en iOS 26 y comprueba la navegación en un iPhone SE cuando ese simulador está disponible (iOS 18.5 si está instalado; iOS 26 en otro caso).
+
+## Versiones por plataforma
+
+Windows conserva `1.0.0-rc.4`. iPhone avanza a `0.2.0`; son versiones independientes. El IPA incluye el número de ejecución de Actions como build y el commit para distinguir intentos. Ajustes lee versión y build del paquete instalado, sin un número escrito a mano. Una ejecución de CI no publica una release ni convierte una compilación fallida en una entrega. Las versiones y assets ya publicados se conservan como historial.

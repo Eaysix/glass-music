@@ -19,7 +19,8 @@ final class GlassMusicUITests: XCTestCase {
     }
     private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
         for _ in 0..<5 {
-            if element.isHittable { return }
+            let limit = app.buttons["Abrir reproductor"]
+            if element.isHittable && (!limit.exists || element.frame.maxY <= limit.frame.minY) { return }
             // Start within the scroll content, above the persistent player/dock.
             let player = app.buttons["Abrir reproductor"]
             let bottom = player.exists ? player.frame.minY : app.frame.maxY - 100

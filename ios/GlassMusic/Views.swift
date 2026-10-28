@@ -12,16 +12,19 @@ struct RootView: View {
     @State private var imported = false
     @State private var incomingCode = ""
     var body: some View {
-        TabView(selection: $tab) {
-            NavigationStack { HomeView(player: player, link: { pairing = true }, importFiles: { imported = true }, settings: { tab = 4 }) }.tabItem { Label("Inicio", systemImage: "house") }.tag(0)
-            NavigationStack { SongList(player: player, title: "Tu música", ids: nil, downloadedOnly: false) }.tabItem { Label("Biblioteca", systemImage: "music.note.list") }.tag(1)
-            NavigationStack { SongList(player: player, title: "Descargadas", ids: nil, downloadedOnly: true, source: "downloads") }.tabItem { Label("Descargas", systemImage: "arrow.down.circle") }.tag(2)
-            NavigationStack { SyncView(player: player, pair: { pairing = true }).glassScreen() }.tabItem { Label("Sincronizar", systemImage: "arrow.triangle.2.circlepath") }.tag(3)
-            NavigationStack { PhoneSettingsView() }.tabItem { Label("Ajustes", systemImage: "slider.horizontal.3") }.tag(4)
+        VStack(spacing: 0) {
+            TabView(selection: $tab) {
+                NavigationStack { HomeView(player: player, link: { pairing = true }, importFiles: { imported = true }, settings: { tab = 4 }) }.tabItem { Label("Inicio", systemImage: "house") }.tag(0)
+                NavigationStack { SongList(player: player, title: "Tu música", ids: nil, downloadedOnly: false) }.tabItem { Label("Biblioteca", systemImage: "music.note.list") }.tag(1)
+                NavigationStack { SongList(player: player, title: "Descargadas", ids: nil, downloadedOnly: true, source: "downloads") }.tabItem { Label("Descargas", systemImage: "arrow.down.circle") }.tag(2)
+                NavigationStack { SyncView(player: player, pair: { pairing = true }).glassScreen() }.tabItem { Label("Sincronizar", systemImage: "arrow.triangle.2.circlepath") }.tag(3)
+                NavigationStack { PhoneSettingsView() }.tabItem { Label("Ajustes", systemImage: "slider.horizontal.3") }.tag(4)
+            }
+            .toolbar(.hidden, for: .tabBar)
+            .background { GlassBackdrop() }
+            bottomDock
         }
-        .toolbar(.hidden, for: .tabBar)
         .background { GlassBackdrop() }
-        .safeAreaInset(edge: .bottom, spacing: 0) { bottomDock }
         .tint(library.tint).preferredColorScheme(.dark)
         .sheet(isPresented: $pairing) { PairView(initial: incomingCode).environmentObject(library).environmentObject(sync).tint(library.tint) }
         .fullScreenCover(isPresented: $nowPlaying) { NowPlayingView(player: player).environmentObject(library).tint(library.tint) }

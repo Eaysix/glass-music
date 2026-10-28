@@ -17,6 +17,10 @@ struct PhoneSettingsView: View {
     @State private var photo: PhotosPickerItem?
     @State private var photoError: String?
     @FocusState private var editingName: Bool
+    private var versionLabel: String {
+        let info = Bundle.main.infoDictionary ?? [:]
+        return "iPhone \(info["CFBundleShortVersionString"] as? String ?? "—") · build \(info["CFBundleVersion"] as? String ?? "—")"
+    }
     private let presets = ["#8CCDF3", "#A6E9DC", "#BDA9FA", "#F3A6CB", "#F5CA8C", "#F28888"]
     private func setting<Value>(_ key: WritableKeyPath<PhoneAppearance, Value>) -> Binding<Value> {
         Binding(get: { library.phoneAppearance[keyPath: key] }, set: { value in var appearance = library.phoneAppearance; appearance[keyPath: key] = value; library.updateAppearance(appearance, save: false) })
@@ -79,7 +83,7 @@ struct PhoneSettingsView: View {
             }
             Section {
                 Button("Restablecer apariencia") { library.resetAppearance() }
-            } footer: { Text("Estas opciones son propias del iPhone y se conservan al sincronizar. Glass Music · iPhone 0.1.1") }
+            } footer: { Text("Estas opciones son propias del iPhone y se conservan al sincronizar. Glass Music · \(versionLabel)") }
         }
         .listRowBackground(Color.white.opacity(0.045))
         .glassScreen().toolbar(.hidden, for: .tabBar).tint(library.tint)
