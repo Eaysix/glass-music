@@ -27,7 +27,7 @@ struct NowPlayingView: View {
                             Button { player.previous() } label: { Image(systemName: "backward.end.fill").font(.title2) }.accessibilityLabel("Anterior")
                             Button { player.toggle() } label: { Image(systemName: player.playing ? "pause.fill" : "play.fill").font(.title).frame(width: 74, height: 74).foregroundStyle(.black).background(Color(glassHex: library.state.accent).gradient, in: Circle()) }.accessibilityLabel(player.playing ? "Pausar" : "Reproducir")
                             Button { player.next() } label: { Image(systemName: "forward.end.fill").font(.title2) }.accessibilityLabel("Siguiente")
-                            Button { player.repeatAll.toggle() } label: { Image(systemName: "repeat").foregroundStyle(player.repeatAll ? Color(glassHex: library.state.accent) : .secondary) }.accessibilityLabel("Repetir lista")
+                            Button { player.toggleRepeat() } label: { Image(systemName: "repeat").foregroundStyle(player.repeatAll ? Color(glassHex: library.state.accent) : .secondary) }.accessibilityLabel("Repetir lista")
                         }.frame(maxWidth: .infinity)
                         HStack { Label("En este iPhone · \(song.format)", systemImage: "checkmark.circle"); Spacer(); Button("Editar letra") { edit = true } }.font(.caption).foregroundStyle(.secondary)
                     } else { ContentUnavailableView("Elige una canción", systemImage: "music.note") }

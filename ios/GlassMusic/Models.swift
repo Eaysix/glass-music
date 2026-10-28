@@ -115,6 +115,8 @@ struct OfflineFile: Codable {
     var revision: String
 }
 struct PhoneQueue: Codable {
+    var shuffle: Bool?
+    var repeatAll: Bool?
     var collection: String
     var context: [String]
     var upcoming: [String]

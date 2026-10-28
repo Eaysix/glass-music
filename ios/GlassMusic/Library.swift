@@ -70,11 +70,19 @@ import UIKit
     }
     func acknowledge(_ change: PendingChange) {
         state.pending.removeAll { $0.operationId == change.operationId }
-        if change.kind == "lyrics", let id = change.id, let text = change.text { state.lyrics[id] = LyricPayload(text: text, revision: digest(Data(text.utf8))) }
+        if change.kind == "lyrics", let id = change.id, let text = change.text {
+            let revision = digest(Data(text.utf8))
+            if let next = state.pending.firstIndex(where: { $0.kind == "lyrics" && $0.id == id }) {
+                // A newer edit can be created while the network request is in flight.
+                // Keep it and advance its base to the version just accepted by the PC.
+                state.pending[next].baseRevision = revision
+                if let current = state.lyrics[id] { state.lyrics[id] = LyricPayload(text: current.text, revision: revision) }
+            } else { state.lyrics[id] = LyricPayload(text: text, revision: revision) }
+        }
         persist()
     }
     func conflict(_ change: PendingChange, remote: LyricPayload) {
-        state.conflicts.removeAll { $0.id == change.id }; state.conflicts.append(SyncConflict(id: change.id ?? change.operationId, change: change, remote: remote)); persist()
+        state.conflicts.removeAll { $0.id == change.id }; state.conflicts.append(SyncConflict(id: change.id ?? change.operationId, change: state.pending.first(where: { $0.kind == "lyrics" && $0.id == change.id }) ?? change, remote: remote)); persist()
     }
     func resolve(_ conflict: SyncConflict, keepMine: Bool) {
         state.conflicts.removeAll { $0.id == conflict.id }

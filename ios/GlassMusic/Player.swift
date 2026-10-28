@@ -25,7 +25,7 @@ import UIKit
     private var interruptedPlaying = false
     init(library: Library) {
         self.library = library
-        if let queue = library.state.queue { collection = queue.collection; context = queue.context; upcoming = queue.upcoming; history = queue.history; heard = queue.heard }
+        if let queue = library.state.queue { shuffle = queue.shuffle ?? false; repeatAll = queue.repeatAll ?? false; collection = queue.collection; context = queue.context; upcoming = queue.upcoming; history = queue.history; heard = queue.heard }
         if let id = library.state.currentId { current = library.state.songs.first { $0.id == id }; position = library.state.position }
         let center = NotificationCenter.default
         tokens.append(center.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: nil, queue: .main) { [weak self] notification in
@@ -99,6 +99,7 @@ import UIKit
         else { let eligible = Set(upcoming); upcoming = context.filter { eligible.contains($0) } }
         persist()
     }
+    func toggleRepeat() { repeatAll.toggle(); persist() }
     func unload(_ id: String) { if current?.id == id { pause(); itemStatus = nil; audio.replaceCurrentItem(with: nil) } }
     func seek(_ seconds: Double) {
         guard let current else { return }
@@ -139,7 +140,7 @@ import UIKit
         else { upcoming = ids.filter { (eligible.contains($0) || additions.contains($0)) && library.isDownloaded($0) } }
         if let current, let refreshed = library.state.songs.first(where: { $0.id == current.id }) { self.current = refreshed }
     }
-    func persist() { library.remember(current?.id, position: position, queue: PhoneQueue(collection: collection, context: context, upcoming: upcoming, history: Array(history.suffix(200)), heard: heard)) }
+    func persist() { library.remember(current?.id, position: position, queue: PhoneQueue(shuffle: shuffle, repeatAll: repeatAll, collection: collection, context: context, upcoming: upcoming, history: Array(history.suffix(200)), heard: heard)) }
     func detailedLyrics(_ visible: Bool) { detailed = visible; if playing { observeClock() } }
     private func observeClock() {
         if let observer { audio.removeTimeObserver(observer) }

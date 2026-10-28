@@ -109,4 +109,26 @@ final class GlassMusicTests: XCTestCase {
         XCTAssertNotNil(library.file(song.id)) // The downloaded file remains available offline.
     }
 
+    @MainActor func testAcknowledgementPreservesEditsMadeDuringTransferAndQueuePreferences() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let database = try SnapshotDatabase(root: folder)
+        let library = try Library(database: database)
+        try library.setLink(Link(serverId: "pc", host: "10.0.0.2", port: 38473, fingerprint: "a", deviceId: "phone"))
+        library.editLyrics("one", text: "First edit")
+        let sent = try XCTUnwrap(library.state.pending.first)
+        library.editLyrics("one", text: "New edit while sending")
+        library.acknowledge(sent)
+        XCTAssertEqual(library.state.lyrics["one"]?.text, "New edit while sending")
+        XCTAssertEqual(library.state.pending.count, 1)
+        XCTAssertEqual(library.state.pending.first?.baseRevision, digest(Data("First edit".utf8)))
+        library.remember("one", position: 12, queue: PhoneQueue(shuffle: true, repeatAll: true, collection: "library", context: ["one", "two"], upcoming: ["two"], history: [], heard: []))
+        database.flush()
+        let restored = try database.load()
+        XCTAssertEqual(restored.queue?.upcoming, ["two"])
+        XCTAssertEqual(restored.queue?.shuffle, true)
+        XCTAssertEqual(restored.queue?.repeatAll, true)
+        XCTAssertEqual(restored.position, 12)
+    }
+
 }
