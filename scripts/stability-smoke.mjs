@@ -97,9 +97,30 @@ try {
     initial.queue.current,
     "import must preserve the current track",
   );
+  const songOrder = page.getByRole("combobox", {
+    name: "Orden de canciones",
+    exact: true,
+  });
+  assert.equal(await songOrder.inputValue(), "modified-oldest");
+  assert.match(
+    await page.locator(".track-row").first().textContent(),
+    /Primera luz/,
+  );
+  await songOrder.selectOption("modified");
   assert.match(
     await page.locator(".track-row").first().textContent(),
     /Otro momento/,
+  );
+  await songOrder.selectOption("modified-oldest");
+  assert.match(
+    await page.locator(".track-row").first().textContent(),
+    /Primera luz/,
+  );
+  assert.equal(
+    (await until((s) => s.queue.source?.sort === "modified-oldest")).queue
+      .current,
+    initial.queue.current,
+    "changing order must preserve the playing song",
   );
   await page.getByRole("button", { name: "Siguiente", exact: true }).focus();
   await page.getByRole("button", { name: "Siguiente", exact: true }).click();
@@ -177,6 +198,10 @@ try {
   await page.reload();
   await page.waitForFunction(() => document.documentElement.lang === "de");
   await page.getByRole("button", { name: "Start", exact: true }).waitFor();
+  assert.equal(
+    await page.evaluate(() => localStorage.getItem("glass-music-song-sort")),
+    "modified-oldest",
+  );
   assert.deepEqual(errors, []);
   console.log(
     "PASS: Spanish, English, German and Simplified Chinese switch live and persist after reload; user content stays unchanged",
