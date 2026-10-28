@@ -1,3 +1,4 @@
+import AVFoundation
 import XCTest
 @testable import GlassMusic
 
@@ -129,6 +130,25 @@ final class GlassMusicTests: XCTestCase {
         XCTAssertEqual(restored.queue?.shuffle, true)
         XCTAssertEqual(restored.queue?.repeatAll, true)
         XCTAssertEqual(restored.position, 12)
+    }
+
+    @MainActor func testLocalFLACAndMP3ImportProducesPlayableOfflineFiles() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let library = try Library(database: SnapshotDatabase(root: folder))
+        let urls = try ["first.flac", "second.mp3"].map { name in
+            try XCTUnwrap(Bundle.main.url(forResource: name, withExtension: nil, subdirectory: "Fixtures") ?? Bundle.main.url(forResource: name, withExtension: nil), "Missing bundled fixture: " + name)
+        }
+        await library.importFiles(urls)
+        XCTAssertEqual(library.downloaded.count, 2, library.message ?? "Both audio formats must import")
+        XCTAssertEqual(Set(library.downloaded.map(\.format)), Set(["FLAC", "MP3"]))
+        for song in library.downloaded {
+            let file = try XCTUnwrap(library.file(song.id))
+            let asset = AVURLAsset(url: file)
+            let playable = try await asset.load(.isPlayable)
+            XCTAssertTrue(playable, song.format + " must be playable")
+            XCTAssertGreaterThan(song.duration, 1)
+        }
     }
 
 }

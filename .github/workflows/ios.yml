@@ -58,7 +58,7 @@ jobs:
         run: cargo build --locked --manifest-path crates/glass-sync/Cargo.toml --example test_hub
       - name: Build simulator tests
         working-directory: ios
-        run: xcodebuild -project GlassMusic.xcodeproj -scheme GlassMusic -configuration Debug -destination "platform=iOS Simulator,id=$GLASS_SIMULATOR" -derivedDataPath build/simulator CODE_SIGNING_ALLOWED=NO build-for-testing
+        run: xcodebuild -project GlassMusic.xcodeproj -scheme GlassMusic -configuration Debug -destination "platform=iOS Simulator,id=$GLASS_SIMULATOR" -derivedDataPath build/simulator CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- build-for-testing
       - name: Unit, native LAN and interface tests
         run: |
           APP=ios/build/simulator/Build/Products/Debug-iphonesimulator/GlassMusic.app
@@ -71,8 +71,10 @@ jobs:
             sleep 1
           done
           cp /tmp/HubFixture.json "$APP/PlugIns/GlassMusicTests.xctest/HubFixture.json"
+          codesign --force --sign - --preserve-metadata=entitlements "$APP/PlugIns/GlassMusicTests.xctest"
+          codesign --force --sign - --preserve-metadata=entitlements "$APP"
           cd ios
-          xcodebuild -project GlassMusic.xcodeproj -scheme GlassMusic -configuration Debug -destination "platform=iOS Simulator,id=$GLASS_SIMULATOR" -derivedDataPath build/simulator -resultBundlePath build/TestResults.xcresult CODE_SIGNING_ALLOWED=NO -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 180 test-without-building
+          xcodebuild -project GlassMusic.xcodeproj -scheme GlassMusic -configuration Debug -destination "platform=iOS Simulator,id=$GLASS_SIMULATOR" -derivedDataPath build/simulator -resultBundlePath build/TestResults.xcresult CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 180 test-without-building
       - name: Export interface screenshots
         if: always()
         run: xcrun xcresulttool export attachments --path ios/build/TestResults.xcresult --output-path ios/build/screenshots

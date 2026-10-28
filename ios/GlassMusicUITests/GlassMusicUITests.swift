@@ -5,9 +5,10 @@ final class GlassMusicUITests: XCTestCase {
         let app = XCUIApplication(); app.launchArguments = ["--ui-testing-fixtures"]; app.launch()
         XCTAssertTrue(app.tabBars.buttons["Biblioteca"].waitForExistence(timeout: 15))
         app.tabBars.buttons["Biblioteca"].tap()
-        let title = app.staticTexts["Primera luz"]
-        XCTAssertTrue(title.firstMatch.waitForExistence(timeout: 15))
-        title.firstMatch.tap()
+        let songs = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "play-song-"))
+        XCTAssertTrue(songs.firstMatch.waitForExistence(timeout: 20), app.debugDescription)
+        XCTAssertEqual(songs.count, 2, app.debugDescription)
+        songs.firstMatch.tap()
         XCTAssertTrue(app.buttons["Abrir reproductor"].waitForExistence(timeout: 10))
         app.buttons["Abrir reproductor"].tap()
         XCTAssertTrue(app.buttons["Mostrar letra"].waitForExistence(timeout: 5))

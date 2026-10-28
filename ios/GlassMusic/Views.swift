@@ -126,7 +126,7 @@ struct SongRow: View {
     @State private var removing = false
     var body: some View {
         HStack(spacing: 12) {
-            Button { player.play(song, ids: context, source: source) } label: { HStack(spacing: 12) { Artwork(id: song.id, size: 48); VStack(alignment: .leading, spacing: 5) { Text(song.title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary).lineLimit(1); Text(song.artist).font(.caption).foregroundStyle(.secondary).lineLimit(1) } }.contentShape(Rectangle()) }.buttonStyle(.plain)
+            Button { player.play(song, ids: context, source: source) } label: { HStack(spacing: 12) { Artwork(id: song.id, size: 48); VStack(alignment: .leading, spacing: 5) { Text(song.title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary).lineLimit(1); Text(song.artist).font(.caption).foregroundStyle(.secondary).lineLimit(1) } }.contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityIdentifier("play-song-\(song.id)")
             Spacer(minLength: 0)
             if library.file(song.id) == nil { Button { sync.download([song.id]) } label: { Image(systemName: "arrow.down.circle") }.disabled(sync.busy || library.state.localIds.contains(song.id)).accessibilityLabel("Descargar \(song.title)") }
             else { Image(systemName: "checkmark.circle.fill").font(.caption).foregroundStyle(.secondary).accessibilityLabel("Disponible sin conexión") }
