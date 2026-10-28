@@ -1,0 +1,67 @@
+name: iPhone · comprobar y crear IPA de prueba
+on:
+  push:
+    branches: ["feat/ios-**"]
+  pull_request:
+    paths: ["ios/**", "crates/glass-sync/**", ".github/workflows/ios.yml"]
+  workflow_dispatch:
+concurrency:
+  group: ios-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  protocol:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/glass-sync
+      - run: cargo test --locked --manifest-path crates/glass-sync/Cargo.toml
+  iphone:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - name: Prepare synthetic audio fixtures
+        run: cp tests/fixtures/* ios/Resources/Fixtures/
+      - run: xcodegen generate
+        working-directory: ios
+      - name: Build unsigned device app
+        working-directory: ios
+        run: xcodebuild -project GlassMusic.xcodeproj -scheme GlassMusic -configuration Release -destination 'generic/platform=iOS' -derivedDataPath build/device CODE_SIGNING_ALLOWED=NO build
+      - name: Package unsigned IPA
+        working-directory: ios
+        run: |
+          mkdir -p build/ipa/Payload
+          cp -R build/device/Build/Products/Release-iphoneos/GlassMusic.app build/ipa/Payload/
+          cd build/ipa
+          zip -qry Glass-Music-iPhone-0.1.0-unsigned.ipa Payload
+      - name: Select simulator
+        run: |
+          xcrun simctl list devices available -j > /tmp/glass-simulators.json
+          python3 - <<'PY'
+          import json, os
+          devices=json.load(open('/tmp/glass-simulators.json'))['devices']
+          iphones=[d for runtime, ds in devices.items() if 'iOS' in runtime for d in ds if 'iPhone' in d['name'] and d['isAvailable']]
+          assert iphones, 'No iPhone simulator available'
+          with open(os.environ['GITHUB_ENV'],'a') as f:f.write('GLASS_SIMULATOR='+iphones[0]['udid']+'\n')
+          PY
+      - name: Unit and interface tests
+        working-directory: ios
+        run: xcodebuild -project GlassMusic.xcodeproj -scheme GlassMusic -configuration Debug -destination "platform=iOS Simulator,id=$GLASS_SIMULATOR" -derivedDataPath build/simulator -resultBundlePath build/TestResults.xcresult CODE_SIGNING_ALLOWED=NO test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Glass-Music-iPhone-IPA-unsigned
+          path: ios/build/ipa/Glass-Music-iPhone-0.1.0-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Glass-Music-iPhone-TestResults
+          path: ios/build/TestResults.xcresult
+          retention-days: 7

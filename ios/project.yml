@@ -1,0 +1,83 @@
+name: GlassMusic
+options:
+  bundleIdPrefix: com.eaysix
+  deploymentTarget:
+    iOS: "17.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    GENERATE_INFOPLIST_FILE: NO
+    ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+targets:
+  GlassMusic:
+    type: application
+    platform: iOS
+    sources:
+      - GlassMusic
+    resources:
+      - Resources
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: Glass Music
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleURLTypes:
+          - CFBundleURLName: com.eaysix.glassmusic.pair
+            CFBundleURLSchemes: [glassmusic]
+        NSLocalNetworkUsageDescription: Glass Music se conecta a tu PC para sincronizar música, playlists y letras por la misma red, sin datos móviles.
+        NSCameraUsageDescription: Escanea el QR que muestra Glass Music en tu PC para vincular este iPhone.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: YES
+        UIBackgroundModes: [audio]
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          [
+            UIInterfaceOrientationPortrait,
+            UIInterfaceOrientationLandscapeLeft,
+            UIInterfaceOrientationLandscapeRight,
+          ]
+        UISupportedInterfaceOrientations~ipad:
+          [
+            UIInterfaceOrientationPortrait,
+            UIInterfaceOrientationPortraitUpsideDown,
+            UIInterfaceOrientationLandscapeLeft,
+            UIInterfaceOrientationLandscapeRight,
+          ]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.eaysix.glassmusic.ios
+        SUPPORTS_MACCATALYST: NO
+  GlassMusicTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [GlassMusicTests]
+    dependencies:
+      - target: GlassMusic
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+  GlassMusicUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [GlassMusicUITests]
+    dependencies:
+      - target: GlassMusic
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+schemes:
+  GlassMusic:
+    build:
+      targets:
+        GlassMusic: all
+    test:
+      targets: [GlassMusicTests, GlassMusicUITests]
