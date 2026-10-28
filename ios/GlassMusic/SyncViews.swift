@@ -47,7 +47,7 @@ struct SyncView: View {
                 if !library.state.pending.isEmpty { Text("\(library.state.pending.count) cambios pendientes de enviar").font(.subheadline) }
             }
             if library.state.link != nil { Section { Button("Desvincular PC", role: .destructive) { unlinking = true }.disabled(sync.busy) } }
-        }.scrollContentBackground(.hidden).navigationTitle("Sincronizar")
+        }.glassScreen().toolbar(.hidden, for: .tabBar).navigationTitle("Sincronizar")
         .confirmationDialog("¿Desvincular esta PC?", isPresented: $unlinking, titleVisibility: .visible) { Button("Desvincular y descartar envíos pendientes", role: .destructive) { library.unlink() } } message: { Text("Tus descargas y letras guardadas seguirán en el iPhone. Se descartarán los cambios pendientes de enviar a esta PC.") }
     }
 }
@@ -63,7 +63,7 @@ struct PairView: View {
         NavigationStack {
             Form {
                 Section {
-                    Image(systemName: "desktopcomputer.and.arrow.down").font(.system(size: 42)).foregroundStyle(Color(glassHex: library.state.accent)).frame(maxWidth: .infinity).padding()
+                    Image(systemName: "desktopcomputer.and.arrow.down").font(.system(size: 42)).foregroundStyle(library.tint).frame(maxWidth: .infinity).padding()
                     Text("En tu PC abre Ajustes → iPhone y activa la sincronización local. Después genera un QR.")
                     Button { scanner = true } label: { Label("Escanear QR de la PC", systemImage: "qrcode.viewfinder") }
                 }
@@ -75,11 +75,11 @@ struct PairView: View {
                 Button("Vincular y sincronizar") {
                     Task { do { try await sync.pair(code); dismiss(); sync.sync() } catch { self.error = error.localizedDescription } }
                 }.disabled(sync.busy || code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }.navigationTitle("Conectar con tu PC").navigationBarTitleDisplayMode(.inline)
+            }.glassScreen().navigationTitle("Conectar con tu PC").navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancelar") { dismiss() } } }
                 .onAppear { code = initial }
                 .sheet(isPresented: $scanner) { QRScanner { code = $0; scanner = false }.ignoresSafeArea() }
-        }.preferredColorScheme(.dark)
+        }.tint(library.tint).preferredColorScheme(.dark)
     }
 }
 struct QRScanner: UIViewControllerRepresentable {

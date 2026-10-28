@@ -88,3 +88,5 @@ El usuario informó aproximadamente 8% de CPU y menos de 300 MB de RAM con 0.1.2
 - Catálogo y playlists de PC al teléfono; descarga selectiva de archivos para escuchar sin conexión. Letras editadas y favoritas en ambos sentidos, con resolución explícita de conflictos. Progreso para continuar sin alterar la reproducción activa del otro equipo.
 - Playlists nuevas en iPhone e importaciones desde Archivos son locales en esta etapa. Sin compartir archivos SQLite entre dispositivos.
 - IPA sin firma para pruebas. CarPlay, publicación en App Store y sincronización por servidor quedan para después. Guía: [IPHONE.md](IPHONE.md).
+
+- iPhone 0.1.1: interfaz glass con navegación inferior visible al reproducir; reproductor grande adaptable con desplazamiento. Personalización local de perfil/foto, color, fondo, intensidad del cristal, HUD, tamaño de letra, portada y animaciones, conservada al sincronizar. Portadas RGB en caché de hasta 512 píxeles reales.

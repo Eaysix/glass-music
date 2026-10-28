@@ -151,4 +151,66 @@ final class GlassMusicTests: XCTestCase {
         }
     }
 
+    @MainActor func testPhonePersonalizationSurvivesSyncAndRestartWithoutChangingLyrics() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let database = try SnapshotDatabase(root: folder)
+        let library = try Library(database: database)
+        try library.setLink(Link(serverId: "pc", host: "10.0.0.2", port: 38473, fingerprint: "a", deviceId: "phone"))
+        var preferences = PhoneAppearance()
+        preferences.profileName = "Mi iPhone"; preferences.accent = "#BDA9FA"; preferences.hud = "large"; preferences.lyricSize = 38; preferences.backdrop = "graphite"
+        library.updateAppearance(preferences)
+        library.editLyrics("one", text: "[00:01]Mi letra local")
+        let song = Song(id: "one", title: "Canción", artist: "Artista", album: "Álbum", duration: 16, format: "FLAC", lyricsRevision: digest(Data()))
+        try library.merge(Manifest(protocolVersion: 1, serverId: "pc", libraryName: "Nombre de la PC", accent: "#FF0000", tracks: [song], playlists: [], resumes: []))
+        XCTAssertEqual(library.displayName, "Mi iPhone")
+        XCTAssertEqual(library.effectiveAccent, "#BDA9FA")
+        XCTAssertEqual(library.state.lyrics["one"]?.text, "[00:01]Mi letra local")
+        database.flush()
+        let restored = try Library(database: database)
+        XCTAssertEqual(restored.phoneAppearance, preferences)
+        XCTAssertEqual(restored.phoneAppearance.lyricSize, 38)
+        var following = restored.phoneAppearance; following.useComputerAccent = true; restored.updateAppearance(following)
+        XCTAssertEqual(restored.effectiveAccent, "#FF0000")
+        restored.resetAppearance()
+        XCTAssertEqual(restored.effectiveAccent, "#8CCDF3")
+        XCTAssertEqual(restored.displayName, "Mi iPhone")
+        XCTAssertEqual(restored.state.pending.count, 1)
+    }
+    @MainActor func testOldSnapshotsOpenWithoutPhoneAppearanceAndKeepQueue() throws {
+        var original = LibraryState()
+        original.currentId = "one"; original.position = 42
+        original.queue = PhoneQueue(collection: "library", context: ["one", "two"], upcoming: ["two"], history: [], heard: [])
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any])
+        json.removeValue(forKey: "phoneAppearance")
+        let restored = try JSONDecoder().decode(LibraryState.self, from: JSONSerialization.data(withJSONObject: json))
+        XCTAssertNil(restored.phoneAppearance)
+        XCTAssertEqual(restored.position, 42)
+        XCTAssertEqual(restored.queue?.upcoming, ["two"])
+    }
+    @MainActor func testArtworkAndAvatarAreStandardRGBThumbnailsAtActualPixelSize() throws {
+        let format = UIGraphicsImageRendererFormat(); format.scale = 1
+        let original = UIGraphicsImageRenderer(size: CGSize(width: 1600, height: 900), format: format).image { context in
+            UIColor.systemTeal.setFill(); context.fill(CGRect(x: 0, y: 0, width: 1600, height: 900))
+        }
+        let thumbnail = PhoneImages.thumbnail(original, maxSide: 512)
+        XCTAssertEqual(thumbnail.cgImage?.width, 512)
+        XCTAssertLessThanOrEqual(thumbnail.cgImage?.height ?? 0, 512)
+        XCTAssertEqual(thumbnail.cgImage?.bitsPerComponent, 8)
+        XCTAssertEqual(thumbnail.scale, 1)
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let database = try SnapshotDatabase(root: folder)
+        let library = try Library(database: database)
+        try library.setAvatar(XCTUnwrap(original.pngData()))
+        XCTAssertTrue(library.phoneAppearance.hasAvatar)
+        XCTAssertEqual(library.avatar?.cgImage?.width, 256)
+        XCTAssertEqual(library.avatar?.cgImage?.height, 256)
+        database.flush()
+        XCTAssertTrue(try database.load().phoneAppearance?.hasAvatar == true)
+        try library.setAvatar(nil)
+        XCTAssertNil(library.avatar)
+        XCTAssertFalse(library.phoneAppearance.hasAvatar)
+    }
+
 }

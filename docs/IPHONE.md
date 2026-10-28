@@ -16,10 +16,18 @@ Descargar una canción copia el archivo completo al almacenamiento de la app. Qu
 
 ## IPA sin firma
 
-Actions genera `Glass-Music-iPhone-0.1.0-unsigned.ipa`. Es un paquete para pruebas: un iPhone normal necesita que se firme después con una identidad y un perfil válidos antes de instalarlo. No se incluyen certificados, perfiles ni credenciales en el repositorio. Esta compilación no está publicada en App Store y no prueba el funcionamiento en un teléfono físico.
+Actions genera `Glass-Music-iPhone-0.1.1-unsigned.ipa`. Es un paquete para pruebas: un iPhone normal necesita que se firme después con una identidad y un perfil válidos antes de instalarlo. No se incluyen certificados, perfiles ni credenciales en el repositorio. Esta compilación no está publicada en App Store y no prueba el funcionamiento en un teléfono físico.
 
 ## Comprobaciones
 
 El flujo `ios.yml` ejecuta las pruebas del protocolo Rust, compila para dispositivo sin firma y ejecuta pruebas unitarias e interfaz en Simulator. La prueba de cliente nativo usa un servidor Rust temporal con dos audios de silencio sintético para comprobar vinculación, descarga TLS, letras, conflictos y rechazo de certificados distintos. No accede a una biblioteca personal. Los resultados y capturas quedan como artifacts de Actions.
 
 Antes de uso cotidiano, comprobar en el iPhone real: permiso de red local/cámara, FLAC/MP3 propios, pausa/siguiente/seek desde pantalla bloqueada, Bluetooth y llamadas, reproducción sin Wi-Fi, sincronización de letras editadas y descarga interrumpida. La transferencia se realiza con la app abierta; la continuación en segundo plano de una sincronización larga queda pendiente.
+
+## Interfaz 0.1.1
+
+La barra inferior reserva espacio para el minirreproductor y los cinco destinos: Inicio, Biblioteca, Descargas, Sincronizar y Ajustes. El contenido puede desplazarse hasta el final sin quedar tapado. El reproductor grande se abre a pantalla completa y permite desplazarse en pantallas pequeñas o en horizontal.
+
+En Ajustes se puede cambiar el nombre y la foto del perfil local, elegir color propio o seguir el de la PC, seleccionar fondo Aurora/Medianoche/Grafito, ajustar el cristal, el tamaño del HUD, la portada, la letra y las animaciones. Estas preferencias se guardan en el iPhone y la sincronización no las reemplaza. Restablecer apariencia conserva el nombre, la foto, la música y las letras. Se respetan Reducir movimiento y Reducir transparencia de iOS.
+
+Las portadas se normalizan a RGB y se reducen a 512 píxeles reales; las fotos de perfil a 256. El fondo se dibuja una vez y se reutiliza, sin animaciones continuas ni degradados de SwiftUI sobre la portada. La comprobación en el iPhone físico sigue siendo necesaria para confirmar la desaparición de los bloques de color informados.

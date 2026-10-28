@@ -6,6 +6,7 @@ import UIKit
     @Published private(set) var state: LibraryState
     @Published var message: String?
     let database: SnapshotDatabase
+    private let imageCache = NSCache<NSString, UIImage>()
     var catalogChanged: (() -> Void)?
     init(database: SnapshotDatabase) throws { self.database = database; state = try database.load() }
     func persist() {
@@ -17,7 +18,41 @@ import UIKit
         guard url.path.hasPrefix(database.root.path + "/"), FileManager.default.fileExists(atPath: url.path) else { return nil }
         return url
     }
-    func cover(_ id: String) -> UIImage? { UIImage(contentsOfFile: database.coverURL(id).path) }
+    var phoneAppearance: PhoneAppearance { state.phoneAppearance ?? PhoneAppearance(accent: state.accent, useComputerAccent: true) }
+    var effectiveAccent: String { phoneAppearance.useComputerAccent ? state.accent : phoneAppearance.accent }
+    var displayName: String {
+        let name = phoneAppearance.profileName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? state.name : name
+    }
+    func updateAppearance(_ value: PhoneAppearance, save: Bool = true) {
+        state.phoneAppearance = value.sanitized()
+        if save { persist() }
+    }
+    func resetAppearance() {
+        var value = PhoneAppearance()
+        value.profileName = phoneAppearance.profileName; value.hasAvatar = phoneAppearance.hasAvatar
+        updateAppearance(value)
+    }
+    var avatar: UIImage? { phoneAppearance.hasAvatar ? cachedImage("profile-avatar", url: database.root.appendingPathComponent("avatar.jpg")) : nil }
+    func setAvatar(_ data: Data?) throws {
+        let url = database.root.appendingPathComponent("avatar.jpg")
+        var appearance = phoneAppearance
+        if let data {
+            guard data.count <= 30 * 1024 * 1024, let image = UIImage(data: data), let jpeg = PhoneImages.thumbnail(image, maxSide: 256, square: true).jpegData(compressionQuality: 0.88) else { throw AppError.message("No se pudo leer esta foto. Elige otra imagen de menos de 30 MB.") }
+            try jpeg.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication]); appearance.hasAvatar = true
+        } else { if FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }; appearance.hasAvatar = false }
+        imageCache.removeObject(forKey: "profile-avatar")
+        updateAppearance(appearance)
+    }
+    private func cachedImage(_ key: String, url: URL) -> UIImage? {
+        if let cached = imageCache.object(forKey: key as NSString) { return cached }
+        guard let image = UIImage(contentsOfFile: url.path) else { return nil }
+        let thumbnail = PhoneImages.thumbnail(image, maxSide: 512)
+        imageCache.countLimit = 80; imageCache.totalCostLimit = 24 * 1024 * 1024
+        imageCache.setObject(thumbnail, forKey: key as NSString, cost: Int(thumbnail.size.width * thumbnail.size.height * 4))
+        return thumbnail
+    }
+    func cover(_ id: String) -> UIImage? { cachedImage(id, url: database.coverURL(id)) }
     func isDownloaded(_ id: String) -> Bool { state.files[id] != nil }
     var downloaded: [Song] { state.songs.filter { isDownloaded($0.id) } }
     func setLink(_ link: Link) throws {
@@ -110,8 +145,10 @@ import UIKit
         catch { message = error.localizedDescription }
     }
     func storeCover(_ id: String, data: Data, revision: String) throws {
-        guard UIImage(data: data) != nil else { return }
-        try data.write(to: database.coverURL(id), options: .atomic); state.coverRevisions[id] = revision; persist()
+        guard let image = UIImage(data: data), let jpeg = PhoneImages.thumbnail(image, maxSide: 512).jpegData(compressionQuality: 0.9) else { return }
+        try jpeg.write(to: database.coverURL(id), options: .atomic)
+        imageCache.removeObject(forKey: id as NSString)
+        state.coverRevisions[id] = revision; persist()
     }
     func remember(_ id: String?, position: Double, queue: PhoneQueue? = nil) { state.currentId = id; state.position = max(0, position.isFinite ? position : 0); if let queue { state.queue = queue }; persist() }
     func finishSync() { state.lastSync = Date(); persist() }
@@ -140,9 +177,7 @@ import UIKit
                 state.files[id] = OfflineFile(relativePath: "Audio/" + destination.lastPathComponent, revision: "local")
                 if let item = AVMetadataItem.metadataItems(from: metadata, filteredByIdentifier: .commonIdentifierArtwork).first,
                    let bytes = try? await item.load(.dataValue), let image = UIImage(data: bytes) {
-                    let scale = min(1, 512 / max(image.size.width, image.size.height))
-                    let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
-                    let preview = UIGraphicsImageRenderer(size: size).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
+                    let preview = PhoneImages.thumbnail(image, maxSide: 512)
                     if let data = preview.jpegData(compressionQuality: 0.85) { try data.write(to: database.coverURL(id), options: .atomic) }
                 }
                 persist(); catalogChanged?()

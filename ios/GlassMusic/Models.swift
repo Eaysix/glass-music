@@ -124,6 +124,7 @@ struct PhoneQueue: Codable {
     var heard: Set<String>
 }
 struct LibraryState: Codable {
+    var phoneAppearance: PhoneAppearance?
     var queue: PhoneQueue?
     var songs: [Song] = []
     var playlists: [Playlist] = []

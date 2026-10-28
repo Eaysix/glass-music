@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 struct RootView: View {
     @EnvironmentObject private var library: Library
     @EnvironmentObject private var sync: SyncManager
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let player: MusicPlayer
     @State private var tab = 0
     @State private var nowPlaying = false
@@ -11,24 +12,53 @@ struct RootView: View {
     @State private var imported = false
     @State private var incomingCode = ""
     var body: some View {
-        ZStack {
-            LinearGradient(colors: [Color(red: 0.07, green: 0.10, blue: 0.16), Color(red: 0.035, green: 0.045, blue: 0.075)], startPoint: .topLeading, endPoint: .bottomTrailing).ignoresSafeArea()
-            TabView(selection: $tab) {
-                NavigationStack { HomeView(player: player, link: { pairing = true }, importFiles: { imported = true }) }.tabItem { Label("Inicio", systemImage: "house") }.tag(0)
-                NavigationStack { SongList(player: player, title: "Tu música", ids: nil, downloadedOnly: false) }.tabItem { Label("Biblioteca", systemImage: "music.note.list") }.tag(1)
-                NavigationStack { SongList(player: player, title: "Descargadas", ids: nil, downloadedOnly: true) }.tabItem { Label("Descargas", systemImage: "arrow.down.circle") }.tag(2)
-                NavigationStack { SyncView(player: player, pair: { pairing = true }) }.tabItem { Label("Sincronizar", systemImage: "arrow.triangle.2.circlepath") }.tag(3)
-            }.scrollContentBackground(.hidden)
+        TabView(selection: $tab) {
+            NavigationStack { HomeView(player: player, link: { pairing = true }, importFiles: { imported = true }, settings: { tab = 4 }) }.tabItem { Label("Inicio", systemImage: "house") }.tag(0)
+            NavigationStack { SongList(player: player, title: "Tu música", ids: nil, downloadedOnly: false) }.tabItem { Label("Biblioteca", systemImage: "music.note.list") }.tag(1)
+            NavigationStack { SongList(player: player, title: "Descargadas", ids: nil, downloadedOnly: true, source: "downloads") }.tabItem { Label("Descargas", systemImage: "arrow.down.circle") }.tag(2)
+            NavigationStack { SyncView(player: player, pair: { pairing = true }).glassScreen() }.tabItem { Label("Sincronizar", systemImage: "arrow.triangle.2.circlepath") }.tag(3)
+            NavigationStack { PhoneSettingsView() }.tabItem { Label("Ajustes", systemImage: "slider.horizontal.3") }.tag(4)
         }
-        .tint(Color(glassHex: library.state.accent)).preferredColorScheme(.dark)
-        .safeAreaInset(edge: .bottom, spacing: 8) { MiniPlayer(player: player, open: { nowPlaying = true }).padding(.horizontal, 12) }
-        .sheet(isPresented: $pairing) { PairView(initial: incomingCode).environmentObject(library).environmentObject(sync) }
-        .sheet(isPresented: $nowPlaying) { NowPlayingView(player: player).environmentObject(library).presentationDragIndicator(.visible) }
+        .toolbar(.hidden, for: .tabBar)
+        .background { GlassBackdrop() }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            VStack(spacing: 8) {
+                MiniPlayer(player: player, open: { nowPlaying = true })
+                navigation
+            }.padding(.horizontal, 12).padding(.top, 8).padding(.bottom, 5)
+                .frame(maxWidth: 620)
+        }
+        .tint(library.tint).preferredColorScheme(.dark)
+        .sheet(isPresented: $pairing) { PairView(initial: incomingCode).environmentObject(library).environmentObject(sync).tint(library.tint) }
+        .fullScreenCover(isPresented: $nowPlaying) { NowPlayingView(player: player).environmentObject(library).tint(library.tint) }
         .fileImporter(isPresented: $imported, allowedContentTypes: [UTType(filenameExtension: "flac") ?? .audio, .mp3], allowsMultipleSelection: true) { result in
             switch result { case .success(let urls): Task { await library.importFiles(urls) }; case .failure(let error): library.message = error.localizedDescription }
         }
         .alert("Glass Music", isPresented: Binding(get: { library.message != nil }, set: { if !$0 { library.message = nil } })) { Button("Entendido") { library.message = nil } } message: { Text(library.message ?? "") }
         .onOpenURL { url in if url.scheme == "glassmusic" { incomingCode = url.absoluteString; pairing = true } }
+    }
+    private var navigation: some View {
+        HStack(spacing: 0) {
+            navigationButton(0, "Inicio", "house", "home")
+            navigationButton(1, "Biblioteca", "music.note.list", "library")
+            navigationButton(2, "Descargas", "arrow.down.circle", "downloads")
+            navigationButton(3, "Sincronizar", "arrow.triangle.2.circlepath", "sync")
+            navigationButton(4, "Ajustes", "slider.horizontal.3", "settings")
+        }.padding(5).glassSurface(radius: 27).accessibilityIdentifier("bottom-navigation")
+    }
+    private func navigationButton(_ value: Int, _ title: String, _ symbol: String, _ identifier: String) -> some View {
+        Button {
+            withAnimation(library.phoneAppearance.animations && !reduceMotion ? .easeOut(duration: 0.2) : nil) { tab = value }
+        } label: {
+            VStack(spacing: 4) {
+                Image(systemName: symbol).font(.system(size: 19, weight: tab == value ? .semibold : .regular))
+                Text(title).font(.system(size: 9.5, weight: tab == value ? .semibold : .medium)).lineLimit(1).minimumScaleFactor(0.75)
+            }.foregroundStyle(tab == value ? library.tint : Color.white.opacity(0.55))
+                .frame(maxWidth: .infinity).frame(height: 48)
+                .background { if tab == value { RoundedRectangle(cornerRadius: 21, style: .continuous).fill(library.tint.opacity(0.11)) } }
+                .contentShape(Rectangle())
+        }.buttonStyle(GlassPressStyle()).accessibilityLabel(title).accessibilityIdentifier("nav-" + identifier)
+            .accessibilityAddTraits(tab == value ? .isSelected : [])
     }
 }
 struct Artwork: View {
@@ -37,7 +67,7 @@ struct Artwork: View {
     var size: CGFloat = 56
     var body: some View {
         Group { if let image = library.cover(id) { Image(uiImage: image).resizable().scaledToFill() }
-            else { ZStack { LinearGradient(colors: [Color(glassHex: library.state.accent).opacity(0.28), .white.opacity(0.04)], startPoint: .topLeading, endPoint: .bottomTrailing); Image(systemName: "waveform").font(.system(size: size * 0.32)).foregroundStyle(Color(glassHex: library.state.accent)) } }
+            else { ZStack { library.tint.opacity(0.12); Image(systemName: "waveform").font(.system(size: size * 0.32)).foregroundStyle(library.tint) } }
         }.frame(width: size, height: size).clipShape(RoundedRectangle(cornerRadius: size * 0.18))
     }
 }
@@ -46,13 +76,19 @@ struct HomeView: View {
     let player: MusicPlayer
     let link: () -> Void
     let importFiles: () -> Void
+    let settings: () -> Void
     @State private var create = false
     private var lists: [Playlist] { library.state.playlists + library.state.localPlaylists }
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
-                HStack(spacing: 10) { Image(systemName: "waveform").foregroundStyle(Color(glassHex: library.state.accent)); Text("glass").bold() + Text("music").foregroundColor(.secondary); Spacer(); Text("LOCAL PLAYER").font(.caption2).tracking(2).foregroundStyle(.secondary) }.font(.title3)
-                VStack(alignment: .leading, spacing: 10) { Text("Tu música.\nContigo.").font(.system(size: 44, weight: .bold, design: .rounded)); Text("\(library.state.name) · \(library.downloaded.count) canciones sin conexión").font(.subheadline).foregroundStyle(.secondary) }
+                HStack(spacing: 9) {
+                    Image(systemName: "waveform").font(.title2).foregroundStyle(library.tint)
+                    Text("glass").bold() + Text("music").foregroundColor(.secondary)
+                    Spacer()
+                    Button(action: settings) { ProfileAvatar(size: 38).frame(width: 44, height: 44) }.buttonStyle(GlassPressStyle()).accessibilityLabel("Personalizar iPhone")
+                }.font(.title3).padding(.top, 4)
+                VStack(alignment: .leading, spacing: 10) { Text("Tu música.\nContigo.").font(.system(size: 36 * library.phoneAppearance.hudScale, weight: .bold, design: .rounded)); Text("\(library.displayName) · \(library.downloaded.count) canciones sin conexión").font(.subheadline).foregroundStyle(.secondary) }
                 if library.state.link == nil {
                     VStack(alignment: .leading, spacing: 16) {
                         Label("Tu colección, en tu bolsillo", systemImage: "iphone.and.arrow.forward").font(.headline)
@@ -74,14 +110,14 @@ struct HomeView: View {
                 }
                 HStack { Text("Tus playlists").font(.title2.bold()); Spacer(); Button { create = true } label: { Image(systemName: "plus.circle") }.accessibilityLabel("Crear playlist local") }
                 if lists.isEmpty { Text("Tus playlists de la PC aparecerán aquí al sincronizar. También puedes crear una lista local.").foregroundStyle(.secondary).padding(.vertical) }
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 145), spacing: 16)], spacing: 22) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 140 * library.phoneAppearance.hudScale), spacing: 16)], spacing: 22) {
                     ForEach(lists) { playlist in NavigationLink { SongList(player: player, title: playlist.name, ids: playlist.trackIds, downloadedOnly: false, source: "playlist:" + playlist.id) } label: {
                         VStack(alignment: .leading, spacing: 10) { GeometryReader { geometry in Artwork(id: "playlist:" + playlist.id, size: geometry.size.width) }.aspectRatio(1, contentMode: .fit); Text(playlist.name).font(.headline).lineLimit(1); Text("\(playlist.trackIds.count) canciones\(playlist.revision == "local" ? " · En este iPhone" : "")").font(.caption).foregroundStyle(.secondary) }
                     }.buttonStyle(.plain) }
                 }
-                Button(action: importFiles) { Label("Añadir música local", systemImage: "plus") }.buttonStyle(.bordered).padding(.vertical)
+                Button(action: importFiles) { Label("Añadir música local", systemImage: "plus").frame(maxWidth: .infinity).padding(.vertical, 6) }.buttonStyle(.bordered).padding(.vertical).accessibilityIdentifier("import-local-music")
             }.padding(22).padding(.bottom, 20)
-        }.background(.clear).navigationBarTitleDisplayMode(.inline)
+        }.glassScreen().navigationBarTitleDisplayMode(.inline).toolbar(.hidden, for: .tabBar).toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $create) { LocalPlaylistView().environmentObject(library) }
     }
 }
@@ -98,7 +134,7 @@ struct SongList: View {
         let list: [Song]
         if let ids { let map = Dictionary(uniqueKeysWithValues: library.state.songs.map { ($0.id, $0) }); list = ids.compactMap { map[$0] } }
         else { list = library.state.songs.sorted { ($0.modifiedAt ?? 0) > ($1.modifiedAt ?? 0) } }
-        return list.filter { (!downloadedOnly || library.file($0.id) != nil) && (search.isEmpty || "\($0.title) \($0.artist) \($0.album)".localizedCaseInsensitiveContains(search)) }
+        return list.filter { (!downloadedOnly || library.isDownloaded($0.id)) && (search.isEmpty || "\($0.title) \($0.artist) \($0.album)".localizedCaseInsensitiveContains(search)) }
     }
     var body: some View {
         List {
@@ -111,7 +147,7 @@ struct SongList: View {
             }
             ForEach(songs) { song in SongRow(song: song, player: player, context: songs.map(\.id), source: source) }.listRowBackground(Color.white.opacity(0.035))
             if songs.isEmpty { ContentUnavailableView(search.isEmpty ? "Tu música aparecerá aquí" : "Sin resultados", systemImage: "music.note", description: Text("Sincroniza tu PC o importa archivos FLAC y MP3." )).listRowBackground(Color.clear) }
-        }.scrollContentBackground(.hidden).listStyle(.insetGrouped).navigationTitle(title).searchable(text: $search, prompt: "Canciones, artistas, álbumes")
+        }.glassScreen().toolbar(.hidden, for: .tabBar).listStyle(.insetGrouped).navigationTitle(title).searchable(text: $search, prompt: "Canciones, artistas, álbumes")
         .onChange(of: search) { _, _ in player.updateSearch(source: source, ids: songs.map(\.id)) }
     }
 }
@@ -126,7 +162,7 @@ struct SongRow: View {
     @State private var removing = false
     var body: some View {
         HStack(spacing: 12) {
-            Button { player.play(song, ids: context, source: source) } label: { HStack(spacing: 12) { Artwork(id: song.id, size: 48); VStack(alignment: .leading, spacing: 5) { Text(song.title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary).lineLimit(1); Text(song.artist).font(.caption).foregroundStyle(.secondary).lineLimit(1) } }.contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityIdentifier("play-song-\(song.id)")
+            Button { player.play(song, ids: context, source: source) } label: { HStack(spacing: 12) { Artwork(id: song.id, size: 44 * library.phoneAppearance.hudScale); VStack(alignment: .leading, spacing: 5) { Text(song.title).font(.system(size: 15 * library.phoneAppearance.hudScale, weight: .semibold)).foregroundStyle(.primary).lineLimit(1); Text(song.artist).font(.caption).foregroundStyle(.secondary).lineLimit(1) } }.contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityIdentifier("play-song-\(song.id)")
             Spacer(minLength: 0)
             if library.file(song.id) == nil { Button { sync.download([song.id]) } label: { Image(systemName: "arrow.down.circle") }.disabled(sync.busy || library.state.localIds.contains(song.id)).accessibilityLabel("Descargar \(song.title)") }
             else { Image(systemName: "checkmark.circle.fill").font(.caption).foregroundStyle(.secondary).accessibilityLabel("Disponible sin conexión") }
@@ -146,10 +182,26 @@ struct MiniPlayer: View {
     let open: () -> Void
     var body: some View {
         if let song = player.current {
-            HStack(spacing: 12) { Button(action: open) { HStack(spacing: 12) { Artwork(id: song.id, size: 44); VStack(alignment: .leading, spacing: 4) { Text(song.title).font(.subheadline.bold()).foregroundStyle(.primary).lineLimit(1); Text(song.artist).font(.caption).foregroundStyle(.secondary).lineLimit(1) } }.frame(maxWidth: .infinity, alignment: .leading) }.buttonStyle(.plain).accessibilityLabel("Abrir reproductor")
-                Button { player.toggle() } label: { Image(systemName: player.playing ? "pause.fill" : "play.fill").frame(width: 36, height: 36) }.accessibilityLabel(player.playing ? "Pausar" : "Reproducir")
-                Button { player.next() } label: { Image(systemName: "forward.end.fill").frame(width: 30, height: 36) }.accessibilityLabel("Siguiente")
-            }.padding(12).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24)).overlay(RoundedRectangle(cornerRadius: 24).stroke(.white.opacity(0.12)))
+            VStack(spacing: 7) {
+                HStack(spacing: 8) {
+                    Button(action: open) {
+                        HStack(spacing: 10) {
+                            Artwork(id: song.id, size: 40 * library.phoneAppearance.hudScale)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(song.title).font(.system(size: 14 * library.phoneAppearance.hudScale, weight: .semibold)).foregroundStyle(.primary).lineLimit(1)
+                                if library.phoneAppearance.hud != "compact" { Text(song.artist).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
+                            }.frame(maxWidth: .infinity, alignment: .leading)
+                        }.contentShape(Rectangle())
+                    }.buttonStyle(GlassPressStyle()).accessibilityLabel("Abrir reproductor")
+                    Button { player.toggle() } label: { Image(systemName: player.playing ? "pause.fill" : "play.fill").font(.system(size: 20, weight: .semibold)).frame(width: 44, height: 44) }.accessibilityLabel(player.playing ? "Pausar" : "Reproducir").accessibilityIdentifier("mini-play-pause")
+                    Button { player.next() } label: { Image(systemName: "forward.end.fill").font(.system(size: 19)).frame(width: 44, height: 44) }.accessibilityLabel("Siguiente")
+                }.foregroundStyle(library.tint)
+                GeometryReader { geometry in
+                    Capsule().fill(.white.opacity(0.1))
+                    Capsule().fill(library.tint.opacity(0.8)).frame(width: geometry.size.width * min(1, max(0, player.position / max(1, song.duration))))
+                }.frame(height: 2).accessibilityHidden(true)
+            }.padding(.horizontal, 12).padding(.top, 9).padding(.bottom, 7).glassSurface(radius: 24)
+                .accessibilityElement(children: .contain).accessibilityIdentifier("mini-player")
         }
     }
 }

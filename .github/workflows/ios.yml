@@ -39,7 +39,7 @@ jobs:
           mkdir -p build/ipa/Payload
           cp -R build/device/Build/Products/Release-iphoneos/GlassMusic.app build/ipa/Payload/
           cd build/ipa
-          zip -qry Glass-Music-iPhone-0.1.0-unsigned.ipa Payload
+          zip -qry Glass-Music-iPhone-0.1.1-unsigned.ipa Payload
       - name: Select simulator
         run: |
           xcrun simctl list devices available -j > /tmp/glass-simulators.json
@@ -87,7 +87,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Glass-Music-iPhone-IPA-unsigned
-          path: ios/build/ipa/Glass-Music-iPhone-0.1.0-unsigned.ipa
+          path: ios/build/ipa/Glass-Music-iPhone-0.1.1-unsigned.ipa
           if-no-files-found: error
           retention-days: 14
       - uses: actions/upload-artifact@v4
