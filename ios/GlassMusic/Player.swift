@@ -109,8 +109,14 @@ import UIKit
         if let song = library.state.songs.first(where: { $0.id == id }) { start(song) }
     }
     func updateSearch(source: String, ids: [String]) { if collection == source { reconcile(ids: ids) } }
-    private func reconcile(ids: [String]? = nil) {
-        let ids = ids ?? (collection.hasPrefix("playlist:") ? (library.state.playlists + library.state.localPlaylists).first { "playlist:" + $0.id == collection }?.trackIds ?? [] : library.state.songs.map(\.id))
+    private func reconcile(ids provided: [String]? = nil) {
+        let ids: [String]
+        if let supplied = provided { ids = supplied }
+        else if collection.hasPrefix("playlist:") {
+            let playlists: [Playlist] = library.state.playlists + library.state.localPlaylists
+            let playlist: Playlist? = playlists.first(where: { "playlist:" + $0.id == collection })
+            ids = playlist?.trackIds ?? []
+        } else { ids = library.state.songs.map(\.id) }
         let old = Set(context); context = ids
         let eligible = Set(upcoming)
         let additions = ids.filter { !old.contains($0) && !heard.contains($0) && $0 != current?.id && library.file($0) != nil }
