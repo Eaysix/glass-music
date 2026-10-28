@@ -21,7 +21,7 @@ jobs:
           workspaces: crates/glass-sync
       - run: cargo test --locked --manifest-path crates/glass-sync/Cargo.toml
   iphone:
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -64,6 +64,7 @@ jobs:
           assert modern, 'No iOS 26 iPhone simulator available'
           selected=next((d for d in modern if d['name']=='iPhone 16 Pro'),modern[0])
           legacy=[d for runtime, ds in devices.items() if 'iOS-18-5' in runtime for d in ds if 'iPhone SE' in d['name'] and d['isAvailable']]
+          if not legacy: legacy=[d for d in modern if 'iPhone SE' in d['name']]
           with open(os.environ['GITHUB_ENV'],'a') as f:
               f.write('GLASS_SIMULATOR='+selected['udid']+'\n')
               f.write('GLASS_LEGACY_SIMULATOR='+(legacy[0]['udid'] if legacy else '')+'\n')
