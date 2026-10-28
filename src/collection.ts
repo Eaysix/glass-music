@@ -5,6 +5,27 @@ export type CollectionSource = {
   filter: string;
   sort: string;
 };
+export const songSorts = [
+  "modified",
+  "modified-oldest",
+  "added",
+  "title",
+  "artist",
+];
+export function savedSongSort(): string {
+  try {
+    const saved = localStorage.getItem("glass-music-song-sort");
+    if (saved && songSorts.includes(saved)) return saved;
+  } catch {
+    /* Storage can be unavailable in a restricted webview. */
+  }
+  return "modified-oldest";
+}
+export function rememberSongSort(sort: string): void {
+  try {
+    localStorage.setItem("glass-music-song-sort", sort);
+  } catch {}
+}
 export function collectionTracks(
   tracks: Track[],
   playlists: Playlist[],
@@ -33,13 +54,23 @@ export function collectionTracks(
       (source.filter === "all" || t.format === source.filter),
   );
   if (source.sort !== "added")
-    list = [...list].sort((a, b) =>
-      source.sort === "modified"
-        ? (b.modifiedAt ?? 0) - (a.modifiedAt ?? 0) ||
-          a.title.localeCompare(b.title)
-        : source.sort === "artist"
-          ? a.artist.localeCompare(b.artist) || a.title.localeCompare(b.title)
-          : a.title.localeCompare(b.title),
-    );
+    list = [...list].sort((a, b) => {
+      const title = () =>
+        a.title.localeCompare(b.title) || a.id.localeCompare(b.id);
+      if (source.sort === "modified" || source.sort === "modified-oldest") {
+        const left = a.modifiedAt,
+          right = b.modifiedAt;
+        if (left == null || !Number.isFinite(left))
+          return right == null || !Number.isFinite(right) ? title() : 1;
+        if (right == null || !Number.isFinite(right)) return -1;
+        return (
+          (source.sort === "modified-oldest" ? left - right : right - left) ||
+          title()
+        );
+      }
+      return source.sort === "artist"
+        ? a.artist.localeCompare(b.artist) || title()
+        : title();
+    });
   return list;
 }

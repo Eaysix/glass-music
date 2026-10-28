@@ -4,11 +4,15 @@ Tu música local, a tu manera. Reproductor para Windows centrado en FLAC y MP3, 
 
 ![Interfaz de la alpha con archivos de prueba sintéticos](docs/interface.webp)
 
-## Versión actual de PC: 1.0.0-rc.4
+## Versión actual de PC: 1.0.0-rc.5
+
+Añade **Fecha: antiguas primero / nuevas primero** al selector de orden, conservando título, artista y orden manual. La elección se guarda y se aplica a la cola. Las canciones sin fecha conocida quedan al final. La fecha corresponde a la modificación del archivo, no a la fecha de publicación del álbum.
+
+### Base 1.0.0-rc.4
 
 `main` contiene la versión más reciente de Windows. Conserva las mejoras de cola, idiomas, letras por palabra y cambio de salida de audio. Añade la conexión local opcional desde **Ajustes → iPhone** para vincular por QR y sincronizar canciones, playlists, letras, favoritas y progreso en la misma red. La conexión usa TLS con certificado fijado y un código temporal; los archivos originales permanecen intactos. No requiere una cuenta ni un servidor en internet.
 
-La app de iPhone se desarrolla por separado en [`feat/ios-glass-personalization`](https://github.com/Eaysix/glass-music/tree/feat/ios-glass-personalization); su código y su compilación no forman parte de `main` por ahora. Las versiones de Windows e iPhone son independientes. `1.0.0-rc.4` sigue siendo una candidata de prueba; actualizar `main` no publica automáticamente una release ni cambia las descargas históricas.
+La app de iPhone se desarrolla por separado en [`feat/ios-glass-personalization`](https://github.com/Eaysix/glass-music/tree/feat/ios-glass-personalization); su código y su compilación no forman parte de `main` por ahora. Las versiones de Windows e iPhone son independientes. `1.0.0-rc.5` sigue siendo una candidata de prueba; actualizar `main` no publica automáticamente una release ni cambia las descargas históricas.
 
 ## Candidata 1.0.0-rc.3
 
@@ -70,7 +74,7 @@ Para ampliar: toca la portada junto a los controles o el botón **Vista grande**
 
 Descarga la versión publicada en **[Releases](https://github.com/Eaysix/glass-music/releases)** y ejecuta el instalador `*-setup.exe`. Para actualizar, cierra la app e instala en la misma ubicación: se conservan biblioteca, playlists y perfil.
 
-Las compilaciones de desarrollo están en [Actions](https://github.com/Eaysix/glass-music/actions), en ejecuciones completadas correctamente de **Windows · comprobar y crear instalador**, artefacto **Glass-Music-Windows-x64**. Se generan solo si pasan las comprobaciones; no equivalen a una release publicada.
+Las compilaciones de desarrollo están en [Actions](https://github.com/Eaysix/glass-music/actions), en ejecuciones completadas correctamente de **Windows · comprobar y crear instalador**, artefacto **Glass-Music-Windows-<versión>-<commit>**. Se generan solo si pasan las comprobaciones; no equivalen a una release publicada.
 
 La alpha no está firmada con un certificado de distribución. Windows puede mostrar una advertencia de editor desconocido. El instalador utiliza WebView2; si falta, su instalación inicial puede requerir internet. La reproducción y los datos de la app funcionan sin internet.
 

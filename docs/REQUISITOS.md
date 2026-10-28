@@ -83,4 +83,6 @@ El usuario informó aproximadamente 8% de CPU y menos de 300 MB de RAM con 0.1.2
 
 ## PC en main
 
-`main` contiene Windows 1.0.0-rc.4, incluido el módulo compartido `crates/glass-sync` que utiliza la conexión local de PC. El código Swift y el workflow de iPhone permanecen en sus ramas de desarrollo. Las versiones por plataforma son independientes; trasladar PC a main no publica una release ni cambia los tags anteriores.
+`main` se actualiza a Windows 1.0.0-rc.5, incluido el módulo compartido `crates/glass-sync` que utiliza la conexión local de PC. El código Swift y el workflow de iPhone permanecen en sus ramas de desarrollo. Las versiones por plataforma son independientes; trasladar PC a main no publica una release ni cambia los tags anteriores.
+
+- Orden de canciones por fecha de modificación en ambas direcciones, con antiguas primero por defecto. Se guarda la elección localmente; fechas desconocidas al final. Los cambios del orden actualizan la cola sin reiniciar la canción.
