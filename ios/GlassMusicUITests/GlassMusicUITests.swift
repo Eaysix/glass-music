@@ -18,7 +18,16 @@ final class GlassMusicUITests: XCTestCase {
         let attachment = XCTAttachment(screenshot: app.screenshot()); attachment.name = title; attachment.lifetime = .keepAlways; add(attachment)
     }
     private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
-        for _ in 0..<5 { if element.isHittable { return }; app.swipeUp() }
+        for _ in 0..<5 {
+            if element.isHittable { return }
+            // Start within the scroll content, above the persistent player/dock.
+            let player = app.buttons["Abrir reproductor"]
+            let bottom = player.exists ? player.frame.minY : app.frame.maxY - 100
+            let startY = min(bottom - 30, app.frame.midY + 100)
+            let endY = max(app.frame.minY + 100, startY - app.frame.height * 0.4)
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+            origin.withOffset(CGVector(dx: app.frame.midX, dy: startY)).press(forDuration: 0.05, thenDragTo: origin.withOffset(CGVector(dx: app.frame.midX, dy: endY)))
+        }
         XCTAssertTrue(element.isHittable, app.debugDescription)
     }
     private func assertDock(_ app: XCUIApplication) {

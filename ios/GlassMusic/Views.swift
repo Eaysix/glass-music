@@ -48,7 +48,7 @@ struct RootView: View {
             navigationButton(2, "Descargas", "arrow.down.circle", "downloads")
             navigationButton(3, "Sincronizar", "arrow.triangle.2.circlepath", "sync")
             navigationButton(4, "Ajustes", "slider.horizontal.3", "settings")
-        }.padding(5).glassSurface(radius: 27, chrome: true).accessibilityIdentifier("bottom-navigation")
+        }.padding(5).glassSurface(radius: 27, chrome: true)
     }
     private func navigationButton(_ value: Int, _ title: String, _ symbol: String, _ identifier: String) -> some View {
         Button {
@@ -205,7 +205,7 @@ struct MiniPlayer: View {
                     Capsule().fill(library.tint.opacity(0.8)).frame(width: geometry.size.width * min(1, max(0, player.position / max(1, song.duration))))
                 }.frame(height: 2).accessibilityHidden(true)
             }.padding(.horizontal, 12).padding(.top, 9).padding(.bottom, 7).glassSurface(radius: 24, chrome: true)
-                .accessibilityElement(children: .contain).accessibilityIdentifier("mini-player")
+                .accessibilityElement(children: .contain)
         }
     }
 }
