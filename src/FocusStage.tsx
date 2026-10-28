@@ -1,8 +1,10 @@
+import { t } from "./i18n";
 import { useEffect, useRef } from "react";
 import { ArrowLeft, Disc3, Image, Mic2 } from "lucide-react";
 import type { Track } from "./types";
 import type { LyricLine } from "./queue";
 import { coverUrl } from "./api";
+import Atmosphere from "./Atmosphere";
 import { LyricContent } from "./LyricContent";
 export default function FocusStage({
   track,
@@ -11,8 +13,8 @@ export default function FocusStage({
   lyrics,
   lines,
   active,
-  position,
   playing,
+  albumBackground,
   seek,
   close,
   edit,
@@ -23,28 +25,39 @@ export default function FocusStage({
   lyrics: string;
   lines: LyricLine[];
   active: number;
-  position: number;
   playing: boolean;
+  albumBackground: boolean;
   seek: (time: number) => void;
   close: () => void;
   edit: () => void;
 }) {
   const selected = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    selected.current?.scrollIntoView({ block: "center", behavior: "instant" });
+    const line = selected.current;
+    const container = line?.parentElement;
+    if (line && container)
+      container.scrollTo({
+        top:
+          container.scrollTop +
+          line.getBoundingClientRect().top -
+          container.getBoundingClientRect().top -
+          container.clientHeight / 2 +
+          line.clientHeight / 2,
+        behavior: "auto",
+      });
   }, [track?.id, active, mode]);
   return (
     <section
       className={`focus-stage ${mode === "cover" ? "cover-mode" : "lyrics-mode"}`}
-      aria-label="Reproductor ampliado"
+      aria-label={t("Reproductor ampliado")}
     >
-      {track?.cover && (
-        <img className="focus-backdrop" src={coverUrl(track.cover)} alt="" />
+      {track?.cover && albumBackground && (
+        <Atmosphere className="focus-backdrop" cover={track.cover} />
       )}
       <header className="focus-header">
         <button className="secondary" onClick={close}>
           <ArrowLeft size={17} />
-          Biblioteca
+          {t("Biblioteca")}
         </button>
         <div className="focus-switch">
           <button
@@ -52,34 +65,38 @@ export default function FocusStage({
             onClick={() => setMode("cover")}
           >
             <Image size={17} />
-            Portada
+            {t("Portada")}
           </button>
           <button
             className={mode === "lyrics" ? "selected" : ""}
             onClick={() => setMode("lyrics")}
           >
             <Mic2 size={17} />
-            Letra
+            {t("Letra")}
           </button>
         </div>
-        <span>SONANDO EN TU ESPACIO</span>
+        <span>{t("SONANDO EN TU ESPACIO")}</span>
       </header>
-      <div className="focus-layout">
+      <div className="focus-layout" key={`${track?.id}:${mode}`}>
         <div className="focus-art-info">
           <div className="focus-art">
             {track?.cover ? (
               <img
                 src={coverUrl(track.cover)}
-                alt={`Portada de ${track.album}`}
+                alt={t("Portada de {p0}", {
+                  p0: track.album,
+                })}
               />
             ) : (
               <Disc3 />
             )}
           </div>
           <div>
-            <span className="eyebrow">{track?.format ?? "TU MÚSICA"}</span>
-            <h1>{track?.title ?? "Elige tu próxima canción"}</h1>
-            <p>{track?.artist ?? "Reproduce algo desde tu biblioteca"}</p>
+            <span className="eyebrow">
+              {track?.format ?? t("TU M\u00DASICA")}
+            </span>
+            <h1>{track?.title ?? t("Elige tu pr\u00F3xima canci\u00F3n")}</h1>
+            <p>{track?.artist ?? t("Reproduce algo desde tu biblioteca")}</p>
             <small>{track?.album}</small>
           </div>
         </div>
@@ -95,7 +112,6 @@ export default function FocusStage({
                 >
                   <LyricContent
                     line={line}
-                    position={position}
                     playing={playing}
                     active={i === active}
                   />
@@ -106,10 +122,10 @@ export default function FocusStage({
             ) : (
               <div className="focus-no-lyrics">
                 <Mic2 size={42} />
-                <h2>Haz espacio para la letra.</h2>
-                <p>Pega el texto o importa un archivo .lrc.</p>
+                <h2>{t("Haz espacio para la letra.")}</h2>
+                <p>{t("Pega el texto o importa un archivo .lrc.")}</p>
                 <button className="secondary" disabled={!track} onClick={edit}>
-                  Añadir letra
+                  {t("A\u00F1adir letra")}
                 </button>
               </div>
             )}
@@ -118,8 +134,10 @@ export default function FocusStage({
       </div>
       <div className="focus-hint">
         {mode === "lyrics" && lines.length
-          ? "Toca una línea para ir a ese momento · Esc para volver"
-          : "La portada cambia con cada canción · Esc para volver"}
+          ? t(
+              "Toca una l\u00EDnea para ir a ese momento \u00B7 Esc para volver",
+            )
+          : t("La portada cambia con cada canci\u00F3n \u00B7 Esc para volver")}
       </div>
     </section>
   );
