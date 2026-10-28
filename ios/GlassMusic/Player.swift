@@ -57,7 +57,8 @@ import UIKit
     }
     func play(_ song: Song, ids: [String], source: String = "library", from: Double = 0) {
         guard library.file(song.id) != nil else { library.message = "Descarga esta canción para escucharla sin conexión."; return }
-        let available = ids.filter { library.isDownloaded($0) }
+        let byId = Dictionary(uniqueKeysWithValues: library.state.songs.map { ($0.id, $0) })
+        let available = library.songOrder(for: source).apply(ids.compactMap { byId[$0] }).map(\.id).filter { library.isDownloaded($0) }
         context = available; collection = source; heard = []; history = []
         if shuffle { upcoming = available.filter { $0 != song.id }.shuffled() }
         else { upcoming = Array(available.dropFirst((available.firstIndex(of: song.id) ?? -1) + 1)) }
@@ -81,7 +82,7 @@ import UIKit
     }
     func resume() {
         guard let song = current else { if let first = library.downloaded.first { play(first, ids: library.downloaded.map(\.id)) }; return }
-        if audio.currentItem == nil { if context.isEmpty { context = library.downloaded.map(\.id) }; start(song, from: song.duration > 0 && position >= song.duration - 0.5 ? 0 : position); return }
+        if audio.currentItem == nil { if context.isEmpty { context = library.songOrder(for: collection).apply(library.downloaded).map(\.id) }; start(song, from: song.duration > 0 && position >= song.duration - 0.5 ? 0 : position); return }
         if song.duration > 0 && position >= song.duration - 0.5 { seek(0) }
         do { try activate(); audio.play(); playing = true; observeClock(); nowPlaying() }
         catch { library.message = error.localizedDescription }
