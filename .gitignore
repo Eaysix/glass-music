@@ -16,3 +16,8 @@ src-tauri/gen/
 /artifacts/
 !tests/fixtures/*.flac
 !tests/fixtures/*.mp3
+
+crates/*/target/
+ios/build/
+ios/*.xcodeproj/
+*.xcuserstate

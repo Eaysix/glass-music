@@ -43,7 +43,16 @@ export const loadSettings = async (): Promise<Settings> => {
     ...base,
     ...saved,
     profile: { ...base.profile, ...saved?.profile },
-    appearance: { ...base.appearance, ...saved?.appearance },
+    appearance: {
+      ...base.appearance,
+      ...saved?.appearance,
+      accent: saved?.appearanceVersion
+        ? (saved.appearance?.accent ?? base.appearance.accent)
+        : base.appearance.accent,
+    },
+    appearanceVersion: 1,
+    player: { ...base.player, ...saved?.player },
+    discord: { ...base.discord, ...saved?.discord },
     queue: { ...base.queue, ...saved?.queue },
   };
 };
@@ -55,22 +64,40 @@ export const loadLibrary = async (): Promise<Track[]> =>
   native
     ? invoke("load_library")
     : ((await read<Track[]>("data", "tracks")) ?? []);
-export async function updateTrack(track: Track) {
-  if (native) return invoke<void>("update_track", { track });
+export async function updateTrack(
+  track: Track,
+  favoriteOnly = false,
+): Promise<Track> {
+  if (native)
+    return favoriteOnly
+      ? invoke<Track>("set_favorite", {
+          id: track.id,
+          favorite: track.favorite,
+        })
+      : invoke<Track>("update_track", { track });
   const tracks = await loadLibrary();
   await write(
     "data",
     "tracks",
     tracks.map((t) => (t.id === track.id ? track : t)),
   );
+  return track;
 }
 export const getLyrics = async (id: string): Promise<string> =>
   native
     ? invoke("get_lyrics", { id })
     : ((await read<string>("data", `lyrics:${id}`)) ?? "");
-export const saveLyrics = (id: string, lyrics: string) =>
+export const saveLyrics = (
+  id: string,
+  lyrics: string,
+  expectedLyrics?: string,
+) =>
   native
-    ? invoke<void>("save_lyrics", { id, lyrics })
+    ? invoke<void>("save_lyrics", {
+        id,
+        lyrics,
+        expectedLyrics: expectedLyrics ?? null,
+      })
     : write("data", `lyrics:${id}`, lyrics);
 export async function removeTrack(id: string) {
   if (native) return invoke<void>("remove_track", { id });
@@ -128,7 +155,12 @@ export async function importMusic(
   if (!files.length) return null;
   const { parseBlob } = await import("music-metadata");
   const tracks = await loadLibrary(),
-    report: ImportReport = { tracks: [], skipped: 0, errors: [] };
+    report: ImportReport = {
+      tracks: [],
+      skipped: 0,
+      existingIds: [],
+      errors: [],
+    };
   for (const file of files) {
     if (!/\.(flac|mp3)$/i.test(file.name)) {
       report.skipped++;
@@ -137,6 +169,7 @@ export async function importMusic(
     const path = file.webkitRelativePath || file.name;
     const id = `${path}:${file.size}:${file.lastModified}`;
     if (tracks.some((t) => t.id === id)) {
+      report.existingIds.push(id);
       report.skipped++;
       continue;
     }
@@ -162,6 +195,7 @@ export async function importMusic(
         bitDepth: format.bitsPerSample ?? null,
         cover,
         favorite: false,
+        modifiedAt: file.lastModified,
       };
       await write("files", id, file);
       const lyric = common.lyrics?.[0];
@@ -285,3 +319,90 @@ export async function audioCommand(
     ended: audio.ended,
   };
 }
+
+export interface PresenceStatus {
+  state:
+    | "disabled"
+    | "needs-id"
+    | "paused"
+    | "connected"
+    | "unavailable"
+    | "browser";
+  message: string;
+}
+export async function discordUpdate(
+  config: Settings["discord"],
+  trackId: string | null,
+  playing: boolean,
+  position: number,
+): Promise<PresenceStatus> {
+  if (!native)
+    return {
+      state: "browser",
+      message:
+        "La conexión con Discord está disponible en la aplicación de Windows.",
+    };
+  return invoke("discord_update", { config, trackId, playing, position });
+}
+export async function openDiscordPortal() {
+  if (native) return invoke<void>("open_discord_portal");
+  window.open(
+    "https://discord.com/developers/applications",
+    "_blank",
+    "noopener,noreferrer",
+  );
+}
+
+export async function removeTracks(ids: string[]) {
+  if (native) return invoke<void>("remove_tracks", { ids });
+  const removed = new Set(ids),
+    tracks = (await loadLibrary()).filter((t) => !removed.has(t.id)),
+    database = await db();
+  await new Promise<void>((resolve, reject) => {
+    const tx = database.transaction(["files", "data"], "readwrite");
+    tx.objectStore("data").put(tracks, "tracks");
+    for (const id of removed) {
+      tx.objectStore("files").delete(id);
+      tx.objectStore("data").delete(`lyrics:${id}`);
+    }
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export interface LANStatus {
+  running: boolean;
+  serverId: string;
+  addresses: string[];
+  port: number;
+  fingerprint: string;
+  devices: { id: string; name: string; lastSeen: number }[];
+  latestResume: {
+    trackId: string;
+    title: string;
+    position: number;
+    deviceName: string;
+  } | null;
+}
+export interface LANPairing {
+  protocolVersion: number;
+  serverId: string;
+  host: string;
+  port: number;
+  fingerprint: string;
+  secret: string;
+  expiresAt: number;
+}
+export const lanStatus = (): Promise<LANStatus | null> =>
+  native ? invoke("lan_status") : Promise.resolve(null);
+export const lanStart = (): Promise<LANStatus> =>
+  native
+    ? invoke("lan_start")
+    : Promise.reject(
+        new Error("La sincronización está disponible en la app de Windows."),
+      );
+export const lanStop = (): Promise<void> => invoke("lan_stop");
+export const lanPair = (host: string): Promise<LANPairing> =>
+  invoke("lan_pair", { host });
+export const lanRevoke = (id: string): Promise<void> =>
+  invoke("lan_revoke", { id });

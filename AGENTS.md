@@ -1,6 +1,6 @@
 # Glass Music
 
-App de escritorio Windows, Tauri 2 + Rust y React/TypeScript. Es un reproductor local, sin login, registro, nube ni telemetría. Lee FLAC/MP3; nunca modificar archivos originales sin una acción explícita del usuario.
+App de escritorio Windows, Tauri 2 + Rust y React/TypeScript. Es un reproductor local, sin login, registro, nube ni telemetría. Discord Rich Presence es opcional y usa el cliente local; el portal se abre solo al pulsar su botón. Lee FLAC/MP3; nunca modificar archivos originales sin una acción explícita del usuario.
 
 ## Trabajo
 
@@ -17,6 +17,7 @@ App de escritorio Windows, Tauri 2 + Rust y React/TypeScript. Es un reproductor 
 - npm test
 - npm run build
 - npm run test:ui (instalar Chromium con npx playwright install chromium)
+- npm run test:home
 - npm run format:check
 - cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 - cargo test --locked --manifest-path src-tauri/Cargo.toml

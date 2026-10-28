@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
+import { usePosition } from "./playback";
 import type { LyricLine } from "./queue";
 function ActiveWords({
   line,
-  position,
   playing,
   active,
 }: {
   line: LyricLine;
-  position: number;
   playing: boolean;
   active: boolean;
 }) {
+  const position = usePosition();
   const [word, setWord] = useState(-1);
   useEffect(() => {
     const words = line.words;
@@ -38,9 +38,12 @@ function ActiveWords({
   return (
     <>
       {line.words.map((part, i) => (
-        <span key={i} className={i <= word ? "lyric-word sung" : "lyric-word"}>
+        <span
+          key={i}
+          className={`lyric-word${i <= word ? " sung" : ""}${i === word ? " current" : ""}`}
+        >
           {part.text}
-          {i < line.words!.length - 1 ? " " : ""}
+          {i < line.words!.length - 1 ? (part.spaceAfter ?? " ") : ""}
         </span>
       ))}
     </>
