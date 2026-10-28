@@ -9,6 +9,14 @@ import UIKit
     private let imageCache = NSCache<NSString, UIImage>()
     var catalogChanged: (() -> Void)?
     init(database: SnapshotDatabase) throws { self.database = database; state = try database.load() }
+    func songOrder(for source: String) -> SongOrder {
+        SongOrder(rawValue: state.songOrders?[source] ?? "") ?? .oldest
+    }
+    func setSongOrder(_ order: SongOrder, for source: String) {
+        if state.songOrders == nil { state.songOrders = [:] }
+        state.songOrders?[source] = order.rawValue
+        persist()
+    }
     func persist() {
         database.save(state) { [weak self] error in if let error { Task { @MainActor in self?.message = error.localizedDescription } } }
     }

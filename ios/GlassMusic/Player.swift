@@ -132,13 +132,15 @@ import UIKit
             requested = playlist?.trackIds ?? []
         } else if collection == "favorites" { requested = library.state.songs.filter(\.favorite).map(\.id) }
         else { requested = library.state.songs.map(\.id) }
-        let ids = requested.filter { library.isDownloaded($0) }
+        let byId = Dictionary(uniqueKeysWithValues: library.state.songs.map { ($0.id, $0) })
+        let ids = library.songOrder(for: collection).apply(requested.compactMap { byId[$0] }).map(\.id).filter { library.isDownloaded($0) }
         let old = Set(context); context = ids
         let eligible = Set(upcoming)
         let additions = ids.filter { !old.contains($0) && !heard.contains($0) && $0 != current?.id && library.isDownloaded($0) }
         if shuffle { upcoming = upcoming.filter { ids.contains($0) && library.isDownloaded($0) } + additions.shuffled() }
         else { upcoming = ids.filter { (eligible.contains($0) || additions.contains($0)) && library.isDownloaded($0) } }
         if let current, let refreshed = library.state.songs.first(where: { $0.id == current.id }) { self.current = refreshed }
+        persist()
     }
     func persist() { library.remember(current?.id, position: position, queue: PhoneQueue(shuffle: shuffle, repeatAll: repeatAll, collection: collection, context: context, upcoming: upcoming, history: Array(history.suffix(200)), heard: heard)) }
     func detailedLyrics(_ visible: Bool) { detailed = visible; if playing { observeClock() } }

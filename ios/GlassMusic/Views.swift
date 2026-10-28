@@ -6,6 +6,7 @@ struct RootView: View {
     @EnvironmentObject private var sync: SyncManager
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let player: MusicPlayer
+    @Namespace private var navigationMotion
     @State private var tab = 0
     @State private var nowPlaying = false
     @State private var pairing = false
@@ -43,6 +44,7 @@ struct RootView: View {
             MiniPlayer(player: player, open: { nowPlaying = true })
             navigation
         }.padding(.horizontal, 12).padding(.top, 8).padding(.bottom, 5).frame(maxWidth: 620)
+            .animation(library.phoneAppearance.animations && !reduceMotion ? .spring(response: 0.4, dampingFraction: 0.85) : nil, value: player.current != nil)
     }
     private var navigation: some View {
         HStack(spacing: 0) {
@@ -62,7 +64,7 @@ struct RootView: View {
                 Text(title).font(.system(size: 9.5, weight: tab == value ? .semibold : .medium)).lineLimit(1).minimumScaleFactor(0.75)
             }.foregroundStyle(tab == value ? library.tint : Color.white.opacity(0.55))
                 .frame(maxWidth: .infinity).frame(height: 48)
-                .background { if tab == value { RoundedRectangle(cornerRadius: 21, style: .continuous).fill(library.tint.opacity(0.11)) } }
+                .background { if tab == value { RoundedRectangle(cornerRadius: 21, style: .continuous).fill(library.tint.opacity(0.11)).matchedGeometryEffect(id: "selected-navigation", in: navigationMotion) } }
                 .contentShape(Rectangle())
         }.buttonStyle(GlassPressStyle()).accessibilityLabel(title).accessibilityIdentifier("nav-" + identifier)
             .accessibilityAddTraits(tab == value ? .isSelected : [])
@@ -140,11 +142,16 @@ struct SongList: View {
     private var songs: [Song] {
         let list: [Song]
         if let ids { let map = Dictionary(uniqueKeysWithValues: library.state.songs.map { ($0.id, $0) }); list = ids.compactMap { map[$0] } }
-        else { list = library.state.songs.sorted { ($0.modifiedAt ?? 0) > ($1.modifiedAt ?? 0) } }
-        return list.filter { (!downloadedOnly || library.isDownloaded($0.id)) && (search.isEmpty || "\($0.title) \($0.artist) \($0.album)".localizedCaseInsensitiveContains(search)) }
+        else { list = library.state.songs }
+        return library.songOrder(for: source).apply(list).filter { (!downloadedOnly || library.isDownloaded($0.id)) && (search.isEmpty || "\($0.title) \($0.artist) \($0.album)".localizedCaseInsensitiveContains(search)) }
     }
     var body: some View {
         List {
+            Section {
+                Picker("Orden de canciones", selection: Binding(get: { library.songOrder(for: source) }, set: { library.setSongOrder($0, for: source) })) {
+                    ForEach(SongOrder.allCases) { order in Text(order.label).tag(order) }
+                }.accessibilityIdentifier("song-order").listRowBackground(Color.white.opacity(0.035))
+            }
             if !songs.isEmpty {
                 Section {
                     HStack { Button { if let first = songs.first(where: { library.file($0.id) != nil }) { player.play(first, ids: songs.map(\.id), source: source) } } label: { Label("Reproducir", systemImage: "play.fill") }.buttonStyle(.borderedProminent)
@@ -155,7 +162,7 @@ struct SongList: View {
             ForEach(songs) { song in SongRow(song: song, player: player, context: songs.map(\.id), source: source) }.listRowBackground(Color.white.opacity(0.035))
             if songs.isEmpty { ContentUnavailableView(search.isEmpty ? "Tu música aparecerá aquí" : "Sin resultados", systemImage: "music.note", description: Text("Sincroniza tu PC o importa archivos FLAC y MP3." )).listRowBackground(Color.clear) }
         }.glassScreen().toolbar(.hidden, for: .tabBar).listStyle(.insetGrouped).navigationTitle(title).searchable(text: $search, prompt: "Canciones, artistas, álbumes")
-        .onChange(of: search) { _, _ in player.updateSearch(source: source, ids: songs.map(\.id)) }
+        .onChange(of: songs.map(\.id)) { _, ids in player.updateSearch(source: source, ids: ids) }
     }
 }
 struct SongRow: View {
@@ -187,13 +194,15 @@ struct MiniPlayer: View {
     @EnvironmentObject private var library: Library
     @ObservedObject var player: MusicPlayer
     let open: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private var motion: Animation? { library.phoneAppearance.animations && !reduceMotion ? .spring(response: 0.36, dampingFraction: 0.82) : nil }
     var body: some View {
         if let song = player.current {
             VStack(spacing: 7) {
                 HStack(spacing: 8) {
                     Button(action: open) {
                         HStack(spacing: 10) {
-                            Artwork(id: song.id, size: 40 * library.phoneAppearance.hudScale)
+                            Artwork(id: song.id, size: 40 * library.phoneAppearance.hudScale).id(song.id).transition(.opacity.combined(with: .scale(scale: 0.85)))
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(song.title).font(.system(size: 14 * library.phoneAppearance.hudScale, weight: .semibold)).foregroundStyle(.primary).lineLimit(1)
                                 if library.phoneAppearance.hud != "compact" { Text(song.artist).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
@@ -207,7 +216,8 @@ struct MiniPlayer: View {
                     Capsule().fill(.white.opacity(0.1))
                     Capsule().fill(library.tint.opacity(0.8)).frame(width: geometry.size.width * min(1, max(0, player.position / max(1, song.duration))))
                 }.frame(height: 2).accessibilityHidden(true)
-            }.padding(.horizontal, 12).padding(.top, 9).padding(.bottom, 7).glassSurface(radius: 24, chrome: true)
+            }.animation(motion, value: song.id).animation(motion, value: player.playing).padding(.horizontal, 12).padding(.top, 9).padding(.bottom, 7).glassSurface(radius: 24, chrome: true)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
                 .accessibilityElement(children: .contain)
         }
     }

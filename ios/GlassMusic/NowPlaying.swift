@@ -11,7 +11,7 @@ struct NowPlayingView: View {
     @State private var appearance = false
     @State private var scrubbing = 0.0
     @State private var editing = false
-    private var motion: Animation? { library.phoneAppearance.animations && !reduceMotion ? .easeInOut(duration: 0.24) : nil }
+    private var motion: Animation? { library.phoneAppearance.animations && !reduceMotion ? .spring(response: 0.4, dampingFraction: 0.86) : nil }
     var body: some View {
         GeometryReader { geometry in
             let available = max(160, geometry.size.width - 44)
@@ -24,10 +24,12 @@ struct NowPlayingView: View {
                         VStack(spacing: 22) {
                             if lyrics {
                                 LyricPanel(song: song, player: player).frame(height: max(230, artSize)).padding(.horizontal, 4)
-                                    .transition(.opacity)
+                                    .transition(.opacity.combined(with: .move(edge: .trailing)))
                             } else {
                                 Artwork(id: song.id, size: artSize - 14).padding(7).glassSurface(radius: 32)
-                                    .id(song.id).transition(.opacity).padding(.vertical, 6)
+                                    .scaleEffect(player.playing ? 1 : 0.94)
+                                    .animation(motion, value: player.playing)
+                                    .id(song.id).transition(.opacity.combined(with: .scale(scale: 0.92))).padding(.vertical, 6)
                             }
                             metadata(song)
                             timeline(song)

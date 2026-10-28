@@ -124,6 +124,7 @@ struct PhoneQueue: Codable {
     var heard: Set<String>
 }
 struct LibraryState: Codable {
+    var songOrders: [String: String]?
     var phoneAppearance: PhoneAppearance?
     var queue: PhoneQueue?
     var songs: [Song] = []
@@ -148,3 +149,38 @@ enum AppError: LocalizedError {
     var errorDescription: String? { switch self { case .message(let message): return message } }
 }
 func digest(_ data: Data) -> String { SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() }
+
+enum SongOrder: String, CaseIterable, Identifiable {
+    case oldest, newest, original, title, artist
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .oldest: return "Fecha: antiguas primero"
+        case .newest: return "Fecha: nuevas primero"
+        case .original: return "Tu orden"
+        case .title: return "Título"
+        case .artist: return "Artista"
+        }
+    }
+    func apply(_ songs: [Song]) -> [Song] {
+        guard self != .original else { return songs }
+        return songs.sorted { a, b in
+            func titleBefore() -> Bool {
+                let result = a.title.localizedStandardCompare(b.title)
+                return result == .orderedSame ? a.id < b.id : result == .orderedAscending
+            }
+            if self == .oldest || self == .newest {
+                let left = a.modifiedAt.flatMap { $0.isFinite ? $0 : nil }
+                let right = b.modifiedAt.flatMap { $0.isFinite ? $0 : nil }
+                guard let left else { return right == nil ? titleBefore() : false }
+                guard let right else { return true }
+                return left == right ? titleBefore() : (self == .oldest ? left < right : left > right)
+            }
+            if self == .artist {
+                let result = a.artist.localizedStandardCompare(b.artist)
+                if result != .orderedSame { return result == .orderedAscending }
+            }
+            return titleBefore()
+        }
+    }
+}

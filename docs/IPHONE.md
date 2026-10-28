@@ -16,7 +16,7 @@ Descargar una canción copia el archivo completo al almacenamiento de la app. Qu
 
 ## IPA sin firma
 
-Actions genera `Glass-Music-iPhone-0.2.0-build<N>-<commit>-unsigned.ipa`. Es un paquete para pruebas: un iPhone normal necesita que se firme después con una identidad y un perfil válidos antes de instalarlo. No se incluyen certificados, perfiles ni credenciales en el repositorio. Esta compilación no está publicada en App Store y no prueba el funcionamiento en un teléfono físico.
+Actions genera `Glass-Music-iPhone-0.3.0-build<N>-<commit>-unsigned.ipa`. Es un paquete para pruebas: un iPhone normal necesita que se firme después con una identidad y un perfil válidos antes de instalarlo. No se incluyen certificados, perfiles ni credenciales en el repositorio. Esta compilación no está publicada en App Store y no prueba el funcionamiento en un teléfono físico.
 
 ## Comprobaciones
 
@@ -24,7 +24,7 @@ El flujo `ios.yml` ejecuta las pruebas del protocolo Rust, compila para disposit
 
 Antes de uso cotidiano, comprobar en el iPhone real: permiso de red local/cámara, FLAC/MP3 propios, pausa/siguiente/seek desde pantalla bloqueada, Bluetooth y llamadas, reproducción sin Wi-Fi, sincronización de letras editadas y descarga interrumpida. La transferencia se realiza con la app abierta; la continuación en segundo plano de una sincronización larga queda pendiente.
 
-## Interfaz 0.2.0
+## Interfaz 0.3.0
 
 La barra inferior reserva espacio para el minirreproductor y los cinco destinos: Inicio, Biblioteca, Descargas, Sincronizar y Ajustes. El contenido puede desplazarse hasta el final sin quedar tapado. El reproductor grande se abre a pantalla completa y permite desplazarse en pantallas pequeñas o en horizontal.
 
@@ -36,4 +36,14 @@ En iOS 26, la navegación y el minirreproductor usan Liquid Glass nativo. En iOS
 
 ## Versiones por plataforma
 
-Windows conserva `1.0.0-rc.4`. iPhone avanza a `0.2.0`; son versiones independientes. El IPA incluye el número de ejecución de Actions como build y el commit para distinguir intentos. Ajustes lee versión y build del paquete instalado, sin un número escrito a mano. Una ejecución de CI no publica una release ni convierte una compilación fallida en una entrega. Las versiones y assets ya publicados se conservan como historial.
+Windows ofrece `1.0.0-rc.5`; el compañero `1.0.0-rc.4` sigue siendo compatible. iPhone avanza a `0.3.0`; son versiones independientes. El IPA incluye el número de ejecución de Actions como build y el commit para distinguir intentos. Ajustes lee versión y build del paquete instalado, sin un número escrito a mano. Una ejecución de CI no publica una release ni convierte una compilación fallida en una entrega. Las versiones y assets ya publicados se conservan como historial.
+
+## Orden y movimiento
+
+Biblioteca, Descargas y playlists permiten elegir fecha de modificación (antiguas o nuevas primero), título, artista y orden original. Se guarda por colección en el iPhone, sin cambiar la playlist de PC. Las fechas desconocidas quedan al final y la cola activa sigue los cambios de orden conservando canción, posición e historial. Antiguas primero es el valor inicial.
+
+El HUD anima el indicador de pestaña, cambios de portada, aparición del minirreproductor y tamaño de portada al pausar/reproducir. No hay animaciones continuas en reposo y se respeta Reducir movimiento y el ajuste Animaciones suaves.
+
+Para actualizar, instalar el IPA firmado sobre la app existente con el mismo bundle ID y la misma identidad/equipo de firma. No desinstalar: hacerlo borra las descargas y datos locales. Si cambia la identidad o la herramienta altera el bundle ID, la actualización puede fallar o instalar otra app; conservar la instalación existente y revisar la firma.
+
+Apple ofrece portadas animadas en pantalla bloqueada mediante MPMediaItemAnimatedArtwork en iOS 26. Requiere video local y vista previa, no solamente la imagen integrada del FLAC. Se investigó su viabilidad; esta versión conserva portada estática del sistema y no incluye importación ni generación de videos. Referencia: https://developer.apple.com/documentation/mediaplayer/providing-animated-artwork-for-media-items

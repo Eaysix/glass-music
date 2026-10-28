@@ -3,6 +3,51 @@ import XCTest
 @testable import GlassMusic
 
 final class GlassMusicTests: XCTestCase {
+    @MainActor func testDateOrderPersistsAndUnknownDatesStayLast() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let db = try SnapshotDatabase(root: root)
+        let library = try Library(database: db)
+        let old = Song(id: "old", title: "A", artist: "Artist", album: "Album", duration: 16, format: "FLAC", modifiedAt: 1000, lyricsRevision: "")
+        var new = old; new.id = "new"; new.modifiedAt = 2000
+        var unknown = old; unknown.id = "unknown"; unknown.modifiedAt = nil
+        let songs = [new, unknown, old]
+        XCTAssertEqual(library.songOrder(for: "library"), .oldest)
+        XCTAssertEqual(SongOrder.oldest.apply(songs).map(\.id), ["old", "new", "unknown"])
+        XCTAssertEqual(SongOrder.newest.apply(songs).map(\.id), ["new", "old", "unknown"])
+        XCTAssertEqual(SongOrder.original.apply(songs).map(\.id), songs.map(\.id))
+        library.setSongOrder(.newest, for: "playlist:test")
+        db.flush()
+        let restored = try Library(database: SnapshotDatabase(root: root))
+        XCTAssertEqual(restored.songOrder(for: "playlist:test"), .newest)
+        XCTAssertEqual(restored.songOrder(for: "library"), .oldest)
+    }
+    @MainActor func testChangingOrderKeepsCurrentSongAndPositionAndReordersPendingQueue() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = try Library(database: SnapshotDatabase(root: root))
+        let fixture = try XCTUnwrap(Bundle.main.url(forResource: "first.flac", withExtension: nil, subdirectory: "Fixtures") ?? Bundle.main.url(forResource: "first.flac", withExtension: nil))
+        let size = (try FileManager.default.attributesOfItem(atPath: fixture.path)[.size] as? NSNumber)?.int64Value
+        let songs = (0..<3).map { index in Song(id: String(index), title: String(index), artist: "Test", album: "Test", duration: 16, format: "FLAC", modifiedAt: Double(index), fileSize: size, lyricsRevision: "") }
+        try library.setLink(Link(serverId: "test-order", host: "10.0.0.2", port: 38473, fingerprint: "a", deviceId: "phone"))
+        defer { DeviceKeychain.remove("test-order") }
+        try library.merge(Manifest(protocolVersion: 1, serverId: "test-order", libraryName: "Test", accent: "#8CCDF3", tracks: songs, playlists: [], resumes: []))
+        for song in songs {
+            let copy = root.appendingPathComponent("copy-" + song.id + ".flac")
+            try FileManager.default.copyItem(at: fixture, to: copy)
+            try library.install(copy, song: song)
+        }
+        let player = MusicPlayer(library: library)
+        player.play(songs[0], ids: songs.map(\.id)); player.pause(); player.seek(3)
+        library.setSongOrder(.newest, for: "library")
+        player.updateSearch(source: "library", ids: SongOrder.newest.apply(songs).map(\.id))
+        XCTAssertEqual(player.current?.id, "0")
+        XCTAssertEqual(player.position, 3)
+        XCTAssertFalse(player.playing)
+        XCTAssertEqual(library.state.queue?.upcoming, ["2", "1"])
+        player.next(); player.pause()
+        XCTAssertEqual(player.current?.id, "2")
+    }
     func testPairingRejectsPublicAddressesExpiredCodesAndInvalidPins() throws {
         let now = Date()
         var code = PairingCode(protocolVersion: 1, serverId: "pc", host: "192.168.68.120", port: 38473, fingerprint: String(repeating: "a", count: 64), secret: String(repeating: "b", count: 64), expiresAt: now.timeIntervalSince1970 * 1000 + 300000)

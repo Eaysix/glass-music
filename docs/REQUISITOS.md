@@ -92,3 +92,5 @@ El usuario informó aproximadamente 8% de CPU y menos de 300 MB de RAM con 0.1.2
 - iPhone 0.1.1: interfaz glass con navegación inferior visible al reproducir; reproductor grande adaptable con desplazamiento. Personalización local de perfil/foto, color, fondo, intensidad del cristal, HUD, tamaño de letra, portada y animaciones, conservada al sincronizar. Portadas RGB en caché de hasta 512 píxeles reales.
 
 - Versiones independientes por plataforma: Windows 1.0.0-rc.4 e iPhone 0.2.0. El IPA incluye build de Actions y commit; la interfaz lee la versión del bundle instalado. No reutilizar una versión publicada para una entrega nueva ni cambiar tags históricos.
+
+- Orden configurable y persistente por fecha de modificación en ambas direcciones; antiguas primero como valor inicial, fechas desconocidas al final. iPhone guarda el orden por colección y lo aplica a la cola activa. Windows 1.0.0-rc.5; iPhone 0.3.0. Animaciones del HUD de iPhone por interacción y cambios, respetando movimiento reducido. Las portadas animadas de pantalla bloqueada requieren videos locales y quedan pendientes.

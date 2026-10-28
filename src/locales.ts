@@ -1,4 +1,14 @@
 export const messages: Record<string, Record<string, string>> = {
+  "Fecha: nuevas primero": {
+    en: "Date: newest first",
+    de: "Datum: neueste zuerst",
+    "zh-CN": "日期：从新到旧",
+  },
+  "Fecha: antiguas primero": {
+    en: "Date: oldest first",
+    de: "Datum: älteste zuerst",
+    "zh-CN": "日期：从旧到新",
+  },
   "Agregar al final de la cola": {
     en: "Add to end of queue",
     de: "Ans Ende der Warteschlange",
