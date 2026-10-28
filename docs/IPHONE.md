@@ -31,3 +31,5 @@ La barra inferior reserva espacio para el minirreproductor y los cinco destinos:
 En Ajustes se puede cambiar el nombre y la foto del perfil local, elegir color propio o seguir el de la PC, seleccionar fondo Aurora/Medianoche/Grafito, ajustar el cristal, el tamaño del HUD, la portada, la letra y las animaciones. Estas preferencias se guardan en el iPhone y la sincronización no las reemplaza. Restablecer apariencia conserva el nombre, la foto, la música y las letras. Se respetan Reducir movimiento y Reducir transparencia de iOS.
 
 Las portadas se normalizan a RGB y se reducen a 512 píxeles reales; las fotos de perfil a 256. El fondo se dibuja una vez y se reutiliza, sin animaciones continuas ni degradados de SwiftUI sobre la portada. La comprobación en el iPhone físico sigue siendo necesaria para confirmar la desaparición de los bloques de color informados.
+
+En iOS 26, la navegación y el minirreproductor usan Liquid Glass nativo. En iOS 17/18 se usa material translúcido compatible. Actions selecciona Xcode 26 estable, prueba el diseño principal en iOS 26 y comprueba la navegación en un iPhone SE con iOS 18.5 cuando ese simulador está disponible.

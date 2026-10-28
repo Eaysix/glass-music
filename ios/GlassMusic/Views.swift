@@ -21,13 +21,7 @@ struct RootView: View {
         }
         .toolbar(.hidden, for: .tabBar)
         .background { GlassBackdrop() }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(spacing: 8) {
-                MiniPlayer(player: player, open: { nowPlaying = true })
-                navigation
-            }.padding(.horizontal, 12).padding(.top, 8).padding(.bottom, 5)
-                .frame(maxWidth: 620)
-        }
+        .safeAreaInset(edge: .bottom, spacing: 0) { bottomDock }
         .tint(library.tint).preferredColorScheme(.dark)
         .sheet(isPresented: $pairing) { PairView(initial: incomingCode).environmentObject(library).environmentObject(sync).tint(library.tint) }
         .fullScreenCover(isPresented: $nowPlaying) { NowPlayingView(player: player).environmentObject(library).tint(library.tint) }
@@ -37,6 +31,16 @@ struct RootView: View {
         .alert("Glass Music", isPresented: Binding(get: { library.message != nil }, set: { if !$0 { library.message = nil } })) { Button("Entendido") { library.message = nil } } message: { Text(library.message ?? "") }
         .onOpenURL { url in if url.scheme == "glassmusic" { incomingCode = url.absoluteString; pairing = true } }
     }
+    @ViewBuilder private var bottomDock: some View {
+        if #available(iOS 26, *) { GlassEffectContainer(spacing: 8) { dockContent } }
+        else { dockContent }
+    }
+    private var dockContent: some View {
+        VStack(spacing: 8) {
+            MiniPlayer(player: player, open: { nowPlaying = true })
+            navigation
+        }.padding(.horizontal, 12).padding(.top, 8).padding(.bottom, 5).frame(maxWidth: 620)
+    }
     private var navigation: some View {
         HStack(spacing: 0) {
             navigationButton(0, "Inicio", "house", "home")
@@ -44,7 +48,7 @@ struct RootView: View {
             navigationButton(2, "Descargas", "arrow.down.circle", "downloads")
             navigationButton(3, "Sincronizar", "arrow.triangle.2.circlepath", "sync")
             navigationButton(4, "Ajustes", "slider.horizontal.3", "settings")
-        }.padding(5).glassSurface(radius: 27).accessibilityIdentifier("bottom-navigation")
+        }.padding(5).glassSurface(radius: 27, chrome: true).accessibilityIdentifier("bottom-navigation")
     }
     private func navigationButton(_ value: Int, _ title: String, _ symbol: String, _ identifier: String) -> some View {
         Button {
@@ -200,7 +204,7 @@ struct MiniPlayer: View {
                     Capsule().fill(.white.opacity(0.1))
                     Capsule().fill(library.tint.opacity(0.8)).frame(width: geometry.size.width * min(1, max(0, player.position / max(1, song.duration))))
                 }.frame(height: 2).accessibilityHidden(true)
-            }.padding(.horizontal, 12).padding(.top, 9).padding(.bottom, 7).glassSurface(radius: 24)
+            }.padding(.horizontal, 12).padding(.top, 9).padding(.bottom, 7).glassSurface(radius: 24, chrome: true)
                 .accessibilityElement(children: .contain).accessibilityIdentifier("mini-player")
         }
     }

@@ -37,7 +37,7 @@ struct NowPlayingView: View {
                                 Spacer()
                                 Button { edit = true } label: { Label("Editar letra", systemImage: "pencil.line") }.font(.caption).frame(minHeight: 44)
                             }.foregroundStyle(.secondary)
-                            Button { appearance = true } label: { Label("Personalizar", systemImage: "slider.horizontal.3").font(.subheadline).frame(maxWidth: .infinity).padding(.vertical, 12) }.glassSurface(radius: 20).buttonStyle(GlassPressStyle())
+                            Button { appearance = true } label: { Label("Personalizar", systemImage: "slider.horizontal.3").font(.subheadline).frame(maxWidth: .infinity).padding(.vertical, 12) }.glassSurface(radius: 20, chrome: true).buttonStyle(GlassPressStyle())
                         }.frame(maxWidth: 520).padding(.horizontal, 22).padding(.top, 6).padding(.bottom, 24).frame(maxWidth: .infinity)
                     } else { ContentUnavailableView("Elige una canción", systemImage: "music.note") }
                 }.scrollBounceBehavior(.basedOnSize)
@@ -58,7 +58,7 @@ struct NowPlayingView: View {
             Spacer(minLength: 8)
             Button { lyrics.toggle(); player.detailedLyrics(lyrics) } label: {
                 Image(systemName: lyrics ? "square.stack" : "text.quote").font(.system(size: 19)).frame(width: 44, height: 44)
-            }.glassSurface(radius: 17).buttonStyle(GlassPressStyle()).accessibilityLabel(lyrics ? "Mostrar portada" : "Mostrar letra")
+            }.glassSurface(radius: 17, chrome: true).buttonStyle(GlassPressStyle()).accessibilityLabel(lyrics ? "Mostrar portada" : "Mostrar letra")
             Button { dismiss() } label: { Image(systemName: "chevron.down").font(.system(size: 17, weight: .semibold)).frame(width: 44, height: 44) }.buttonStyle(GlassPressStyle()).accessibilityLabel("Cerrar reproductor")
         }.foregroundStyle(library.tint)
     }

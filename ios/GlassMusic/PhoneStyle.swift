@@ -98,21 +98,27 @@ struct GlassBackdrop: View {
 struct GlassSurface: ViewModifier {
     @EnvironmentObject private var library: Library
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var radius: CGFloat = 26
-    func body(content: Content) -> some View {
+    var chrome = false
+    @ViewBuilder func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         let strength = library.phoneAppearance.glassStrength
-        content
-            .background {
-                if reduceTransparency { shape.fill(Color(red: 0.13, green: 0.16, blue: 0.21)) }
-                else {
-                    shape.fill(.ultraThinMaterial).opacity(0.55 + strength * 0.5)
-                    shape.fill(library.tint.opacity(0.025 + strength * 0.06))
-                    shape.fill(.white.opacity(0.025 + strength * 0.065))
+        if #available(iOS 26, *), chrome, !reduceTransparency {
+            content.glassEffect(.regular.tint(library.tint.opacity(0.05 + strength * 0.18)).interactive(library.phoneAppearance.animations && !reduceMotion), in: shape)
+        } else {
+            content
+                .background {
+                    if reduceTransparency { shape.fill(Color(red: 0.13, green: 0.16, blue: 0.21)) }
+                    else {
+                        shape.fill(.ultraThinMaterial).opacity(0.55 + strength * 0.5)
+                        shape.fill(library.tint.opacity(0.025 + strength * 0.06))
+                        shape.fill(.white.opacity(0.025 + strength * 0.065))
+                    }
                 }
-            }
-            .overlay(shape.strokeBorder(.white.opacity(reduceTransparency ? 0.25 : 0.12 + strength * 0.16), lineWidth: 0.8))
-            .shadow(color: .black.opacity(0.16), radius: 12, x: 0, y: 7)
+                .overlay(shape.strokeBorder(.white.opacity(reduceTransparency ? 0.25 : 0.12 + strength * 0.16), lineWidth: 0.8))
+                .shadow(color: .black.opacity(0.16), radius: 12, x: 0, y: 7)
+        }
     }
 }
 
@@ -127,6 +133,6 @@ struct GlassPressStyle: ButtonStyle {
 }
 
 extension View {
-    func glassSurface(radius: CGFloat = 26) -> some View { modifier(GlassSurface(radius: radius)) }
+    func glassSurface(radius: CGFloat = 26, chrome: Bool = false) -> some View { modifier(GlassSurface(radius: radius, chrome: chrome)) }
     func glassScreen() -> some View { scrollContentBackground(.hidden).background { GlassBackdrop() }.toolbarBackground(.hidden, for: .navigationBar) }
 }
