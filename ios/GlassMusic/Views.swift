@@ -189,7 +189,7 @@ struct SongList: View {
         }.glassScreen().toolbar(.hidden, for: .tabBar).listStyle(.insetGrouped).navigationTitle(title).searchable(text: $search, prompt: "Canciones, artistas, álbumes")
         .sheet(isPresented: $showQueue) { PhoneQueueView(player: player).environmentObject(library) }
         .confirmationDialog("¿Eliminar esta playlist?", isPresented: $deleteList, titleVisibility: .visible) {
-            Button("Eliminar playlist", role: .destructive) { library.deletePlaylist(String(source.dropFirst("playlist:".count))); leaveDeletedPlaylist = true }
+            Button("Eliminar playlist", role: .destructive) { library.deletePlaylist(String(source.dropFirst("playlist:".count))); leaveDeletedPlaylist = true }.accessibilityIdentifier("confirm-delete-playlist")
         } message: { Text("Las canciones y descargas se conservan. Se eliminará también de PC al sincronizar.") }
         .toolbar { if source.hasPrefix("playlist:") { ToolbarItem(placement: .topBarTrailing) { Button(role: .destructive) { deleteList = true } label: { Image(systemName: "trash") }.accessibilityLabel("Eliminar playlist") } }; ToolbarItem(placement: .topBarTrailing) { Button { showQueue = true } label: { Image(systemName: "list.bullet") }.accessibilityLabel("Cola") }; if library.state.localPlaylists.contains(where: { "playlist:" + $0.id == source }) { ToolbarItem(placement: .topBarTrailing) { Button { editPlaylist = true } label: { Image(systemName: "pencil") }.accessibilityLabel("Editar playlist") } } }
         .sheet(isPresented: $editPlaylist) { LocalPlaylistView(playlistID: String(source.dropFirst("playlist:".count))).environmentObject(library) }

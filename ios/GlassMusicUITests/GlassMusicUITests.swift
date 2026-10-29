@@ -136,8 +136,11 @@ final class GlassMusicUITests: XCTestCase {
         let created = app.staticTexts["Mi playlist"].firstMatch; reveal(created, in: app); created.tap()
         let delete = app.buttons["Eliminar playlist"].firstMatch
         XCTAssertTrue(delete.waitForExistence(timeout: 5)); delete.tap()
-        let confirm = try XCTUnwrap(app.buttons.matching(identifier: "Eliminar playlist").allElementsBoundByIndex.first { $0.isHittable })
-        confirm.tap()
+        let namedConfirmation = app.buttons["confirm-delete-playlist"]
+        let matches = app.buttons.matching(identifier: "Eliminar playlist")
+        // Older system action sheets may expose only the action title.
+        let confirm = namedConfirmation.exists ? namedConfirmation : matches.element(boundBy: max(0, matches.count - 1))
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5)); confirm.tap()
         let home = app.scrollViews["home-content"].firstMatch
         let returnedHome = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in home.exists && home.isHittable }, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [returnedHome], timeout: 8), .completed)
