@@ -86,7 +86,7 @@ import UIKit
     func unlink() {
         if let link = state.link { DeviceKeychain.remove(link.serverId) }
         state.localIds.formUnion(state.songs.filter { file($0.id) != nil }.map(\.id))
-        state.link = nil; state.pending.removeAll(); state.conflicts.removeAll(); state.resumes.removeAll(); persist()
+        state.link = nil; state.pending.removeAll(); state.conflicts.removeAll(); state.playlistConflicts = nil; state.resumes.removeAll(); persist()
     }
     func merge(_ manifest: Manifest) throws {
         guard manifest.protocolVersion == 1, manifest.serverId == state.link?.serverId else { throw AppError.message("La PC y el iPhone no usan el mismo protocolo.") }

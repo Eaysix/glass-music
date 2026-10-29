@@ -19,6 +19,7 @@ struct LocalPlaylistView: View {
         library.state.songs.filter { search.isEmpty || "\($0.title) \($0.artist) \($0.album)".localizedCaseInsensitiveContains(search) }
     }
     var body: some View {
+        let tint = library.tint
         NavigationStack {
             List {
                 Section {
@@ -27,7 +28,7 @@ struct LocalPlaylistView: View {
                             Group {
                                 if let cover, let image = UIImage(data: cover) { Image(uiImage: image).resizable().scaledToFill() }
                                 else if let playlistID { Artwork(id: "playlist:" + playlistID, size: 96) }
-                                else { ZStack { library.tint.opacity(0.15); Image(systemName: "photo.badge.plus").font(.largeTitle).foregroundStyle(library.tint) } }
+                                else { ZStack { tint.opacity(0.15); Image(systemName: "photo.badge.plus").font(.largeTitle).foregroundStyle(tint) } }
                             }.frame(width: 96, height: 96).clipShape(RoundedRectangle(cornerRadius: 20))
                         }.accessibilityLabel("Cambiar portada de la playlist")
                         VStack(alignment: .leading, spacing: 10) {

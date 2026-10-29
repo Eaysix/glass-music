@@ -120,8 +120,8 @@ private final class AuroraLayerView: UIView {
         guard active else { stop(); return }
         for (index, glow) in [first, second].enumerated() where glow.animation(forKey: "aurora-drift") == nil {
             let drift = CABasicAnimation(keyPath: "transform")
-            drift.fromValue = CATransform3DMakeTranslation(index == 0 ? -35 : 30, index == 0 ? 25 : -35, 0)
-            drift.toValue = CATransform3DScale(CATransform3DMakeTranslation(index == 0 ? 60 : -45, index == 0 ? -45 : 50, 0), 1.12, 1.12, 1)
+            drift.fromValue = NSValue(caTransform3D: CATransform3DMakeTranslation(index == 0 ? -35 : 30, index == 0 ? 25 : -35, 0))
+            drift.toValue = NSValue(caTransform3D: CATransform3DScale(CATransform3DMakeTranslation(index == 0 ? 60 : -45, index == 0 ? -45 : 50, 0), 1.12, 1.12, 1))
             drift.duration = index == 0 ? 14 : 19
             drift.autoreverses = true; drift.repeatCount = .infinity
             drift.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)

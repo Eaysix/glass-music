@@ -117,7 +117,7 @@ import UIKit
                 self.library.flushMetadataBatch()
                 self.library.finishSync(); self.progress = 1
                 if !supportsPlaylists || !supportsListening { self.library.message = "Actualiza Glass Music en PC para sincronizar playlists del iPhone y sumar estadísticas. Tus cambios se conservan pendientes." }
-                self.detail = self.library.state.conflicts.isEmpty && (self.library.state.playlistConflicts?.isEmpty ?? true) ? "Todo al día. Tu música está lista sin conexión." : "Hay cambios en ambos equipos. Revisa los conflictos."
+                self.detail = self.library.state.conflicts.isEmpty && (self.library.state.playlistConflicts?.isEmpty ?? true) && self.library.state.pending.isEmpty ? "Todo al día. Tu música está lista sin conexión." : "Quedan cambios pendientes. Revisa los avisos o los conflictos antes de volver a sincronizar."
             } catch {
                 if Task.isCancelled { self.detail = "Transferencia pausada. Puedes volver a intentarlo." }
                 else { self.detail = "No se pudo sincronizar."; self.library.message = error.localizedDescription + "\nComprueba que ambos equipos estén en la misma red y Glass Music esté abierto en la PC." }
