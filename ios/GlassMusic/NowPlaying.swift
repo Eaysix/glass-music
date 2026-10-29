@@ -29,6 +29,7 @@ struct NowPlayingView: View {
                             } else {
                                 Artwork(id: song.id, size: artSize - 14).padding(7).glassSurface(radius: 32)
                                     .scaleEffect(player.playing ? 1 : 0.94)
+                                    .shadow(color: library.tint.opacity(player.playing ? 0.22 : 0.06), radius: player.playing ? 26 : 8, y: 12)
                                     .animation(motion, value: player.playing)
                                     .id(song.id).transition(.opacity.combined(with: .scale(scale: 0.92))).padding(.vertical, 6)
                             }
@@ -94,9 +95,9 @@ struct NowPlayingView: View {
             Spacer(minLength: 2)
             Button { player.previous() } label: { Image(systemName: "backward.end.fill").font(.system(size: 25)).frame(width: 44, height: 48) }.accessibilityLabel("Anterior")
             Spacer(minLength: 6)
-            Button { player.toggle() } label: { Image(systemName: player.playing ? "pause.fill" : "play.fill").font(.system(size: 29, weight: .semibold)).frame(width: 76, height: 76).foregroundStyle(Color(red: 0.035, green: 0.06, blue: 0.09)).background(library.tint, in: Circle()).overlay(Circle().strokeBorder(.white.opacity(0.22), lineWidth: 1)) }.accessibilityLabel(player.playing ? "Pausar" : "Reproducir").accessibilityIdentifier("full-player-play-pause")
+            Button { player.toggle() } label: { Image(systemName: player.playing ? "pause.fill" : "play.fill").contentTransition(.symbolEffect(.replace)).font(.system(size: 29, weight: .semibold)).frame(width: 76, height: 76).foregroundStyle(Color(red: 0.035, green: 0.06, blue: 0.09)).background(library.tint, in: Circle()).overlay(Circle().strokeBorder(.white.opacity(0.22), lineWidth: 1)) }.accessibilityLabel(player.playing ? "Pausar" : "Reproducir").accessibilityIdentifier("full-player-play-pause")
             Spacer(minLength: 6)
-            Button { player.next() } label: { Image(systemName: "forward.end.fill").font(.system(size: 25)).frame(width: 44, height: 48) }.accessibilityLabel("Siguiente")
+            Button { player.next() } label: { Image(systemName: "forward.end.fill").symbolEffect(.bounce, value: library.phoneAppearance.animations && !reduceMotion ? player.current?.id : nil).font(.system(size: 25)).frame(width: 44, height: 48) }.accessibilityLabel("Siguiente")
             Spacer(minLength: 2)
             Button { player.toggleRepeat() } label: { Image(systemName: "repeat").font(.system(size: 20)).foregroundStyle(player.repeatAll ? library.tint : Color.white.opacity(0.5)).frame(width: 44, height: 48) }.accessibilityLabel("Repetir lista")
         }.foregroundStyle(library.tint).buttonStyle(GlassPressStyle()).padding(.vertical, 2)

@@ -239,7 +239,7 @@ struct MiniPlayer: View {
                             }.frame(maxWidth: .infinity, alignment: .leading)
                         }.contentShape(Rectangle())
                     }.buttonStyle(GlassPressStyle()).accessibilityLabel("Abrir reproductor")
-                    Button { player.toggle() } label: { Image(systemName: player.playing ? "pause.fill" : "play.fill").font(.system(size: 20, weight: .semibold)).frame(width: 44, height: 44) }.accessibilityLabel(player.playing ? "Pausar" : "Reproducir").accessibilityIdentifier("mini-play-pause")
+                    Button { player.toggle() } label: { Image(systemName: player.playing ? "pause.fill" : "play.fill").contentTransition(.symbolEffect(.replace)).font(.system(size: 20, weight: .semibold)).frame(width: 44, height: 44) }.accessibilityLabel(player.playing ? "Pausar" : "Reproducir").accessibilityIdentifier("mini-play-pause")
                     Button { player.next() } label: { Image(systemName: "forward.end.fill").font(.system(size: 19)).frame(width: 44, height: 44) }.accessibilityLabel("Siguiente")
                 }.foregroundStyle(library.tint)
                 GeometryReader { geometry in

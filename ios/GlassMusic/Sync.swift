@@ -48,9 +48,12 @@ import UIKit
                 while !outgoing.isEmpty {
                     try Task.checkCancellation()
                     let remaining = outgoing
+                    let coverURLs = Dictionary(uniqueKeysWithValues: remaining.filter { $0.kind == "playlist" && $0.deleted != true }.compactMap { change in change.id.map { ($0, self.library.database.coverURL("playlist:" + $0)) } })
                     let prepared = try await Task.detached(priority: .utility) { () -> ([PendingChange], Data) in
                         var batch: [PendingChange] = [], size = 0
-                        for change in remaining.prefix(50) {
+                        for value in remaining.prefix(50) {
+                            var change = value
+                            if change.kind == "playlist", change.deleted != true, change.cover == nil, let id = change.id, let url = coverURLs[id], let bytes = try? Data(contentsOf: url), bytes.count <= 1024 * 1024 { change.cover = bytes.base64EncodedString() }
                             let count = try JSONEncoder().encode(change).count
                             if !batch.isEmpty && size + count > 3_000_000 { break }
                             batch.append(change); size += count
