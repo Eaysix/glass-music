@@ -169,7 +169,18 @@ try {
     .click();
   await page.getByRole("button", { name: "Pausar", exact: true }).focus();
   await page.getByRole("button", { name: "Pausar", exact: true }).click();
-  const filtered = await until((s) => s.queue.context.length === 1);
+  await page.waitForFunction(
+    () => !document.querySelector(".app").classList.contains("is-playing"),
+  );
+  const pausedPosition = await page.evaluate(async () => {
+    const playback = await import("/src/playback.ts");
+    return playback.getPosition();
+  });
+  // The earlier play snapshot already has a one-song context. Wait for the pause
+  // snapshot as well before comparing positions across the search change.
+  const filtered = await until(
+    (s) => s.queue.context.length === 1 && s.position === pausedPosition,
+  );
   await search.fill("");
   const expanded = await until(
     (s) => s.queue.context.length === 2 && s.queue.upcoming.length === 1,
