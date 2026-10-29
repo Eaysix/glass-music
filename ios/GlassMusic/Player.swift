@@ -31,7 +31,7 @@ import UIKit
     private var interruptedPlaying = false
     init(library: Library) {
         self.library = library
-        if let queue = library.state.queue { shuffle = queue.shuffle ?? false; repeatAll = queue.repeatAll ?? false; collection = queue.collection; context = queue.context; upcoming = queue.upcoming; history = queue.history; heard = queue.heard; manualQueue = queue.manual ?? []; currentWasManual = queue.currentWasManual ?? false; historyManual = queue.historyManual ?? queue.history.map { _ in false } }
+        if let queue = library.state.queue { shuffle = queue.shuffle ?? false; repeatAll = queue.repeatAll ?? false; collection = queue.collection; context = queue.context; upcoming = queue.upcoming; automaticQueue = queue.upcoming; history = queue.history; heard = queue.heard; manualQueue = queue.manual ?? []; currentWasManual = queue.currentWasManual ?? false; historyManual = queue.historyManual ?? queue.history.map { _ in false } }
         if let id = library.state.currentId { current = library.state.songs.first { $0.id == id }; position = library.state.position }
         let center = NotificationCenter.default
         tokens.append(center.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: nil, queue: .main) { [weak self] notification in
