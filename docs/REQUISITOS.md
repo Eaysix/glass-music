@@ -108,3 +108,5 @@ El usuario informó aproximadamente 8% de CPU y menos de 300 MB de RAM con 0.1.2
 ## Barra de reproducción al cambiar de pista
 
 - Un arrastre pendiente pertenece a su canción y se descarta al cambiar de pista. Adelantar al final mantiene el orden de la cola y la siguiente canción empieza con su propia posición. Las muestras/respuestas antiguas no deben sobrescribir el reloj de la nueva pista.
+
+- iPhone 0.5.1: entrega de corrección de la barra; no reutilizar el número de la compilación anterior. Las pruebas esperan la pausa y su guardado antes de comprobar posiciones exactas.

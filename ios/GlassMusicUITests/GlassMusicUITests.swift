@@ -67,12 +67,19 @@ final class GlassMusicUITests: XCTestCase {
             app.staticTexts["Otro momento"].exists && app.staticTexts["player-elapsed"].label.hasPrefix("0:0")
         }, object: app)
         wait(for: [advanced], timeout: 10)
-        // The fresh timeline must still accept a subsequent seek.
+        // Freeze playback before checking an exact time: XCTest waits for idle
+        // after dragging, during which a playing fixture keeps advancing.
+        let transport = app.buttons["full-player-play-pause"]
+        XCTAssertEqual(transport.label, "Pausar")
+        transport.tap()
+        XCTAssertEqual(transport.label, "Reproducir")
+        // The fresh timeline must still accept a subsequent seek while paused.
         timeline.adjust(toNormalizedSliderPosition: 0.5)
         let midpoint = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             ["0:07", "0:08", "0:09", "0:10"].contains(app.staticTexts["player-elapsed"].label)
         }, object: app)
         wait(for: [midpoint], timeout: 3)
+        XCTAssertEqual(transport.label, "Reproducir", "Seeking must not resume paused playback")
         snapshot(app, "Glass Music · Barra reiniciada después de adelantar al final")
     }
     func testLocalSyncScreenDoesNotRequireAnAccount() throws {
