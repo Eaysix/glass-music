@@ -14,6 +14,7 @@ import UIKit
     private var detailed = false
     private var itemStatus: NSKeyValueObservation?
     private var observer: Any?
+    private var clockGeneration = UUID()
     private var tokens: [NSObjectProtocol] = []
     private var remoteTargets: [(MPRemoteCommand, Any)] = []
     private var context: [String] = []
@@ -75,6 +76,8 @@ import UIKit
         guard let file = library.file(song.id) else { library.message = "Descarga esta canción para escucharla sin conexión."; return }
         do {
             try activate()
+            clockGeneration = UUID()
+            if let observer { audio.removeTimeObserver(observer); self.observer = nil }
             let item = AVPlayerItem(url: file)
             current = song; audio.replaceCurrentItem(with: item)
             itemStatus = item.observe(\.status, options: [.new]) { [weak self] item, _ in
@@ -97,6 +100,7 @@ import UIKit
     func pause() {
         sampleListening(); library.listening.flush()
         audio.pause(); playing = false
+        clockGeneration = UUID()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         if let observer { audio.removeTimeObserver(observer); self.observer = nil }
         persist(); nowPlaying()
@@ -178,8 +182,15 @@ import UIKit
         listenedUptime = ProcessInfo.processInfo.systemUptime; listenedPosition = audio.currentTime().seconds
 
         if let observer { audio.removeTimeObserver(observer) }
-        observer = audio.addPeriodicTimeObserver(forInterval: CMTime(seconds: detailed ? 0.1 : 1, preferredTimescale: 600), queue: .main) { [weak self] time in
-            Task { @MainActor in guard let self, time.seconds.isFinite else { return }; self.sampleListening(); self.position = max(0, time.seconds)
+        let generation = UUID(); clockGeneration = generation
+        let item = audio.currentItem
+        observer = audio.addPeriodicTimeObserver(forInterval: CMTime(seconds: detailed ? 0.1 : 1, preferredTimescale: 600), queue: .main) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.clockGeneration == generation, self.audio.currentItem === item else { return }
+                // A queued callback can predate a seek. Read the current item's clock, not its old sample.
+                let seconds = self.audio.currentTime().seconds
+                guard seconds.isFinite else { return }
+                self.sampleListening(); self.position = max(0, seconds)
                 if abs(self.position - self.lastPersist) >= 10 { self.lastPersist = self.position; self.persist(); self.nowPlaying() }
             }
         }

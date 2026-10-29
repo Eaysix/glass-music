@@ -104,3 +104,9 @@ El usuario informó aproximadamente 8% de CPU y menos de 300 MB de RAM con 0.1.2
 - Estadísticas de PC e iPhone se combinan al sincronizar por LAN: contadores acumulados por origen/día/canción, fusionados por máximo por origen antes de sumar. Repetir transferencias o volver a vincular el mismo iPhone no duplica minutos. Se conservan los datos locales existentes de rc.6/0.4.0. Semana de lunes a domingo en ambos; top 5 por tiempo y resumen anual compartidos. No requiere cuentas ni servidor externo.
 - Actualizar ambas plataformas. El iPhone conserva las ediciones si PC todavía no admite las capacidades nuevas y solicita actualizar PC. Sincronización manual por LAN. Los audios importados desde Archivos en iPhone no se transfieren a PC; su tiempo puede aparecer sin título en PC.
 - Fondo aurora con dos capas de gradiente en movimiento por Core Animation, sin reloj SwiftUI por fotograma. Detenido al desaparecer, suspender la app, reducir movimiento, desactivar animaciones o activar ahorro de energía. Personalización y datos existentes se conservan. Sin afirmar una mejora de CPU/GPU hasta medir en dispositivo físico.
+
+## Barra de reproducción al cambiar de pista
+
+- Un arrastre pendiente pertenece a su canción y se descarta al cambiar de pista. Adelantar al final mantiene el orden de la cola y la siguiente canción empieza con su propia posición. Las muestras/respuestas antiguas no deben sobrescribir el reloj de la nueva pista.
+
+- iPhone 0.5.1: entrega de corrección de la barra; no reutilizar el número de la compilación anterior. Las pruebas esperan la pausa y su guardado antes de comprobar posiciones exactas.
