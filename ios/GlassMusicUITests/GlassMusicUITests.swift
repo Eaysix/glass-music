@@ -136,7 +136,7 @@ final class GlassMusicUITests: XCTestCase {
         let created = app.staticTexts["Mi playlist"].firstMatch; reveal(created, in: app); created.tap()
         let delete = app.buttons["Eliminar playlist"].firstMatch
         XCTAssertTrue(delete.waitForExistence(timeout: 5)); delete.tap()
-        let namedConfirmation = app.buttons["confirm-delete-playlist"]
+        let namedConfirmation = app.buttons.matching(identifier: "confirm-delete-playlist").firstMatch
         let matches = app.buttons.matching(identifier: "Eliminar playlist")
         // Older system action sheets may expose only the action title.
         let confirm = namedConfirmation.exists ? namedConfirmation : matches.element(boundBy: max(0, matches.count - 1))
