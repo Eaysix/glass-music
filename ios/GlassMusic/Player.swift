@@ -169,7 +169,7 @@ import UIKit
         let uptime = ProcessInfo.processInfo.systemUptime
         let actual = audio.currentTime().seconds
         let elapsed = uptime - listenedUptime, delta = actual - listenedPosition
-        if playing, audio.timeControlStatus == .playing, let id = current?.id, elapsed > 0, elapsed <= 30, delta > 0, abs(delta - elapsed) < 2 {
+        if playing, audio.timeControlStatus == .playing, let id = current?.id, elapsed > 0, elapsed <= 86400, delta > 0, abs(delta - elapsed) < 2 {
             library.listening.record(id: id, seconds: min(delta, elapsed))
         }
         listenedUptime = uptime; listenedPosition = actual.isFinite ? actual : 0

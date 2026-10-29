@@ -71,7 +71,7 @@ final class GlassMusicTests: XCTestCase {
         history.record(id: "one", seconds: 10, ending: ending, calendar: calendar)
         XCTAssertEqual(history.days["2025-12-31"]?.seconds, 5)
         XCTAssertEqual(history.days["2026-01-01"]?.seconds, 5)
-        history.record(id: "one", seconds: 3600, ending: ending, calendar: calendar)
+        history.record(id: "one", seconds: 90000, ending: ending, calendar: calendar)
         history.record(id: "one", seconds: -1, ending: ending, calendar: calendar)
         XCTAssertEqual(history.days.values.reduce(0) { $0 + $1.seconds }, 10)
     }

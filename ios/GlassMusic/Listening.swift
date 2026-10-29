@@ -12,7 +12,7 @@ struct ListeningHistory: Codable {
         return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
     }
     mutating func record(id: String, seconds: Double, ending: Date, calendar: Calendar = .current) {
-        guard seconds.isFinite, seconds > 0, seconds <= 30 else { return }
+        guard seconds.isFinite, seconds > 0, seconds <= 86400 else { return }
         var start = ending.addingTimeInterval(-seconds)
         while start < ending {
             let boundary = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: start)) ?? ending
