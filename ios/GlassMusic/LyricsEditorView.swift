@@ -15,7 +15,7 @@ struct LyricsEditorView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 14) {
-                Text(song.title).font(.headline).lineLimit(1)
+                Text(song.title).font(.headline).lineLimit(1).accessibilityIdentifier("lyrics-song-title")
                 Picker("Editor", selection: $mode) { Text("Texto").tag("text"); Text("Líneas").tag("lines"); Text("Palabras").tag("words") }.pickerStyle(.segmented)
                 if mode == "text" {
                     TextEditor(text: $text).font(.body.monospaced()).accessibilityLabel("Letra y tiempos LRC").scrollContentBackground(.hidden).padding(10).background(.thinMaterial, in: RoundedRectangle(cornerRadius: 20))
@@ -25,7 +25,7 @@ struct LyricsEditorView: View {
                     HStack {
                         Button(player.current?.id == song.id && player.playing ? "Pausar" : "Reproducir") {
                             if player.current?.id == song.id { player.toggle() } else { player.play(song, ids: library.downloaded.map(\.id)) }
-                        }.buttonStyle(.bordered).disabled(library.file(song.id) == nil)
+                        }.buttonStyle(.bordered).disabled(library.file(song.id) == nil).accessibilityIdentifier("lyrics-transport")
                         Text(clock(player.position)).monospacedDigit(); Spacer()
                         Button("Deshacer") { draft.undoMark() }.disabled(!draft.canUndo)
                     }

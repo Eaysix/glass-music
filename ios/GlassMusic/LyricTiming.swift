@@ -21,6 +21,9 @@ struct LyricTimingDraft {
             if clean.isEmpty || clean.range(of: #"^\[[A-Za-z]+:[^\]]*\]$"#, options: .regularExpression) != nil { return [] }
             return [TimingRow(text: row, time: nil, tokens: Self.tokens(row))]
         }
+        if rows.allSatisfy({ $0.time != nil }) {
+            rows = rows.enumerated().sorted { a, b in a.element.time == b.element.time ? a.offset < b.offset : a.element.time! < b.element.time! }.map(\.element)
+        }
     }
     private static func tokens(_ text: String) -> [TimingToken] {
         var starts: [String.Index] = []
@@ -62,7 +65,7 @@ struct LyricTimingDraft {
             if words || anyWords {
                 var last = time
                 for token in row.tokens { guard let t = token.time, t.isFinite, t >= last else { return nil }; last = t }
-                previous = last
+                previous = time
                 result.append(Self.stamp(time, word: false) + row.tokens.map { Self.stamp($0.time!, word: true) + $0.text }.joined())
             } else { previous = time; result.append(Self.stamp(time, word: false) + row.text) }
         }

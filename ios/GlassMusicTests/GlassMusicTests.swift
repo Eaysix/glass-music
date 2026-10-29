@@ -64,6 +64,14 @@ final class GlassMusicTests: XCTestCase {
         shifted.mark(2, words: false)
         XCTAssertEqual(Lyrics.parse(try XCTUnwrap(shifted.encoded(words: false)))[0].words.map(\.time), [2, 3])
     }
+    func testRepeatedTimedVersesAndUntimedNewRowsAreKept() throws {
+        let draft = LyricTimingDraft("[00:01][00:04]<00:01>Hola <00:02>mundo\n[00:03]<00:03>Otra")
+        XCTAssertEqual(draft.rows.compactMap(\.time), [1, 3, 4])
+        XCTAssertEqual(Lyrics.parse(try XCTUnwrap(draft.encoded(words: true))).count, 3)
+        let mixed = LyricTimingDraft("[00:01]Ya marcada\nUna línea nueva")
+        XCTAssertEqual(mixed.rows.count, 2)
+        XCTAssertNil(mixed.encoded(words: false))
+    }
     func testListeningSplitsMidnightAndDoesNotInventTimeFromSeeks() {
         var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         let ending = calendar.date(from: DateComponents(year: 2026, month: 1, day: 1, second: 5))!

@@ -20,10 +20,10 @@ final class GlassMusicUITests: XCTestCase {
     private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
         for _ in 0..<5 {
             let limit = app.buttons["Abrir reproductor"]
-            if element.isHittable && (!limit.exists || element.frame.maxY <= limit.frame.minY) { return }
+            if element.isHittable && (!limit.exists || !limit.isHittable || element.frame.maxY <= limit.frame.minY) { return }
             // Start within the scroll content, above the persistent player/dock.
             let player = app.buttons["Abrir reproductor"]
-            let bottom = player.exists ? player.frame.minY : app.frame.maxY - 100
+            let bottom = player.exists && player.isHittable ? player.frame.minY : app.frame.maxY - 100
             let startY = min(bottom - 30, app.frame.midY + 100)
             let endY = max(app.frame.minY + 100, startY - app.frame.height * 0.4)
             let origin = app.coordinate(withNormalizedOffset: .zero)
@@ -103,17 +103,20 @@ final class GlassMusicUITests: XCTestCase {
         let editor = app.buttons["Editar letra"]; reveal(editor, in: app); editor.tap()
         let text = app.textViews["Letra y tiempos LRC"]
         XCTAssertTrue(text.waitForExistence(timeout: 5)); text.tap()
+        let title = app.staticTexts["lyrics-song-title"].label
         let old = text.value as? String ?? ""
         if old.isEmpty { text.typeText("Uno dos\nOtra línea") }
         app.segmentedControls.buttons["Palabras"].tap()
-        let pause = app.buttons["Pausar"].firstMatch
-        if pause.exists { pause.tap() }
-        let play = app.buttons["Reproducir"].firstMatch
-        if play.exists { play.tap() }
+        XCTAssertEqual(app.staticTexts["lyrics-song-title"].label, title, "Editor must stay attached to its original song")
+        let transport = app.buttons["lyrics-transport"]
+        XCTAssertTrue(transport.waitForExistence(timeout: 5))
+        if transport.label == "Reproducir" { transport.tap() }
         let seek = app.sliders["Escuchar desde"]
         if seek.exists { seek.adjust(toNormalizedSliderPosition: 0) }
-        XCTAssertTrue(app.buttons["Marcar palabra y seguir"].exists)
-        app.buttons["Marcar palabra y seguir"].tap()
+        let mark = app.buttons["Marcar palabra y seguir"]
+        XCTAssertTrue(mark.exists)
+        if !mark.isEnabled { transport.tap() }
+        mark.tap()
         snapshot(app, "Glass Music · Marcar palabras")
         app.buttons["Cancelar"].tap()
         app.buttons["Cerrar reproductor"].tap()

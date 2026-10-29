@@ -8,7 +8,7 @@ struct NowPlayingView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var queue = false
     @State private var lyrics = false
-    @State private var edit = false
+    @State private var editingSong: Song?
     @State private var appearance = false
     @State private var scrubbing = 0.0
     @State private var editing = false
@@ -38,7 +38,7 @@ struct NowPlayingView: View {
                             HStack {
                                 Label(song.format + " · Sin conexión", systemImage: "checkmark.circle.fill").font(.caption)
                                 Spacer()
-                                Button { edit = true } label: { Label("Editar letra", systemImage: "pencil.line") }.font(.caption).frame(minHeight: 44)
+                                Button { editingSong = song } label: { Label("Editar letra", systemImage: "pencil.line") }.font(.caption).frame(minHeight: 44)
                             }.foregroundStyle(.secondary)
                             Button { appearance = true } label: { Label("Personalizar", systemImage: "slider.horizontal.3").font(.subheadline).frame(maxWidth: .infinity).padding(.vertical, 12) }.glassSurface(radius: 20, chrome: true).buttonStyle(GlassPressStyle())
                         }.frame(maxWidth: 520).padding(.horizontal, 22).padding(.top, 6).padding(.bottom, 24).frame(maxWidth: .infinity)
@@ -47,7 +47,7 @@ struct NowPlayingView: View {
             }
         }.background { GlassBackdrop() }.tint(library.tint).preferredColorScheme(.dark)
         .sheet(isPresented: $queue) { PhoneQueueView(player: player).environmentObject(library) }
-        .sheet(isPresented: $edit) { if let song = player.current { LyricsEditorView(song: song, player: player).environmentObject(library).tint(library.tint) } }
+        .sheet(item: $editingSong) { song in LyricsEditorView(song: song, player: player).environmentObject(library).tint(library.tint) }
         .sheet(isPresented: $appearance) {
             NavigationStack { PhoneSettingsView().toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Listo") { appearance = false } } } }.environmentObject(library).tint(library.tint).preferredColorScheme(.dark)
         }
