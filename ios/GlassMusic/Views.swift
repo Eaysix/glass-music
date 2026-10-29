@@ -136,7 +136,7 @@ struct HomeView: View {
                 }
                 Button(action: importFiles) { Label("Añadir música local", systemImage: "plus").frame(maxWidth: .infinity).padding(.vertical, 6) }.buttonStyle(.bordered).padding(.vertical).accessibilityIdentifier("import-local-music")
             }.padding(22).padding(.bottom, 20)
-        }.glassScreen().navigationBarTitleDisplayMode(.inline).toolbar(.hidden, for: .tabBar).toolbar(.hidden, for: .navigationBar)
+        }.accessibilityIdentifier("home-content").glassScreen().navigationBarTitleDisplayMode(.inline).toolbar(.hidden, for: .tabBar).toolbar(.hidden, for: .navigationBar)
         .confirmationDialog("¿Eliminar esta playlist?", isPresented: Binding(get: { deletingPlaylist != nil }, set: { if !$0 { deletingPlaylist = nil } }), titleVisibility: .visible) {
             Button("Eliminar playlist", role: .destructive) { if let playlist = deletingPlaylist { withAnimation(reduceMotion || !library.phoneAppearance.animations ? nil : .spring(response: 0.4, dampingFraction: 0.85)) { library.deletePlaylist(playlist.id) } }; deletingPlaylist = nil }
         } message: { Text("Las canciones se conservan. La eliminación se enviará a tu PC al sincronizar.") }
@@ -155,8 +155,12 @@ struct SongList: View {
     @State private var showQueue = false
     @State private var editPlaylist = false
     @State private var deleteList = false
+    @State private var leaveDeletedPlaylist = false
     @Environment(\.dismiss) private var dismiss
     @State private var search = ""
+    private var playlistExists: Bool {
+        !source.hasPrefix("playlist:") || (library.state.localPlaylists + library.state.playlists).contains { "playlist:" + $0.id == source }
+    }
     private var songs: [Song] {
         let list: [Song]
         let resolvedIds = source.hasPrefix("playlist:") ? (library.state.playlists + library.state.localPlaylists).first(where: { "playlist:" + $0.id == source })?.trackIds ?? ids : ids
@@ -185,10 +189,18 @@ struct SongList: View {
         }.glassScreen().toolbar(.hidden, for: .tabBar).listStyle(.insetGrouped).navigationTitle(title).searchable(text: $search, prompt: "Canciones, artistas, álbumes")
         .sheet(isPresented: $showQueue) { PhoneQueueView(player: player).environmentObject(library) }
         .confirmationDialog("¿Eliminar esta playlist?", isPresented: $deleteList, titleVisibility: .visible) {
-            Button("Eliminar playlist", role: .destructive) { library.deletePlaylist(String(source.dropFirst("playlist:".count))); dismiss() }
+            Button("Eliminar playlist", role: .destructive) { library.deletePlaylist(String(source.dropFirst("playlist:".count))); leaveDeletedPlaylist = true }
         } message: { Text("Las canciones y descargas se conservan. Se eliminará también de PC al sincronizar.") }
         .toolbar { if source.hasPrefix("playlist:") { ToolbarItem(placement: .topBarTrailing) { Button(role: .destructive) { deleteList = true } label: { Image(systemName: "trash") }.accessibilityLabel("Eliminar playlist") } }; ToolbarItem(placement: .topBarTrailing) { Button { showQueue = true } label: { Image(systemName: "list.bullet") }.accessibilityLabel("Cola") }; if library.state.localPlaylists.contains(where: { "playlist:" + $0.id == source }) { ToolbarItem(placement: .topBarTrailing) { Button { editPlaylist = true } label: { Image(systemName: "pencil") }.accessibilityLabel("Editar playlist") } } }
         .sheet(isPresented: $editPlaylist) { LocalPlaylistView(playlistID: String(source.dropFirst("playlist:".count))).environmentObject(library) }
+        .onChange(of: playlistExists) { _, exists in if !exists { leaveDeletedPlaylist = true } }
+        .task(id: leaveDeletedPlaylist) {
+            guard leaveDeletedPlaylist else { return }
+            // Let the confirmation/editor finish dismissing before popping its destination.
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled else { return }
+            dismiss()
+        }
         .onChange(of: songs.map(\.id)) { _, ids in player.updateSearch(source: source, ids: ids) }
     }
 }

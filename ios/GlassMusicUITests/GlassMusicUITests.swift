@@ -138,7 +138,12 @@ final class GlassMusicUITests: XCTestCase {
         XCTAssertTrue(delete.waitForExistence(timeout: 5)); delete.tap()
         let confirm = try XCTUnwrap(app.buttons.matching(identifier: "Eliminar playlist").allElementsBoundByIndex.first { $0.isHittable })
         confirm.tap()
-        XCTAssertFalse(app.staticTexts["Mi playlist"].exists)
+        let home = app.scrollViews["home-content"].firstMatch
+        let returnedHome = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in home.exists && home.isHittable }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [returnedHome], timeout: 8), .completed)
+        app.terminate(); app.launch()
+        XCTAssertTrue(app.buttons["nav-home"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["Mi playlist"].exists, "Deleted playlists must stay deleted after restart")
         app.buttons["nav-downloads"].tap()
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "play-song-")).firstMatch.waitForExistence(timeout: 5), "Deleting a playlist must preserve downloaded audio")
         snapshot(app, "Glass Music · Canciones conservadas al eliminar playlist")
