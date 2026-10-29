@@ -40,14 +40,19 @@ import UIKit
                 // must not exceed the PC's five-megabyte request limit.
                 while !outgoing.isEmpty {
                     try Task.checkCancellation()
-                    var batch: [PendingChange] = []
-                    var size = 0
-                    while let change = outgoing.first {
-                        let count = try JSONEncoder().encode(change).count
-                        if !batch.isEmpty && (batch.count >= 50 || size + count > 3_000_000) { break }
-                        batch.append(outgoing.removeFirst()); size += count
-                    }
-                    let results: [ChangeResult] = try await client.json("changes", body: JSONEncoder().encode(ChangeEnvelope(changes: batch)))
+                    let remaining = outgoing
+                    let prepared = try await Task.detached(priority: .utility) { () -> ([PendingChange], Data) in
+                        var batch: [PendingChange] = [], size = 0
+                        for change in remaining.prefix(50) {
+                            let count = try JSONEncoder().encode(change).count
+                            if !batch.isEmpty && size + count > 3_000_000 { break }
+                            batch.append(change); size += count
+                        }
+                        return (batch, try JSONEncoder().encode(ChangeEnvelope(changes: batch)))
+                    }.value
+                    let batch = prepared.0
+                    outgoing.removeFirst(batch.count)
+                    let results: [ChangeResult] = try await client.json("changes", body: prepared.1)
                     for result in results where batch.indices.contains(result.index) {
                         let change = batch[result.index]
                         if result.applied { self.library.acknowledge(change) }

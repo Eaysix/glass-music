@@ -106,8 +106,12 @@ final class GlassMusicUITests: XCTestCase {
         let old = text.value as? String ?? ""
         if old.isEmpty { text.typeText("Uno dos\nOtra línea") }
         app.segmentedControls.buttons["Palabras"].tap()
+        let pause = app.buttons["Pausar"].firstMatch
+        if pause.exists { pause.tap() }
         let play = app.buttons["Reproducir"].firstMatch
         if play.exists { play.tap() }
+        let seek = app.sliders["Escuchar desde"]
+        if seek.exists { seek.adjust(toNormalizedSliderPosition: 0) }
         XCTAssertTrue(app.buttons["Marcar palabra y seguir"].exists)
         app.buttons["Marcar palabra y seguir"].tap()
         snapshot(app, "Glass Music · Marcar palabras")
