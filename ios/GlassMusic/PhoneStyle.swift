@@ -137,13 +137,21 @@ struct GlassBackdrop: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var visible = false
     @State private var lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+    private var allowAmbientMotion: Bool {
+        #if DEBUG
+        // Infinite decoration prevents XCTest's idle detection from settling.
+        // Capture animation separately; keep functional tests deterministic.
+        if ProcessInfo.processInfo.arguments.contains("--ui-testing-fixtures") && !ProcessInfo.processInfo.arguments.contains("--ui-testing-ambient-preview") { return false }
+        #endif
+        return true
+    }
     var body: some View {
         GeometryReader { geometry in
             ZStack {
                 Image(uiImage: Backdrops.image(style: library.phoneAppearance.backdrop, hex: library.effectiveAccent))
                     .resizable().scaledToFill().frame(width: geometry.size.width, height: geometry.size.height)
                 if library.phoneAppearance.backdrop == "aurora", !reduceTransparency {
-                    AuroraMotion(tint: UIColor(library.tint), active: visible && phase == .active && library.phoneAppearance.animations && !reduceMotion && !lowPower)
+                    AuroraMotion(tint: UIColor(library.tint), active: visible && phase == .active && library.phoneAppearance.animations && !reduceMotion && !lowPower && allowAmbientMotion)
                 }
             }.frame(width: geometry.size.width, height: geometry.size.height).clipped()
         }.ignoresSafeArea().allowsHitTesting(false).accessibilityHidden(true)

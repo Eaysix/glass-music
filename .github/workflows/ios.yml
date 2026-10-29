@@ -88,7 +88,7 @@ jobs:
           xcrun simctl bootstatus "$GLASS_SIMULATOR" -b
       - name: Unit, native LAN and interface tests
         run: |
-          APP=ios/build/simulator/Build/Products/Debug-iphonesimulator/GlassMusic.app
+          export APP=ios/build/simulator/Build/Products/Debug-iphonesimulator/GlassMusic.app
           test -f "$APP/first.flac" || test -f "$APP/Fixtures/first.flac"
           crates/glass-sync/target/debug/examples/test_hub /tmp/HubFixture.json > /tmp/glass-hub.log 2>&1 &
           HUB_PID=$!
@@ -100,6 +100,23 @@ jobs:
           cp /tmp/HubFixture.json "$APP/PlugIns/GlassMusicTests.xctest/HubFixture.json"
           codesign --force --sign - --preserve-metadata=entitlements "$APP/PlugIns/GlassMusicTests.xctest"
           codesign --force --sign - --preserve-metadata=entitlements "$APP"
+          # Record ambient movement separately from XCTest's idle-sensitive actions.
+          python3 - <<'PYVIDEO'
+          import os, signal, subprocess, time
+          simulator=os.environ['GLASS_SIMULATOR']
+          bundle='com.eaysix.glassmusic.ios'
+          subprocess.run(['xcrun','simctl','install',simulator,os.environ['APP']],check=True)
+          subprocess.run(['xcrun','simctl','launch',simulator,bundle,'--ui-testing-fixtures','--ui-testing-ambient-preview'],check=True)
+          time.sleep(2)
+          video=subprocess.Popen(['xcrun','simctl','io',simulator,'recordVideo','--codec=h264','ios/build/aurora-preview.mp4'])
+          try:
+              time.sleep(8)
+          finally:
+              video.send_signal(signal.SIGINT)
+              video.wait(timeout=30)
+              subprocess.run(['xcrun','simctl','terminate',simulator,bundle],check=True)
+          assert os.path.getsize('ios/build/aurora-preview.mp4') > 0
+          PYVIDEO
           cd ios
           xcodebuild -project GlassMusic.xcodeproj -scheme GlassMusic -configuration Debug -destination "platform=iOS Simulator,id=$GLASS_SIMULATOR" -derivedDataPath build/simulator -resultBundlePath build/TestResults.xcresult CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 300 test-without-building
       - name: Small iPhone compatibility and navigation test
@@ -120,6 +137,7 @@ jobs:
           path: |
             ios/build/screenshots
             ios/build/compact-screenshots
+            ios/build/aurora-preview.mp4
           retention-days: 7
       - uses: actions/upload-artifact@v4
         with:
