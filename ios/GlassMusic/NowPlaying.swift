@@ -12,6 +12,7 @@ struct NowPlayingView: View {
     @State private var appearance = false
     @State private var scrubbing = 0.0
     @State private var editing = false
+    @State private var scrubbingSongId: String?
     private var motion: Animation? { library.phoneAppearance.animations && !reduceMotion ? .spring(response: 0.4, dampingFraction: 0.86) : nil }
     var body: some View {
         GeometryReader { geometry in
@@ -54,6 +55,9 @@ struct NowPlayingView: View {
         }
         .animation(motion, value: lyrics).animation(motion, value: player.current?.id)
         .onDisappear { player.detailedLyrics(false) }
+        .onChange(of: player.current?.id) { _, _ in
+            editing = false; scrubbing = 0; scrubbingSongId = nil
+        }
         .onChange(of: phase) { _, value in player.detailedLyrics(value == .active && lyrics) }
     }
     private var header: some View {
@@ -82,11 +86,14 @@ struct NowPlayingView: View {
     private func timeline(_ song: Song) -> some View {
         VStack(spacing: 5) {
             Slider(value: Binding(get: { min(editing ? scrubbing : player.position, max(1, song.duration)) }, set: { scrubbing = $0 }), in: 0...max(1, song.duration), onEditingChanged: { value in
-                if value { scrubbing = player.position }
+                if value { scrubbing = player.position; scrubbingSongId = song.id }
                 editing = value
-                if !value { player.seek(scrubbing) }
+                if !value {
+                    if scrubbingSongId == song.id && player.current?.id == song.id { player.seek(scrubbing) }
+                    scrubbingSongId = nil
+                }
             }).accessibilityLabel("Posición de reproducción")
-            HStack { Text(clock(editing ? scrubbing : player.position)); Spacer(); Text(clock(song.duration)) }.font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+            HStack { Text(clock(editing ? scrubbing : player.position)).accessibilityIdentifier("player-elapsed"); Spacer(); Text(clock(song.duration)) }.font(.caption.monospacedDigit()).foregroundStyle(.secondary)
         }
     }
     private var transport: some View {

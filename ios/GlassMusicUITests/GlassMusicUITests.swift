@@ -56,6 +56,25 @@ final class GlassMusicUITests: XCTestCase {
         app.buttons["Cerrar reproductor"].tap()
         assertDock(app)
     }
+    func testSeekingToEndResetsTimelineOnNextSong() throws {
+        let app = launch(resetAppearance: true); startSong(app)
+        app.buttons["Abrir reproductor"].tap()
+        let timeline = app.sliders["Posición de reproducción"]
+        XCTAssertTrue(timeline.waitForExistence(timeout: 5))
+        // Synthetic fixtures last 16 seconds. Seek to the exact boundary.
+        timeline.adjust(toNormalizedSliderPosition: 1)
+        let advanced = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            app.staticTexts["Otro momento"].exists && app.staticTexts["player-elapsed"].label.hasPrefix("0:0")
+        }, object: app)
+        wait(for: [advanced], timeout: 10)
+        // The fresh timeline must still accept a subsequent seek.
+        timeline.adjust(toNormalizedSliderPosition: 0.5)
+        let midpoint = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            ["0:07", "0:08", "0:09", "0:10"].contains(app.staticTexts["player-elapsed"].label)
+        }, object: app)
+        wait(for: [midpoint], timeout: 3)
+        snapshot(app, "Glass Music · Barra reiniciada después de adelantar al final")
+    }
     func testLocalSyncScreenDoesNotRequireAnAccount() throws {
         let app = launch()
         app.buttons["nav-sync"].tap()
