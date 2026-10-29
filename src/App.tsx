@@ -213,6 +213,7 @@ export default function App() {
   const queueRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null),
     busy = useRef(false),
+    transportEpoch = useRef(0),
     latest = useRef({ settings, tracks, playing });
   latest.current = { settings, tracks, playing };
   const saveChain = useRef(Promise.resolve()),
@@ -587,10 +588,12 @@ export default function App() {
       async () => {
         if (polling || busy.current) return;
         polling = true;
+        const epoch = transportEpoch.current;
         try {
           const status = await api.audioCommand("status");
           if (
             !alive ||
+            epoch !== transportEpoch.current ||
             busy.current ||
             status.trackId !== latest.current.settings.queue.current
           )
@@ -606,7 +609,7 @@ export default function App() {
           if (status.ended) advanceRef.current(true);
           else if (!status.playing) setPlaying(false);
         } catch (e) {
-          if (alive) {
+          if (alive && epoch === transportEpoch.current && !busy.current) {
             setPlaying(false);
             setNotice(String(e));
           }
@@ -797,6 +800,7 @@ export default function App() {
   async function playQueue(queue: Queue, from = 0) {
     if (busy.current || !queue.current) return;
     busy.current = true;
+    transportEpoch.current++;
     try {
       const status = await api.audioCommand("play", queue.current, from);
       setSettings((s) => ({ ...s, queue, position: status.position }));
@@ -837,6 +841,7 @@ export default function App() {
       return;
     }
     busy.current = true;
+    transportEpoch.current++;
     try {
       const duration =
         state.tracks.find((t) => t.id === state.settings.queue.current)
@@ -900,12 +905,26 @@ export default function App() {
     else void playQueue(previousQueue(settings.queue));
   }
   async function seek(value: number) {
+    const trackId = settings.queue.current;
+    if (
+      !trackId ||
+      trackId !== latest.current.settings.queue.current ||
+      busy.current
+    )
+      return;
+    const epoch = ++transportEpoch.current;
     try {
       const status = await api.audioCommand("seek", null, value);
+      if (
+        epoch !== transportEpoch.current ||
+        status.trackId !== latest.current.settings.queue.current
+      )
+        return;
       setPosition(status.position);
       setTransportRevision((n) => n + 1);
       setSettings((s) => ({ ...s, position: status.position }));
     } catch (e) {
+      if (epoch !== transportEpoch.current) return;
       setNotice(
         tr("No se pudo adelantar: {p0}", {
           p0: e,
@@ -2359,6 +2378,7 @@ export default function App() {
             </IconButton>
           </div>
           <SeekControl
+            key={current?.id}
             duration={current?.duration ?? 0}
             enabled={!!current}
             seek={seek}

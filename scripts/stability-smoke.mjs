@@ -125,6 +125,40 @@ try {
   await page.getByRole("button", { name: "Siguiente", exact: true }).focus();
   await page.getByRole("button", { name: "Siguiente", exact: true }).click();
   await until((s) => s.queue.current === imported.queue.upcoming[0]);
+  // Let the old song end while a scrub is still pending (no key release).
+  const timeline = page.getByRole("slider", {
+    name: "Posición de reproducción",
+    exact: true,
+  });
+  await page
+    .getByRole("button", { name: "Reproducir Primera luz", exact: true })
+    .click();
+  await until((s) => s.queue.current === initial.queue.current);
+  await page.evaluate(async () => {
+    const api = await import("/src/api.ts");
+    const playback = await import("/src/playback.ts");
+    await api.audioCommand("seek", null, 15);
+    playback.setPosition(15);
+  });
+  await timeline.focus();
+  await page.keyboard.down("End");
+  await until((s) => s.queue.current === imported.queue.upcoming[0]);
+  await page.waitForFunction(
+    () => Number(document.querySelector(".seek input").value) < 4,
+  );
+  await page.keyboard.up("End");
+  // Seeking exactly to the end must also start the next track with a fresh timeline.
+  await page
+    .getByRole("button", { name: "Reproducir Primera luz", exact: true })
+    .click();
+  await until((s) => s.queue.current === initial.queue.current);
+  await timeline.focus();
+  await page.keyboard.press("End");
+  await until((s) => s.queue.current === imported.queue.upcoming[0]);
+  await page.waitForFunction(
+    () => Number(document.querySelector(".seek input").value) < 4,
+  );
+  console.log("PASS: pending scrubs and seek-to-end reset on the next track");
   const search = page.getByRole("textbox", {
     name: "Buscar música",
     exact: true,

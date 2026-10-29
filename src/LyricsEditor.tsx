@@ -277,7 +277,12 @@ export default function LyricsEditor({
               {playing && active ? t("Pausar") : t("Reproducir")}
             </button>
           </div>
-          <SeekControl duration={duration} enabled={active} seek={seek} />
+          <SeekControl
+            key={`${trackId}:${active}`}
+            duration={duration}
+            enabled={active}
+            seek={seek}
+          />
           <p className="privacy-note">
             {mode === "words"
               ? t(
