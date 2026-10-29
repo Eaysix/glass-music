@@ -82,6 +82,7 @@ struct Artwork: View {
 }
 struct HomeView: View {
     @EnvironmentObject private var library: Library
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let player: MusicPlayer
     let link: () -> Void
     let importFiles: () -> Void
@@ -124,7 +125,12 @@ struct HomeView: View {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 140 * library.phoneAppearance.hudScale), spacing: 16)], spacing: 22) {
                     ForEach(lists) { playlist in NavigationLink { SongList(player: player, title: playlist.name, ids: playlist.trackIds, downloadedOnly: false, source: "playlist:" + playlist.id) } label: {
                         VStack(alignment: .leading, spacing: 10) { GeometryReader { geometry in Artwork(id: "playlist:" + playlist.id, size: geometry.size.width) }.aspectRatio(1, contentMode: .fit); Text(playlist.name).font(.headline).lineLimit(1); Text("\(playlist.trackIds.count) canciones\(playlist.revision == "local" ? " · En este iPhone" : "")").font(.caption).foregroundStyle(.secondary) }
-                    }.buttonStyle(.plain) }
+                    }.buttonStyle(GlassPressStyle())
+                        .scrollTransition(.interactive, axis: .vertical) { content, phase in
+                            content.opacity(library.phoneAppearance.animations && !reduceMotion && !phase.isIdentity ? 0.75 : 1)
+                                .scaleEffect(library.phoneAppearance.animations && !reduceMotion && !phase.isIdentity ? 0.96 : 1)
+                        }
+                    }
                 }
                 Button(action: importFiles) { Label("Añadir música local", systemImage: "plus").frame(maxWidth: .infinity).padding(.vertical, 6) }.buttonStyle(.bordered).padding(.vertical).accessibilityIdentifier("import-local-music")
             }.padding(22).padding(.bottom, 20)

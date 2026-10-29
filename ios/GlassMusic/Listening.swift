@@ -55,6 +55,7 @@ struct ListeningHistory: Codable {
 struct ListeningStatsView: View {
     @EnvironmentObject private var library: Library
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var history = ListeningHistory()
     @State private var annual = false
     @State private var offset = 0
@@ -78,7 +79,7 @@ struct ListeningStatsView: View {
                         Button { offset += 1 } label: { Image(systemName: "chevron.right").frame(width: 44, height: 44) }.disabled(offset >= 0).accessibilityLabel("Período siguiente")
                     }
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("\(Int(totals.values.reduce(0, +) / 60))").font(.system(size: 56, weight: .bold, design: .rounded)).foregroundStyle(library.tint)
+                        Text("\(Int(totals.values.reduce(0, +) / 60))").font(.system(size: 56, weight: .bold, design: .rounded)).foregroundStyle(library.tint).contentTransition(.numericText())
                         Text("minutos escuchados en este iPhone").foregroundStyle(.secondary)
                     }.frame(maxWidth: .infinity, alignment: .leading).glassCard()
                     Text("Tus 5 canciones más escuchadas").font(.title2.bold())
@@ -90,7 +91,9 @@ struct ListeningStatsView: View {
                     }
                     Text("Se cuenta reproducción efectiva, no pausas ni saltos. Historial local de este dispositivo; todavía no se suman los minutos de PC e iPhone.").font(.caption).foregroundStyle(.secondary)
                 }.padding(22)
-            }.glassScreen().navigationTitle("Tu música en números")
+            }.animation(library.phoneAppearance.animations && !reduceMotion ? .easeInOut(duration: 0.28) : nil, value: annual)
+                .animation(library.phoneAppearance.animations && !reduceMotion ? .easeInOut(duration: 0.28) : nil, value: offset)
+                .glassScreen().navigationTitle("Tu música en números")
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Listo") { dismiss() } } }
                 .onAppear { history = library.listening.history }
         }.tint(library.tint).preferredColorScheme(.dark)
