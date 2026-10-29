@@ -41,6 +41,18 @@ struct SyncView: View {
                     }
                 }
             }
+            if let conflicts = library.state.playlistConflicts, !conflicts.isEmpty {
+                Section("Playlists con cambios en ambos equipos") {
+                    ForEach(conflicts.values.sorted { $0.id < $1.id }) { remote in
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text(remote.name).font(.headline)
+                            Text("PC: \(remote.trackIds.count) canciones. Elige cuál conservar antes de reenviar.").font(.caption).foregroundStyle(.secondary)
+                            Button("Usar playlist de la PC") { library.resolvePlaylist(remote, keepMine: false) }.disabled(sync.busy)
+                            Button("Conservar playlist del iPhone y reenviar") { library.resolvePlaylist(remote, keepMine: true); sync.sync() }.disabled(sync.busy)
+                        }
+                    }
+                }
+            }
             Section("En este iPhone") {
                 Label("\(library.downloaded.count) canciones descargadas", systemImage: "arrow.down.circle.fill")
                 Text("Las canciones se guardan dentro de la app. Quitar una descarga no elimina el original de tu PC. La reproducción funciona con el Wi-Fi apagado.").font(.caption).foregroundStyle(.secondary)

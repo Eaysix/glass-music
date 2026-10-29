@@ -70,7 +70,7 @@ struct NowPlayingView: View {
     private func metadata(_ song: Song) -> some View {
         HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(song.title).font(.system(size: 25 * library.phoneAppearance.hudScale, weight: .bold, design: .rounded)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                Text(song.title).contentTransition(.interpolate).font(.system(size: 25 * library.phoneAppearance.hudScale, weight: .bold, design: .rounded)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
                 Text(song.artist).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
             }.frame(maxWidth: .infinity, alignment: .leading)
             Button { library.favorite(song.id) } label: {

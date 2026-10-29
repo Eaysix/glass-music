@@ -59,3 +59,11 @@ El editor de letras permite Texto, Líneas y Palabras: reproducir, escuchar desd
 Las playlists locales tienen portada, búsqueda, selección y edición posterior. Se pueden crear vacías. La selección inicial conserva el orden de elección. Las listas recibidas de PC siguen siendo de lectura; las listas nuevas del teléfono todavía no se envían al PC.
 
 Inicio → Tu música en números muestra minutos por semana, top 5 por tiempo escuchado y resumen anual con períodos anteriores. Empieza desde esta actualización; no reconstruye años anteriores. Registra avance real durante reproducción, excluye saltos y pausas, y reparte intervalos que crucen medianoche. El historial se guarda localmente por dispositivo; los minutos de PC e iPhone no se fusionan todavía. Sin telemetría ni servidor.
+
+## iPhone 0.5.0
+
+Actualizar también PC a 1.0.0-rc.7. Las playlists del teléfono, incluidas las creadas en 0.4.0, se envían al pulsar **Sincronizar ahora**, junto con nombre, orden, selección y portada. Para borrar una lista, mantener pulsada su tarjeta o usar la papelera dentro de ella y confirmar. Las canciones y descargas se conservan. La eliminación se envía en la siguiente sincronización y se conserva una marca para evitar que una copia antigua restaure la lista. Los conflictos simultáneos ofrecen conservar PC o iPhone desde Sincronizar.
+
+Los minutos de ambos dispositivos se suman al sincronizar. Cada equipo conserva sus contadores propios y las copias del otro se consultan por separado: no se vuelven a contar al reenviar ni al vincular otra vez. Los registros de 0.4.0 y rc.6 se conservan. Sin Wi-Fi puedes seguir escuchando y el tiempo se incorpora al volver a sincronizar. Semanas de lunes a domingo. Los audios importados solo en iPhone aún no se transfieren a PC; su tiempo sí se conserva y puede aparecer sin título en PC.
+
+Aurora incorpora luces lentas en movimiento. Desactivar animaciones, reducir movimiento o activar ahorro de energía detiene el efecto. Actualizar encima con el mismo bundle ID y la misma identidad de firma conserva los datos. No desinstalar para actualizar.

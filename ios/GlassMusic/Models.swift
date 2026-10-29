@@ -41,6 +41,9 @@ struct Manifest: Codable {
     var tracks: [Song]
     var playlists: [Playlist]
     var resumes: [ResumePoint]
+    var listening: [ListeningEntry]? = nil
+    var capabilities: [String]? = nil
+    var deletedPlaylists: [String]? = nil
 }
 struct LyricPayload: Codable { var text: String; var revision: String }
 struct Link: Codable {
@@ -97,6 +100,12 @@ struct PendingChange: Codable, Identifiable {
     var value: Bool?
     var trackId: String?
     var position: Double?
+    var name: String?
+    var trackIds: [String]?
+    var deleted: Bool?
+    var cover: String?
+    var sourceId: String?
+    var entries: [ListeningValue]?
 }
 struct ChangeEnvelope: Codable { var changes: [PendingChange] }
 struct SyncConflict: Codable, Identifiable {
@@ -108,6 +117,7 @@ struct ChangeResult: Codable {
     var index: Int
     var applied: Bool
     var error: String?
+    var remotePlaylist: Playlist?
     var conflict: LyricPayload?
 }
 struct OfflineFile: Codable {
@@ -128,6 +138,7 @@ struct PhoneQueue: Codable {
 }
 struct LibraryState: Codable {
     var songOrders: [String: String]?
+    var playlistConflicts: [String: Playlist]?
     var phoneAppearance: PhoneAppearance?
     var queue: PhoneQueue?
     var songs: [Song] = []

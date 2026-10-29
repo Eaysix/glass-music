@@ -1,12 +1,34 @@
 import Foundation
 import SwiftUI
 
+struct ListeningValue: Codable, Equatable {
+    var day: String
+    var trackId: String
+    var seconds: Double
+}
+struct ListeningEntry: Codable, Equatable {
+    var source: String
+    var day: String
+    var trackId: String
+    var seconds: Double
+}
 struct ListeningDay: Codable, Equatable {
     var songs: [String: Double] = [:]
     var seconds: Double { songs.values.reduce(0, +) }
 }
 struct ListeningHistory: Codable {
     var days: [String: ListeningDay] = [:]
+    var sourceId: String? = nil
+    var remote: [ListeningEntry]? = nil
+    var combined: Self {
+        var result = self
+        for entry in remote ?? [] where entry.source != "phone:" + (sourceId ?? "") && entry.seconds.isFinite && entry.seconds > 0 && entry.seconds <= 86400 {
+            var day = result.days[entry.day] ?? ListeningDay()
+            day.songs[entry.trackId, default: 0] += entry.seconds
+            result.days[entry.day] = day
+        }
+        return result
+    }
     static func key(_ date: Date, calendar: Calendar = .current) -> String {
         let c = calendar.dateComponents([.year, .month, .day], from: date)
         return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
@@ -39,6 +61,17 @@ struct ListeningHistory: Codable {
     init(root: URL) {
         url = root.appendingPathComponent("listening.json")
         history = (try? JSONDecoder().decode(ListeningHistory.self, from: Data(contentsOf: url))) ?? ListeningHistory()
+        if history.sourceId == nil { history.sourceId = UUID().uuidString.lowercased(); dirty = true; flush() }
+    }
+    var outgoing: [PendingChange] {
+        let entries = history.days.sorted { $0.key < $1.key }.flatMap { day, value in value.songs.sorted { $0.key < $1.key }.map { ListeningValue(day: day, trackId: $0.key, seconds: $0.value) } }
+        return stride(from: 0, to: entries.count, by: 250).map { start in
+            PendingChange(id: nil, kind: "listening", sourceId: history.sourceId, entries: Array(entries[start..<min(start + 250, entries.count)]))
+        }
+    }
+    func merge(_ entries: [ListeningEntry]) {
+        // Replace the remote snapshot, never add previously combined totals back to local counters.
+        history.remote = entries; dirty = true; flush()
     }
     func record(id: String, seconds: Double, ending: Date = Date()) {
         history.record(id: id, seconds: seconds, ending: ending)
@@ -60,7 +93,8 @@ struct ListeningStatsView: View {
     @State private var annual = false
     @State private var offset = 0
     private var interval: DateInterval {
-        let calendar = Calendar.current
+        var calendar = Calendar.current
+        calendar.firstWeekday = 2; calendar.minimumDaysInFirstWeek = 4
         let component: Calendar.Component = annual ? .year : .weekOfYear
         let anchor = calendar.date(byAdding: component, value: offset, to: Date()) ?? Date()
         return calendar.dateInterval(of: component, for: anchor) ?? DateInterval(start: anchor, duration: 86400)
@@ -80,7 +114,7 @@ struct ListeningStatsView: View {
                     }
                     VStack(alignment: .leading, spacing: 8) {
                         Text("\(Int(totals.values.reduce(0, +) / 60))").font(.system(size: 56, weight: .bold, design: .rounded)).foregroundStyle(library.tint).contentTransition(.numericText())
-                        Text("minutos escuchados en este iPhone").foregroundStyle(.secondary)
+                        Text("minutos escuchados en tus dispositivos").foregroundStyle(.secondary)
                     }.frame(maxWidth: .infinity, alignment: .leading).glassCard()
                     Text("Tus 5 canciones más escuchadas").font(.title2.bold())
                     let ranked = totals.sorted { $0.value == $1.value ? $0.key < $1.key : $0.value > $1.value }.prefix(5)
@@ -89,13 +123,13 @@ struct ListeningStatsView: View {
                         let song = library.state.songs.first { $0.id == item.key }
                         HStack { Text("\(index + 1)").foregroundStyle(library.tint); Artwork(id: item.key, size: 44); VStack(alignment: .leading) { Text(song?.title ?? "Canción fuera de la biblioteca").lineLimit(1); Text(song?.artist ?? "").font(.caption).foregroundStyle(.secondary) }; Spacer(); Text("\(Int(item.value / 60)) min").font(.caption.monospacedDigit()) }.glassCard()
                     }
-                    Text("Se cuenta reproducción efectiva, no pausas ni saltos. Historial local de este dispositivo; todavía no se suman los minutos de PC e iPhone.").font(.caption).foregroundStyle(.secondary)
+                    Text("Se cuenta reproducción efectiva, no pausas ni saltos. Los minutos de PC e iPhone se suman al sincronizar por la red local.").font(.caption).foregroundStyle(.secondary)
                 }.padding(22)
             }.animation(library.phoneAppearance.animations && !reduceMotion ? .easeInOut(duration: 0.28) : nil, value: annual)
                 .animation(library.phoneAppearance.animations && !reduceMotion ? .easeInOut(duration: 0.28) : nil, value: offset)
                 .glassScreen().navigationTitle("Tu música en números")
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Listo") { dismiss() } } }
-                .onAppear { history = library.listening.history }
+                .onAppear { history = library.listening.history.combined }
         }.tint(library.tint).preferredColorScheme(.dark)
     }
 }

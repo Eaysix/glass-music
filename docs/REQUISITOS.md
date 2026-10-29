@@ -86,7 +86,7 @@ El usuario informó aproximadamente 8% de CPU y menos de 300 MB de RAM con 0.1.2
 - App nativa iOS 17+, reproducción local FLAC/MP3, audio en segundo plano y controles de pantalla bloqueada. Sin reproducción automática al abrir.
 - Vinculación de una PC mediante QR temporal, TLS con certificado fijado y credencial guardada en Keychain; sincronización manual en la misma red, sin datos móviles ni servidor en internet.
 - Catálogo y playlists de PC al teléfono; descarga selectiva de archivos para escuchar sin conexión. Letras editadas y favoritas en ambos sentidos, con resolución explícita de conflictos. Progreso para continuar sin alterar la reproducción activa del otro equipo.
-- Playlists nuevas en iPhone e importaciones desde Archivos son locales en esta etapa. Sin compartir archivos SQLite entre dispositivos.
+- Playlists nuevas en iPhone se sincronizan con PC; las importaciones de audio desde Archivos siguen siendo locales. Sin compartir archivos SQLite entre dispositivos.
 - IPA sin firma para pruebas. CarPlay, publicación en App Store y sincronización por servidor quedan para después. Guía: [IPHONE.md](IPHONE.md).
 
 - iPhone 0.1.1: interfaz glass con navegación inferior visible al reproducir; reproductor grande adaptable con desplazamiento. Personalización local de perfil/foto, color, fondo, intensidad del cristal, HUD, tamaño de letra, portada y animaciones, conservada al sincronizar. Portadas RGB en caché de hasta 512 píxeles reales.
@@ -96,3 +96,11 @@ El usuario informó aproximadamente 8% de CPU y menos de 300 MB de RAM con 0.1.2
 - Orden configurable y persistente por fecha de modificación en ambas direcciones; antiguas primero como valor inicial, fechas desconocidas al final. iPhone guarda el orden por colección y lo aplica a la cola activa. Windows 1.0.0-rc.5; iPhone 0.3.0. Animaciones del HUD de iPhone por interacción y cambios, respetando movimiento reducido. Las portadas animadas de pantalla bloqueada requieren videos locales y quedan pendientes.
 
 - iPhone 0.4.0: sincronización de metadatos por lotes, portadas fuera del hilo principal, editor de playlists con portada/búsqueda, marcado de letras por línea/palabra con deshacer y validación, cola manual FIFO por gesto. Windows 1.0.0-rc.6: una sola acción Añadir a la cola con FIFO antes del contexto automático. Estadísticas locales por dispositivo desde la actualización: minutos semanales, top 5 por tiempo y resumen anual; sin fusionar entre PC e iPhone ni reconstruir datos anteriores.
+
+## Biblioteca compartida · Windows rc.7 / iPhone 0.5.0
+
+- Playlists creadas/editadas en iPhone viajan a PC con nombre, selección, orden y portada. Las creadas en PC siguen bajando al teléfono; desde iPhone se pueden eliminar listas con confirmación. Eliminar una playlist conserva audios y descargas. Las marcas de eliminación evitan que reaparezca por una copia antigua.
+- Conflictos simultáneos de edición de playlist se resuelven explícitamente desde Sincronizar, conservando PC o iPhone. Los guardados de volumen/cola de PC no sobrescriben playlists recibidas en segundo plano.
+- Estadísticas de PC e iPhone se combinan al sincronizar por LAN: contadores acumulados por origen/día/canción, fusionados por máximo por origen antes de sumar. Repetir transferencias o volver a vincular el mismo iPhone no duplica minutos. Se conservan los datos locales existentes de rc.6/0.4.0. Semana de lunes a domingo en ambos; top 5 por tiempo y resumen anual compartidos. No requiere cuentas ni servidor externo.
+- Actualizar ambas plataformas. El iPhone conserva las ediciones si PC todavía no admite las capacidades nuevas y solicita actualizar PC. Sincronización manual por LAN. Los audios importados desde Archivos en iPhone no se transfieren a PC; su tiempo puede aparecer sin título en PC.
+- Fondo aurora con dos capas de gradiente en movimiento por Core Animation, sin reloj SwiftUI por fotograma. Detenido al desaparecer, suspender la app, reducir movimiento, desactivar animaciones o activar ahorro de energía. Personalización y datos existentes se conservan. Sin afirmar una mejora de CPU/GPU hasta medir en dispositivo físico.

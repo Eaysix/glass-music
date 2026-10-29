@@ -14,6 +14,7 @@ struct LocalPlaylistView: View {
     @State private var saving = false
     @State private var loaded = false
     @State private var error: String?
+    @State private var deleting = false
     private var filtered: [Song] {
         library.state.songs.filter { search.isEmpty || "\($0.title) \($0.artist) \($0.album)".localizedCaseInsensitiveContains(search) }
     }
@@ -51,7 +52,10 @@ struct LocalPlaylistView: View {
                             }.frame(minHeight: 48).contentShape(Rectangle())
                         }.buttonStyle(GlassPressStyle()).accessibilityIdentifier("playlist-select-" + song.id)
                     }
-                } header: { Text("Añade canciones") } footer: { Text("La playlist se guarda en este iPhone. Las canciones de PC necesitan descargarse para reproducirse.") }
+                } header: { Text("Añade canciones") } footer: { Text("La playlist se sincroniza con tu PC cuando conectas ambos equipos. Las canciones importadas solo en el iPhone siguen siendo locales.") }
+                if playlistID != nil {
+                    Section { Button("Eliminar playlist", role: .destructive) { deleting = true }.accessibilityIdentifier("delete-playlist") }
+                }
             }.glassScreen().searchable(text: $search, prompt: "Canciones, artistas, álbumes")
                 .navigationTitle(playlistID == nil ? "Crea tu playlist" : "Edita tu playlist").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -69,6 +73,9 @@ struct LocalPlaylistView: View {
                         cover = normalized
                     } catch { self.error = error.localizedDescription }
                 } }
+                .confirmationDialog("¿Eliminar esta playlist?", isPresented: $deleting, titleVisibility: .visible) {
+                    Button("Eliminar playlist", role: .destructive) { if let playlistID { library.deletePlaylist(playlistID); dismiss() } }
+                } message: { Text("Las canciones y sus descargas se conservan. La eliminación se enviará a tu PC al sincronizar.") }
                 .alert("Playlist", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) { Button("Listo") { error = nil } } message: { Text(error ?? "") }
         }.tint(library.tint).preferredColorScheme(.dark)
     }
@@ -78,7 +85,7 @@ struct LocalPlaylistView: View {
             let id: String?
             if let existing = playlistID ?? createdID { library.updateLocalPlaylist(existing, name: name, ids: selected); id = existing }
             else { id = library.createLocalPlaylist(name: name, ids: selected); createdID = id }
-            do { if let id, let cover { try await library.storeCoverAsync("playlist:" + id, data: cover, revision: digest(cover)) }; dismiss() }
+            do { if let id, let cover { try await library.storeCoverAsync("playlist:" + id, data: cover, revision: digest(cover)); library.queuePlaylist(id, cover: cover); library.persist() }; dismiss() }
             catch { self.error = error.localizedDescription }
             saving = false
         }

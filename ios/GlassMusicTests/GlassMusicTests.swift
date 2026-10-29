@@ -3,6 +3,32 @@ import XCTest
 @testable import GlassMusic
 
 final class GlassMusicTests: XCTestCase {
+    @MainActor func testSharedMinutesNeverEchoAndPlaylistDeletionPreservesSongs() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let database = try SnapshotDatabase(root: root)
+        let library = try Library(database: database)
+        let source = try XCTUnwrap(library.listening.history.sourceId)
+        let now = Date()
+        library.listening.record(id: "song", seconds: 120, ending: now)
+        let day = ListeningHistory.key(now.addingTimeInterval(-120))
+        let remote = [ListeningEntry(source: "phone:" + source, day: day, trackId: "song", seconds: 120), ListeningEntry(source: "pc", day: day, trackId: "song", seconds: 60)]
+        library.listening.merge(remote); library.listening.merge(remote)
+        XCTAssertEqual(library.listening.history.combined.days.values.reduce(0) { $0 + $1.seconds }, 180, accuracy: 0.001)
+        XCTAssertEqual(library.listening.outgoing.flatMap { $0.entries ?? [] }.reduce(0) { $0 + $1.seconds }, 120, accuracy: 0.001)
+        let id = try XCTUnwrap(library.createLocalPlaylist(name: "Phone list", ids: ["song"]))
+        let creation = try XCTUnwrap(library.state.pending.first { $0.kind == "playlist" })
+        library.updateLocalPlaylist(id, name: "New edit", ids: ["song"])
+        library.acknowledge(creation)
+        XCTAssertEqual(library.state.localPlaylists.first?.name, "New edit")
+        XCTAssertNotNil(library.state.pending.first?.baseRevision)
+        library.deletePlaylist(id)
+        XCTAssertTrue(library.state.localPlaylists.isEmpty)
+        XCTAssertEqual(library.state.pending.first?.deleted, true)
+        database.flush()
+        let restored = try database.load()
+        XCTAssertEqual(restored.pending.first?.deleted, true)
+    }
     @MainActor func testDateOrderPersistsAndUnknownDatesStayLast() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

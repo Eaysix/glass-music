@@ -30,9 +30,16 @@ import UIKit
                 guard let link = self.library.state.link else { throw AppError.message("Vincula primero tu PC desde Sincronizar.") }
                 let client = LANClient(link: link, token: try DeviceKeychain.read(link.serverId))
                 self.detail = "Enviando cambios pendientes…"
-                let conflicts = Set(self.library.state.conflicts.map(\.id))
-                let pending = self.library.state.pending.filter { !conflicts.contains($0.id ?? "") }
+                let initial: Manifest = try await client.json("manifest")
+                let capabilities = Set(initial.capabilities ?? [])
+                let supportsPlaylists = capabilities.contains("shared-playlists-v1")
+                let supportsListening = capabilities.contains("shared-listening-v1")
+                let conflicts = Set(self.library.state.conflicts.map(\.id)).union(Set(self.library.state.playlistConflicts?.keys.map { $0 } ?? []))
+                for playlist in self.library.state.localPlaylists where playlist.revision == "local" && !self.library.state.pending.contains(where: { $0.kind == "playlist" && $0.id == playlist.id }) { self.library.queuePlaylist(playlist.id) }
+                self.library.persist()
+                let pending = self.library.state.pending.filter { !conflicts.contains($0.id ?? "") && ($0.kind != "playlist" || supportsPlaylists) }
                 var outgoing = pending
+                if supportsListening { self.library.listening.flush(); outgoing += self.library.listening.outgoing }
                 if let song = self.player.current, !self.library.state.localIds.contains(song.id) {
                     outgoing.append(PendingChange(id: nil, kind: "resume", trackId: song.id, position: self.player.position))
                 }
@@ -56,6 +63,7 @@ import UIKit
                     for result in results where batch.indices.contains(result.index) {
                         let change = batch[result.index]
                         if result.applied { self.library.acknowledge(change) }
+                        else if let remote = result.remotePlaylist { self.library.playlistConflict(remote) }
                         else if let conflict = result.conflict { self.library.conflict(change, remote: conflict) }
                         else if let error = result.error { self.library.message = "Un cambio sigue pendiente: " + error }
                     }
@@ -105,7 +113,8 @@ import UIKit
                 }
                 self.library.flushMetadataBatch()
                 self.library.finishSync(); self.progress = 1
-                self.detail = self.library.state.conflicts.isEmpty ? "Todo al día. Tu música está lista sin conexión." : "Hay letras con cambios en ambos equipos. Revisa los conflictos."
+                if !supportsPlaylists || !supportsListening { self.library.message = "Actualiza Glass Music en PC para sincronizar playlists del iPhone y sumar estadísticas. Tus cambios se conservan pendientes." }
+                self.detail = self.library.state.conflicts.isEmpty && (self.library.state.playlistConflicts?.isEmpty ?? true) ? "Todo al día. Tu música está lista sin conexión." : "Hay cambios en ambos equipos. Revisa los conflictos."
             } catch {
                 if Task.isCancelled { self.detail = "Transferencia pausada. Puedes volver a intentarlo." }
                 else { self.detail = "No se pudo sincronizar."; self.library.message = error.localizedDescription + "\nComprueba que ambos equipos estén en la misma red y Glass Music esté abierto en la PC." }

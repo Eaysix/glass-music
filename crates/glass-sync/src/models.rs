@@ -46,6 +46,9 @@ pub struct Manifest {
     pub tracks: Vec<Track>,
     pub playlists: Vec<Playlist>,
     pub resumes: Vec<Resume>,
+    pub listening: Vec<ListeningEntry>,
+    pub capabilities: Vec<String>,
+    pub deleted_playlists: Vec<String>,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -84,6 +87,20 @@ pub struct Pairing {
     pub secret: String,
     pub expires_at: f64,
 }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListeningValue {
+    pub day: String,
+    pub track_id: String,
+    pub seconds: f64,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListeningEntry {
+    pub source: String,
+    #[serde(flatten)]
+    pub value: ListeningValue,
+}
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(
     tag = "kind",
@@ -91,6 +108,18 @@ pub struct Pairing {
     rename_all_fields = "camelCase"
 )]
 pub enum Change {
+    Playlist {
+        id: String,
+        name: String,
+        track_ids: Vec<String>,
+        base_revision: Option<String>,
+        deleted: bool,
+        cover: Option<String>,
+    },
+    Listening {
+        source_id: String,
+        entries: Vec<ListeningValue>,
+    },
     Lyrics {
         id: String,
         base_revision: String,
@@ -116,4 +145,5 @@ pub struct ChangeResult {
     pub applied: bool,
     pub error: Option<String>,
     pub conflict: Option<serde_json::Value>,
+    pub remote_playlist: Option<Playlist>,
 }

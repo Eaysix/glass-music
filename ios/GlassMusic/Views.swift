@@ -22,7 +22,6 @@ struct RootView: View {
                 NavigationStack { PhoneSettingsView() }.tabItem { Label("Ajustes", systemImage: "slider.horizontal.3") }.tag(4)
             }
             .toolbar(.hidden, for: .tabBar)
-            .background { GlassBackdrop() }
             bottomDock
         }
         .background { GlassBackdrop() }
@@ -89,6 +88,7 @@ struct HomeView: View {
     let settings: () -> Void
     @State private var stats = false
     @State private var create = false
+    @State private var deletingPlaylist: Playlist?
     private var lists: [Playlist] { library.state.playlists + library.state.localPlaylists }
     var body: some View {
         ScrollView {
@@ -110,7 +110,7 @@ struct HomeView: View {
                 }
                 if let song = library.state.songs.first(where: { $0.id == library.state.currentId }), library.file(song.id) != nil {
                     Button { player.play(song, ids: library.downloaded.map(\.id), from: library.state.position) } label: {
-                        HStack { Artwork(id: song.id); VStack(alignment: .leading, spacing: 5) { Text("SEGUIR ESCUCHANDO").font(.caption2).tracking(1.5).foregroundStyle(.secondary); Text(song.title).font(.headline).foregroundStyle(.primary).lineLimit(1); Text(clock(library.state.position)).font(.caption).foregroundStyle(.secondary) }; Spacer(); Image(systemName: "play.fill").font(.title2) }.glassCard()
+                        HStack { Artwork(id: song.id); VStack(alignment: .leading, spacing: 5) { Text("SEGUIR ESCUCHANDO").font(.caption2).tracking(1.5).foregroundStyle(.secondary); Text(song.title).font(.headline).foregroundStyle(.primary).lineLimit(1).contentTransition(.interpolate); Text(clock(library.state.position)).font(.caption).foregroundStyle(.secondary) }; Spacer(); Image(systemName: "play.fill").font(.title2) }.glassCard()
                     }.buttonStyle(.plain)
                 }
                 if let resume = library.state.resumes.first(where: { $0.deviceId == "pc" }), let song = library.state.songs.first(where: { $0.id == resume.trackId }) {
@@ -126,6 +126,7 @@ struct HomeView: View {
                     ForEach(lists) { playlist in NavigationLink { SongList(player: player, title: playlist.name, ids: playlist.trackIds, downloadedOnly: false, source: "playlist:" + playlist.id) } label: {
                         VStack(alignment: .leading, spacing: 10) { GeometryReader { geometry in Artwork(id: "playlist:" + playlist.id, size: geometry.size.width) }.aspectRatio(1, contentMode: .fit); Text(playlist.name).font(.headline).lineLimit(1); Text("\(playlist.trackIds.count) canciones\(playlist.revision == "local" ? " · En este iPhone" : "")").font(.caption).foregroundStyle(.secondary) }
                     }.buttonStyle(GlassPressStyle())
+                        .contextMenu { Button("Eliminar playlist", systemImage: "trash", role: .destructive) { deletingPlaylist = playlist } }
                         .scrollTransition(.interactive, axis: .vertical) { content, phase in
                             content.opacity(library.phoneAppearance.animations && !reduceMotion && !phase.isIdentity ? 0.75 : 1)
                                 .scaleEffect(library.phoneAppearance.animations && !reduceMotion && !phase.isIdentity ? 0.96 : 1)
@@ -135,6 +136,9 @@ struct HomeView: View {
                 Button(action: importFiles) { Label("Añadir música local", systemImage: "plus").frame(maxWidth: .infinity).padding(.vertical, 6) }.buttonStyle(.bordered).padding(.vertical).accessibilityIdentifier("import-local-music")
             }.padding(22).padding(.bottom, 20)
         }.glassScreen().navigationBarTitleDisplayMode(.inline).toolbar(.hidden, for: .tabBar).toolbar(.hidden, for: .navigationBar)
+        .confirmationDialog("¿Eliminar esta playlist?", isPresented: Binding(get: { deletingPlaylist != nil }, set: { if !$0 { deletingPlaylist = nil } }), titleVisibility: .visible) {
+            Button("Eliminar playlist", role: .destructive) { if let playlist = deletingPlaylist { withAnimation(reduceMotion || !library.phoneAppearance.animations ? nil : .spring(response: 0.4, dampingFraction: 0.85)) { library.deletePlaylist(playlist.id) } }; deletingPlaylist = nil }
+        } message: { Text("Las canciones se conservan. La eliminación se enviará a tu PC al sincronizar.") }
         .sheet(isPresented: $stats) { ListeningStatsView().environmentObject(library) }
         .sheet(isPresented: $create) { LocalPlaylistView().environmentObject(library) }
     }
@@ -149,6 +153,8 @@ struct SongList: View {
     var source = "library"
     @State private var showQueue = false
     @State private var editPlaylist = false
+    @State private var deleteList = false
+    @Environment(\.dismiss) private var dismiss
     @State private var search = ""
     private var songs: [Song] {
         let list: [Song]
@@ -177,7 +183,10 @@ struct SongList: View {
             if songs.isEmpty { ContentUnavailableView(search.isEmpty ? "Tu música aparecerá aquí" : "Sin resultados", systemImage: "music.note", description: Text("Sincroniza tu PC o importa archivos FLAC y MP3." )).listRowBackground(Color.clear) }
         }.glassScreen().toolbar(.hidden, for: .tabBar).listStyle(.insetGrouped).navigationTitle(title).searchable(text: $search, prompt: "Canciones, artistas, álbumes")
         .sheet(isPresented: $showQueue) { PhoneQueueView(player: player).environmentObject(library) }
-        .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { showQueue = true } label: { Image(systemName: "list.bullet") }.accessibilityLabel("Cola") }; if source.hasPrefix("playlist:local-") { ToolbarItem(placement: .topBarTrailing) { Button { editPlaylist = true } label: { Image(systemName: "pencil") }.accessibilityLabel("Editar playlist") } } }
+        .confirmationDialog("¿Eliminar esta playlist?", isPresented: $deleteList, titleVisibility: .visible) {
+            Button("Eliminar playlist", role: .destructive) { library.deletePlaylist(String(source.dropFirst("playlist:".count))); dismiss() }
+        } message: { Text("Las canciones y descargas se conservan. Se eliminará también de PC al sincronizar.") }
+        .toolbar { if source.hasPrefix("playlist:") { ToolbarItem(placement: .topBarTrailing) { Button(role: .destructive) { deleteList = true } label: { Image(systemName: "trash") }.accessibilityLabel("Eliminar playlist") } }; ToolbarItem(placement: .topBarTrailing) { Button { showQueue = true } label: { Image(systemName: "list.bullet") }.accessibilityLabel("Cola") }; if source.hasPrefix("playlist:local-") { ToolbarItem(placement: .topBarTrailing) { Button { editPlaylist = true } label: { Image(systemName: "pencil") }.accessibilityLabel("Editar playlist") } } }
         .sheet(isPresented: $editPlaylist) { LocalPlaylistView(playlistID: String(source.dropFirst("playlist:".count))).environmentObject(library) }
         .onChange(of: songs.map(\.id)) { _, ids in player.updateSearch(source: source, ids: ids) }
     }

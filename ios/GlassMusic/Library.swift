@@ -98,7 +98,20 @@ import UIKit
         for pending in state.pending where pending.kind == "favorite" {
             if let index = state.songs.firstIndex(where: { $0.id == pending.id }), let value = pending.value { state.songs[index].favorite = value }
         }
-        state.playlists = manifest.playlists
+        let remoteDeleted = Set(manifest.deletedPlaylists ?? [])
+        state.pending.removeAll { $0.kind == "playlist" && remoteDeleted.contains($0.id ?? "") }
+        for id in remoteDeleted { state.playlistConflicts?.removeValue(forKey: id) }
+        let deleted = remoteDeleted.union(Set(state.pending.filter { $0.kind == "playlist" && $0.deleted == true }.compactMap(\.id)))
+        let editing = Set(state.pending.filter { $0.kind == "playlist" && $0.deleted != true }.compactMap(\.id))
+        // Keep phone-authored lists editable after their first successful upload.
+        state.localPlaylists = state.localPlaylists.compactMap { local in
+            if deleted.contains(local.id) { return nil }
+            if editing.contains(local.id) || local.revision == "local" { return local }
+            return manifest.playlists.first { $0.id == local.id }
+        }
+        let localListIds = Set(state.localPlaylists.map(\.id))
+        state.playlists = manifest.playlists.filter { !localListIds.contains($0.id) && !deleted.contains($0.id) }
+        if let entries = manifest.listening { listening.merge(entries) }
         state.name = manifest.libraryName; state.accent = manifest.accent; state.resumes = manifest.resumes
         persist(); catalogChanged?()
     }
@@ -127,6 +140,12 @@ import UIKit
     }
     func acknowledge(_ change: PendingChange) {
         state.pending.removeAll { $0.operationId == change.operationId }
+        if change.kind == "playlist", change.deleted != true, let id = change.id, let name = change.name, let ids = change.trackIds {
+            let bytes = try? JSONSerialization.data(withJSONObject: ["name": name, "trackIds": ids], options: [.sortedKeys, .withoutEscapingSlashes])
+            let revision = digest(bytes ?? Data())
+            if let i = state.localPlaylists.firstIndex(where: { $0.id == id }) { state.localPlaylists[i].revision = revision }
+            for i in state.pending.indices where state.pending[i].kind == "playlist" && state.pending[i].id == id { state.pending[i].baseRevision = revision }
+        }
         if change.kind == "lyrics", let id = change.id, let text = change.text {
             let revision = digest(Data(text.utf8))
             if let next = state.pending.firstIndex(where: { $0.kind == "lyrics" && $0.id == id }) {
@@ -164,13 +183,44 @@ import UIKit
         let id = "local-" + UUID().uuidString.lowercased()
         var seen: Set<String> = []
         state.localPlaylists.append(Playlist(id: id, name: String(name.prefix(100)), trackIds: ids.filter { seen.insert($0).inserted }, revision: "local"))
-        persist(); catalogChanged?(); return id
+        queuePlaylist(id); persist(); catalogChanged?(); return id
     }
     func updateLocalPlaylist(_ id: String, name: String, ids: [String]) {
         guard let index = state.localPlaylists.firstIndex(where: { $0.id == id }), !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         var seen: Set<String> = []
         state.localPlaylists[index].name = String(name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(100))
         state.localPlaylists[index].trackIds = ids.filter { seen.insert($0).inserted }
+        queuePlaylist(id)
+        persist(); catalogChanged?()
+    }
+    func playlistConflict(_ remote: Playlist) {
+        if state.playlistConflicts == nil { state.playlistConflicts = [:] }
+        state.playlistConflicts?[remote.id] = remote; persist()
+    }
+    func resolvePlaylist(_ remote: Playlist, keepMine: Bool) {
+        state.playlistConflicts?.removeValue(forKey: remote.id)
+        if keepMine {
+            for i in state.pending.indices where state.pending[i].kind == "playlist" && state.pending[i].id == remote.id { state.pending[i].baseRevision = remote.revision }
+        } else {
+            state.pending.removeAll { $0.kind == "playlist" && $0.id == remote.id }
+            if let index = state.localPlaylists.firstIndex(where: { $0.id == remote.id }) { state.localPlaylists[index] = remote }
+            else if let index = state.playlists.firstIndex(where: { $0.id == remote.id }) { state.playlists[index] = remote }
+        }
+        persist(); catalogChanged?()
+    }
+    func queuePlaylist(_ id: String, cover: Data? = nil) {
+        guard let playlist = state.localPlaylists.first(where: { $0.id == id }) else { return }
+        let previous = state.pending.first { $0.kind == "playlist" && $0.id == id }
+        state.pending.removeAll { $0.kind == "playlist" && $0.id == id }
+        state.pending.append(PendingChange(id: id, kind: "playlist", baseRevision: previous?.baseRevision ?? (playlist.revision == "local" ? nil : playlist.revision), name: playlist.name, trackIds: playlist.trackIds, deleted: false, cover: cover?.base64EncodedString() ?? previous?.cover))
+    }
+    func deletePlaylist(_ id: String) {
+        guard let playlist = (state.localPlaylists + state.playlists).first(where: { $0.id == id }) else { return }
+        state.localPlaylists.removeAll { $0.id == id }; state.playlists.removeAll { $0.id == id }
+        state.pending.removeAll { $0.kind == "playlist" && $0.id == id }
+        state.playlistConflicts?.removeValue(forKey: id)
+        // Keep a tombstone even for a creation still in flight. Retrying deletion is idempotent.
+        state.pending.append(PendingChange(id: id, kind: "playlist", baseRevision: playlist.revision, name: playlist.name, trackIds: [], deleted: true))
         persist(); catalogChanged?()
     }
     func removeDownload(_ id: String) {

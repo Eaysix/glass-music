@@ -85,13 +85,70 @@ enum PhoneImages {
     }
 }
 
+// Core Animation moves two small gradient layers; no SwiftUI frame timer or artwork decoding.
+private struct AuroraMotion: UIViewRepresentable {
+    var tint: UIColor
+    var active: Bool
+    func makeUIView(context: Context) -> AuroraLayerView { AuroraLayerView() }
+    func updateUIView(_ view: AuroraLayerView, context: Context) { view.configure(tint: tint, active: active) }
+    static func dismantleUIView(_ view: AuroraLayerView, coordinator: ()) { view.stop() }
+}
+private final class AuroraLayerView: UIView {
+    private let first = CAGradientLayer()
+    private let second = CAGradientLayer()
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isUserInteractionEnabled = false
+        for glow in [first, second] {
+            glow.type = .radial; glow.startPoint = CGPoint(x: 0.5, y: 0.5); glow.endPoint = CGPoint(x: 1, y: 1)
+            layer.addSublayer(glow)
+        }
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) is unavailable") }
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        first.frame = CGRect(x: -bounds.width * 0.8, y: -bounds.height * 0.25, width: bounds.width * 1.8, height: bounds.height * 1.2)
+        second.frame = CGRect(x: bounds.width * 0.15, y: bounds.height * 0.25, width: bounds.width * 1.4, height: bounds.height)
+        CATransaction.commit()
+    }
+    func configure(tint: UIColor, active: Bool) {
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        first.colors = [tint.withAlphaComponent(0.3).cgColor, tint.withAlphaComponent(0).cgColor]
+        second.colors = [tint.withAlphaComponent(0.17).cgColor, UIColor(red: 0.42, green: 0.27, blue: 0.66, alpha: 0.12).cgColor, UIColor.clear.cgColor]
+        CATransaction.commit()
+        guard active else { stop(); return }
+        for (index, glow) in [first, second].enumerated() where glow.animation(forKey: "aurora-drift") == nil {
+            let drift = CABasicAnimation(keyPath: "transform")
+            drift.fromValue = CATransform3DMakeTranslation(index == 0 ? -35 : 30, index == 0 ? 25 : -35, 0)
+            drift.toValue = CATransform3DScale(CATransform3DMakeTranslation(index == 0 ? 60 : -45, index == 0 ? -45 : 50, 0), 1.12, 1.12, 1)
+            drift.duration = index == 0 ? 14 : 19
+            drift.autoreverses = true; drift.repeatCount = .infinity
+            drift.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            glow.add(drift, forKey: "aurora-drift")
+        }
+    }
+    func stop() { first.removeAllAnimations(); second.removeAllAnimations() }
+}
 struct GlassBackdrop: View {
     @EnvironmentObject private var library: Library
+    @Environment(\.scenePhase) private var phase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @State private var visible = false
+    @State private var lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
     var body: some View {
         GeometryReader { geometry in
-            Image(uiImage: Backdrops.image(style: library.phoneAppearance.backdrop, hex: library.effectiveAccent))
-                .resizable().scaledToFill().frame(width: geometry.size.width, height: geometry.size.height).clipped()
+            ZStack {
+                Image(uiImage: Backdrops.image(style: library.phoneAppearance.backdrop, hex: library.effectiveAccent))
+                    .resizable().scaledToFill().frame(width: geometry.size.width, height: geometry.size.height)
+                if library.phoneAppearance.backdrop == "aurora", !reduceTransparency {
+                    AuroraMotion(tint: UIColor(library.tint), active: visible && phase == .active && library.phoneAppearance.animations && !reduceMotion && !lowPower)
+                }
+            }.frame(width: geometry.size.width, height: geometry.size.height).clipped()
         }.ignoresSafeArea().allowsHitTesting(false).accessibilityHidden(true)
+            .onAppear { visible = true }.onDisappear { visible = false }
+            .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled }
     }
 }
 
