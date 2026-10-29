@@ -103,7 +103,10 @@ fn load_settings(db: State<'_, Database>) -> Result<Option<serde_json::Value>> {
         .transpose()
 }
 #[tauri::command]
-fn save_settings(settings: serde_json::Value, db: State<'_, Database>) -> Result<serde_json::Value> {
+fn save_settings(
+    settings: serde_json::Value,
+    db: State<'_, Database>,
+) -> Result<serde_json::Value> {
     let mut conn = connection(&db)?;
     persist_settings(settings, &mut conn)
 }
