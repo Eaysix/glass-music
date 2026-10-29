@@ -2,7 +2,7 @@ import { useCallback, useSyncExternalStore } from "react";
 import { lyricIndex, type LyricLine } from "./queue";
 let position = 0;
 const listeners = new Set<() => void>();
-const subscribe = (listener: () => void) => {
+export const subscribePosition = (listener: () => void) => {
   listeners.add(listener);
   return () => {
     listeners.delete(listener);
@@ -15,10 +15,11 @@ export function setPosition(value: number) {
   position = next;
   for (const listener of listeners) listener();
 }
-export const usePosition = () => useSyncExternalStore(subscribe, getPosition);
+export const usePosition = () =>
+  useSyncExternalStore(subscribePosition, getPosition);
 export function useActiveLine(lines: LyricLine[]) {
   return useSyncExternalStore(
-    subscribe,
+    subscribePosition,
     useCallback(() => lyricIndex(lines, position), [lines]),
   );
 }

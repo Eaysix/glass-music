@@ -1,3 +1,4 @@
+import { useListeningRecorder, ListeningDialog } from "./listening";
 import { t as tr, useLanguage, setLanguage, dateLabel } from "./i18n";
 import {
   useEffect,
@@ -11,6 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import {
+  BarChart3,
   ArrowDown,
   ArrowUp,
   Check,
@@ -75,7 +77,7 @@ import {
   startQueue,
   timeLabel,
   reconcileQueue,
-  enqueueQueue,
+  addManualQueue,
   removeQueued,
   moveQueued,
   filterQueue,
@@ -182,8 +184,10 @@ export default function App() {
   const [query, setQuery] = useState(""),
     [filter, setFilter] = useState("all"),
     [sort, setSort] = useState(savedSongSort);
+  const [showStats, setShowStats] = useState(false);
   const [playing, setPlaying] = useState(false),
     [panel, setPanel] = useState<"lyrics" | "queue" | null>("lyrics");
+  useListeningRecorder(settings.queue.current, playing);
   const [transportRevision, setTransportRevision] = useState(0);
   const [homePanel, setHomePanel] = useState(false);
   const [viewport, setViewport] = useState({
@@ -977,18 +981,14 @@ export default function App() {
       setNotice(String(e));
     }
   }
-  function enqueue(value: string | string[], first: boolean) {
+  function enqueue(value: string | string[]) {
     const ids = typeof value === "string" ? [value] : value;
     setSettings((s) => ({
       ...s,
-      queue: enqueueQueue(s.queue, ids, first),
+      queue: addManualQueue(s.queue, ids),
     }));
     setMenu(null);
-    setNotice(
-      first
-        ? tr("Sonar\u00E1 despu\u00E9s")
-        : tr("A\u00F1adida al final de la cola"),
-    );
+    setNotice(tr("Añadida a la cola"));
   }
   function openSongMenu(
     e: MouseEvent<HTMLElement>,
@@ -1355,6 +1355,12 @@ export default function App() {
             )}
           </label>
           <IconButton
+            label={tr("Tu música en números")}
+            onClick={() => setShowStats(true)}
+          >
+            <BarChart3 size={19} />
+          </IconButton>
+          <IconButton
             label={tr("Ajustes de apariencia y perfil")}
             onClick={() => setModal({ type: "settings" })}
           >
@@ -1548,7 +1554,7 @@ export default function App() {
                   </button>
                   <button
                     disabled={!selectedTracks.length}
-                    onClick={() => enqueue(selectedIds, false)}
+                    onClick={() => enqueue(selectedIds)}
                   >
                     {tr("A\u00F1adir a cola")}
                   </button>
@@ -2433,14 +2439,11 @@ export default function App() {
                   ? tr("Quitar de Me gusta")
                   : tr("Guardar en Me gusta")}
               </button>
-              <button role="menuitem" onClick={() => enqueue(menu.id, true)}>
+              <button role="menuitem" onClick={() => enqueue(menu.id)}>
                 <SkipForward size={15} />
-                {tr(" Reproducir despu\u00E9s")}
+                {tr("Añadir a la cola")}
               </button>
-              <button role="menuitem" onClick={() => enqueue(menu.id, false)}>
-                <ListMusic size={15} />
-                {tr(" Agregar al final de la cola")}
-              </button>
+
               <button
                 role="menuitem"
                 onClick={() => {
@@ -2553,12 +2556,10 @@ export default function App() {
                 <Play size={15} />
                 {tr("Reproducir selecci\u00F3n")}
               </button>
-              <button role="menuitem" onClick={() => enqueue(menu.ids, true)}>
-                {tr("Reproducir despu\u00E9s")}
+              <button role="menuitem" onClick={() => enqueue(menu.ids)}>
+                {tr("Añadir a la cola")}
               </button>
-              <button role="menuitem" onClick={() => enqueue(menu.ids, false)}>
-                {tr("Agregar al final de la cola")}
-              </button>
+
               <button
                 role="menuitem"
                 onClick={() => {
@@ -2609,6 +2610,9 @@ export default function App() {
             </>
           )}
         </ContextMenu>
+      )}
+      {showStats && (
+        <ListeningDialog tracks={tracks} close={() => setShowStats(false)} />
       )}
       {modal && (
         <Editor

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  addManualQueue,
   startQueue,
   reconcileQueue,
   nextQueue,
@@ -184,4 +185,15 @@ describe("song date order", () => {
     };
     expect(nextQueue(queue).current).toBe("2");
   });
+});
+
+it("adds manual songs FIFO before automatic playback and preserves duplicates", () => {
+  let queue = startQueue(["0", "1", "2"], "0", "off", tracks);
+  queue = addManualQueue(queue, ["2"]);
+  queue = addManualQueue(queue, ["1", "2"]);
+  expect(queue.upcoming).toEqual(["2", "1", "2", "1", "2"]);
+  expect(queue.manualIndices).toEqual([0, 1, 2]);
+  const restored = JSON.parse(JSON.stringify(queue));
+  expect(nextQueue(restored).current).toBe("2");
+  expect(nextQueue(nextQueue(restored)).current).toBe("1");
 });
