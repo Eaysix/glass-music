@@ -103,16 +103,109 @@ fn load_settings(db: State<'_, Database>) -> Result<Option<serde_json::Value>> {
         .transpose()
 }
 #[tauri::command]
-fn save_settings(settings: serde_json::Value, db: State<'_, Database>) -> Result<()> {
+fn save_settings(
+    settings: serde_json::Value,
+    db: State<'_, Database>,
+) -> Result<serde_json::Value> {
+    let mut conn = connection(&db)?;
+    persist_settings(settings, &mut conn)
+}
+fn persist_settings(
+    mut settings: serde_json::Value,
+    conn: &mut Connection,
+) -> Result<serde_json::Value> {
     if !settings.is_object() {
         return Err("Ajustes inválidos.".into());
     }
-    let json = serialize(&settings)?;
-    if json.len() > 16 * 1024 * 1024 {
+    if serialize(&settings)?.len() > 16 * 1024 * 1024 {
         return Err("Los ajustes superan el límite de 16 MB.".into());
     }
-    sql(connection(&db)?.execute("INSERT INTO settings(key,value) VALUES('app',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value", [json]))?;
-    Ok(())
+    let tx = sql(conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate))?;
+    let raw: Option<String> = sql(tx
+        .query_row("SELECT value FROM settings WHERE key='app'", [], |r| {
+            r.get(0)
+        })
+        .optional())?;
+    let stored: serde_json::Value = raw
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default();
+    let base = settings["playlistBase"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    let incoming = settings["playlists"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    let mut merged = stored["playlists"].as_array().cloned().unwrap_or_default();
+    sql(tx.execute_batch("CREATE TABLE IF NOT EXISTS sync_deleted_playlists(id TEXT PRIMARY KEY)"))?;
+    for previous in &base {
+        if !incoming.iter().any(|p| p["id"] == previous["id"]) {
+            merged.retain(|p| p["id"] != previous["id"]);
+            sql(tx.execute(
+                "INSERT OR IGNORE INTO sync_deleted_playlists VALUES(?1)",
+                [previous["id"].as_str().unwrap_or("")],
+            ))?;
+        }
+    }
+    for playlist in incoming {
+        if base.iter().find(|p| p["id"] == playlist["id"]) != Some(&playlist) {
+            if let Some(i) = merged.iter().position(|p| p["id"] == playlist["id"]) {
+                merged[i] = playlist;
+            } else {
+                let deleted: bool = sql(tx.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM sync_deleted_playlists WHERE id=?1)",
+                    [playlist["id"].as_str().unwrap_or("")],
+                    |r| r.get(0),
+                ))?;
+                if !deleted {
+                    merged.push(playlist);
+                }
+            }
+        }
+    }
+    settings.as_object_mut().unwrap().remove("playlistBase");
+    settings["playlists"] = serde_json::json!(merged);
+    sql(tx.execute("INSERT INTO settings(key,value) VALUES('app',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value", [serialize(&settings)?]))?;
+    sql(tx.commit())?;
+    Ok(settings["playlists"].clone())
+}
+#[tauri::command]
+fn listening_exchange(
+    days: std::collections::BTreeMap<String, std::collections::BTreeMap<String, f64>>,
+    app: tauri::AppHandle,
+    db: State<'_, Database>,
+) -> Result<std::collections::BTreeMap<String, std::collections::BTreeMap<String, f64>>> {
+    let root = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
+    let store = glass_sync::store::Store::open(root.join("library.db"), root)?;
+    let mut conn = connection(&db)?;
+    let tx = sql(conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate))?;
+    let entries: Vec<_> = days
+        .into_iter()
+        .flat_map(|(day, songs)| {
+            songs.into_iter().map(
+                move |(track_id, seconds)| glass_sync::models::ListeningValue {
+                    day: day.clone(),
+                    track_id,
+                    seconds,
+                },
+            )
+        })
+        .collect();
+    for batch in entries.chunks(500) {
+        glass_sync::store::Store::merge_listening(&tx, "pc", batch.to_vec())?;
+    }
+    sql(tx.commit())?;
+    let mut totals: std::collections::BTreeMap<String, std::collections::BTreeMap<String, f64>> =
+        Default::default();
+    for entry in store.listening()? {
+        *totals
+            .entry(entry.value.day)
+            .or_default()
+            .entry(entry.value.track_id)
+            .or_default() += entry.value.seconds;
+    }
+    Ok(totals)
 }
 #[tauri::command]
 fn update_track(mut track: Track, db: State<'_, Database>) -> Result<Track> {
@@ -632,6 +725,7 @@ pub fn run() {
             discord_update,
             media_update,
             open_discord_portal,
+            listening_exchange,
             lan::lan_status,
             lan::lan_start,
             lan::lan_stop,
@@ -645,6 +739,37 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn stale_preferences_keep_incoming_playlists_and_deletions() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("CREATE TABLE settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);")
+            .unwrap();
+        let first = serde_json::json!({"id":"first","name":"First","trackIds":[]});
+        let phone = serde_json::json!({"id":"local-phone","name":"Phone","trackIds":[]});
+        let initial = serde_json::json!({"playlistBase":[],"playlists":[first],"volume":0.5});
+        persist_settings(initial, &mut conn).unwrap();
+        let received = serde_json::json!({"playlists":[first,phone],"volume":0.5});
+        conn.execute(
+            "UPDATE settings SET value=?1 WHERE key='app'",
+            [received.to_string()],
+        )
+        .unwrap();
+        let stale = serde_json::json!({"playlistBase":[first],"playlists":[first],"volume":0.8});
+        let merged = persist_settings(stale.clone(), &mut conn).unwrap();
+        assert_eq!(merged, serde_json::json!([first, phone]));
+        let removal = serde_json::json!({"playlistBase":[first,phone],"playlists":[first]});
+        persist_settings(removal, &mut conn).unwrap();
+        assert_eq!(
+            persist_settings(stale, &mut conn).unwrap(),
+            serde_json::json!([first])
+        );
+        let deleted: i64 = conn
+            .query_row("SELECT COUNT(*) FROM sync_deleted_playlists", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(deleted, 1);
+    }
     #[test]
     fn bulk_remove_preserves_original_files() {
         let mut conn = Connection::open_in_memory().unwrap();

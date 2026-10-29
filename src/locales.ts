@@ -30,10 +30,10 @@ export const messages: Record<string, Record<string, string>> = {
     de: "Nächster Zeitraum",
     "zh-CN": "下一时段",
   },
-  "Tiempo escuchado en este dispositivo": {
-    en: "Listening time on this device",
-    de: "Hörzeit auf diesem Gerät",
-    "zh-CN": "此设备的聆听时间",
+  "Tiempo escuchado en tus dispositivos": {
+    en: "Listening time across your devices",
+    de: "Hörzeit auf deinen Geräten",
+    "zh-CN": "所有设备的聆听时间",
   },
   "Tus 5 canciones más escuchadas": {
     en: "Your top 5 songs",
@@ -50,10 +50,10 @@ export const messages: Record<string, Record<string, string>> = {
     de: "Song nicht mehr in der Bibliothek",
     "zh-CN": "歌曲已不在音乐库中",
   },
-  "Historial local. Los minutos de PC e iPhone todavía no se suman.": {
-    en: "Local history. PC and iPhone listening time is not combined yet.",
-    de: "Lokaler Verlauf. Hörzeiten von PC und iPhone werden noch nicht zusammengezählt.",
-    "zh-CN": "本地记录。电脑和 iPhone 的聆听时间暂不合并。",
+  "Los minutos de PC e iPhone se suman al sincronizar por la red local.": {
+    en: "PC and iPhone listening time is combined when you sync over your local network.",
+    de: "Die Hörzeiten von PC und iPhone werden bei der Synchronisierung im lokalen Netzwerk addiert.",
+    "zh-CN": "通过局域网同步后，会合并电脑和 iPhone 的聆听时间。",
   },
 
   "Fecha: nuevas primero": {

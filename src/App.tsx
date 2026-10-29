@@ -393,6 +393,21 @@ export default function App() {
       saveChain.current = saveChain.current
         .catch(() => {})
         .then(() => api.saveSettings(settings))
+        .then((saved) =>
+          setSettings((current) => {
+            const playlists = api.mergePlaylists(
+              settings.playlists,
+              current.playlists,
+              saved,
+            );
+            if (
+              JSON.stringify(current.playlistBase) === JSON.stringify(saved) &&
+              JSON.stringify(current.playlists) === JSON.stringify(playlists)
+            )
+              return current;
+            return { ...current, playlists, playlistBase: saved };
+          }),
+        )
         .catch((e) =>
           setNotice(
             tr("No se guardaron los cambios: {p0}", {
@@ -413,9 +428,18 @@ export default function App() {
         listen("lan-library-changed", () => {
           const ticket = ++revision;
           void Promise.all([api.loadLibrary(), api.loadSettings()])
-            .then(async ([library]) => {
+            .then(async ([library, remote]) => {
               if (!alive || ticket !== revision) return;
               setTracks(library);
+              setSettings((s) => ({
+                ...s,
+                playlists: api.mergePlaylists(
+                  s.playlistBase ?? [],
+                  s.playlists,
+                  remote.playlists,
+                ),
+                playlistBase: remote.playlists,
+              }));
               const id = latest.current.settings.queue.current;
               if (id) {
                 const text = await api.getLyrics(id);

@@ -51,6 +51,7 @@ export interface Settings {
   appearanceVersion: number;
   uiScale: number;
   panelWidth: number;
+  playlistBase?: Playlist[];
   playlists: Playlist[];
   recentPlaylists: string[];
   queue: Queue;

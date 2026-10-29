@@ -321,3 +321,32 @@ fn database_upgrade_preserves_existing_lyrics_and_identity() {
         "[00:01]<00:01>Mi <00:02>letra"
     );
 }
+
+#[test]
+fn phone_playlists_and_device_minutes_survive_retries_and_deletion() {
+    let fixture = Fixture::new();
+    let store = Store::open(fixture.db.clone(), fixture.root.path().into()).unwrap();
+    let phone = store.add_device("Phone").unwrap();
+    let create = || Change::Playlist { id: "local-test".into(), name: "Mi lista 世界".into(), track_ids: vec!["one".into()], base_revision: None, deleted: false, cover: None };
+    assert!(store.apply(&phone.device_id, vec![create()]).unwrap()[0].applied);
+    assert!(store.apply(&phone.device_id, vec![create()]).unwrap()[0].applied);
+    let list = store.manifest().unwrap().playlists.into_iter().find(|p| p.id == "local-test").unwrap();
+    assert_eq!(list.track_ids, vec!["one"]);
+    let edit = Change::Playlist { id: list.id.clone(), name: "Renombrada".into(), track_ids: vec!["one".into()], base_revision: Some(list.revision.clone()), deleted: false, cover: None };
+    assert!(store.apply(&phone.device_id, vec![edit]).unwrap()[0].applied);
+    assert!(!store.apply(&phone.device_id, vec![create()]).unwrap()[0].applied); // stale edit must not overwrite
+    let data = || vec![ListeningValue { day: "2026-10-29".into(), track_id: "one".into(), seconds: 120.0 }];
+    for _ in 0..3 { assert!(store.apply(&phone.device_id, vec![Change::Listening { source_id: "stable-phone".into(), entries: data() }]).unwrap()[0].applied); }
+    let conn = Connection::open(&fixture.db).unwrap();
+    Store::merge_listening(&conn, "pc", vec![ListeningValue { day: "2026-10-29".into(), track_id: "one".into(), seconds: 60.0 }]).unwrap();
+    assert_eq!(store.listening().unwrap().iter().map(|e| e.value.seconds).sum::<f64>(), 180.0);
+    // Re-pairing still sends the same stable source: no duplicate listening time.
+    let paired_again = store.add_device("Phone again").unwrap();
+    store.apply(&paired_again.device_id, vec![Change::Listening { source_id: "stable-phone".into(), entries: data() }]).unwrap();
+    assert_eq!(store.listening().unwrap().iter().map(|e| e.value.seconds).sum::<f64>(), 180.0);
+    let delete = || Change::Playlist { id: list.id.clone(), name: String::new(), track_ids: vec![], base_revision: None, deleted: true, cover: None };
+    assert!(store.apply(&phone.device_id, vec![delete(), delete()]).unwrap().iter().all(|r| r.applied));
+    assert!(!store.apply(&phone.device_id, vec![create()]).unwrap()[0].applied);
+    assert!(!store.manifest().unwrap().playlists.iter().any(|p| p.id == list.id));
+    assert!(fixture.root.path().join("personal.flac").is_file());
+}

@@ -88,3 +88,11 @@ El usuario informó aproximadamente 8% de CPU y menos de 300 MB de RAM con 0.1.2
 - Orden de canciones por fecha de modificación en ambas direcciones, con antiguas primero por defecto. Se guarda la elección localmente; fechas desconocidas al final. Los cambios del orden actualizan la cola sin reiniciar la canción.
 
 - Windows 1.0.0-rc.6: una sola acción Añadir a la cola. Grupo manual FIFO antes de la lista automática, con duplicados e historial conservados. Estadísticas locales desde la actualización: tiempo semanal, top 5 por tiempo y resumen anual; no se mezclan con iPhone todavía. Se registra avance real durante reproducción, sin temporizadores nuevos en reposo.
+
+## Biblioteca compartida · Windows rc.7 / iPhone 0.5.0
+
+- Playlists creadas/editadas en iPhone viajan a PC con nombre, selección, orden y portada. Las creadas en PC siguen bajando al teléfono; desde iPhone se pueden eliminar listas con confirmación. Eliminar una playlist conserva audios y descargas. Las marcas de eliminación evitan que reaparezca por una copia antigua.
+- Conflictos simultáneos de edición de playlist se resuelven explícitamente desde Sincronizar, conservando PC o iPhone. Los guardados de volumen/cola de PC no sobrescriben playlists recibidas en segundo plano.
+- Estadísticas de PC e iPhone se combinan al sincronizar por LAN: contadores acumulados por origen/día/canción, fusionados por máximo por origen antes de sumar. Repetir transferencias o volver a vincular el mismo iPhone no duplica minutos. Se conservan los datos locales existentes de rc.6/0.4.0. Semana de lunes a domingo en ambos; top 5 por tiempo y resumen anual compartidos. No requiere cuentas ni servidor externo.
+- Actualizar ambas plataformas. El iPhone conserva las ediciones si PC todavía no admite las capacidades nuevas y solicita actualizar PC. Sincronización manual por LAN. Los audios importados desde Archivos en iPhone no se transfieren a PC; su tiempo puede aparecer sin título en PC.
+- Fondo aurora con dos capas de gradiente en movimiento por Core Animation, sin reloj SwiftUI por fotograma. Detenido al desaparecer, suspender la app, reducir movimiento, desactivar animaciones o activar ahorro de energía. Personalización y datos existentes se conservan. Sin afirmar una mejora de CPU/GPU hasta medir en dispositivo físico.

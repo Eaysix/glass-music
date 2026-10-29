@@ -1,6 +1,12 @@
 import { invoke, convertFileSrc, isTauri } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import type { AudioStatus, ImportReport, Settings, Track } from "./types";
+import type {
+  AudioStatus,
+  ImportReport,
+  Settings,
+  Track,
+  Playlist,
+} from "./types";
 import { defaults } from "./types";
 export const native = isTauri();
 
@@ -42,6 +48,7 @@ export const loadSettings = async (): Promise<Settings> => {
   return {
     ...base,
     ...saved,
+    playlistBase: saved?.playlists ?? [],
     profile: { ...base.profile, ...saved?.profile },
     appearance: {
       ...base.appearance,
@@ -58,8 +65,8 @@ export const loadSettings = async (): Promise<Settings> => {
 };
 export const saveSettings = (settings: Settings) =>
   native
-    ? invoke<void>("save_settings", { settings })
-    : write("data", "settings", settings);
+    ? invoke<Playlist[]>("save_settings", { settings })
+    : write("data", "settings", settings).then(() => settings.playlists);
 export const loadLibrary = async (): Promise<Track[]> =>
   native
     ? invoke("load_library")
@@ -406,3 +413,5 @@ export const lanPair = (host: string): Promise<LANPairing> =>
   invoke("lan_pair", { host });
 export const lanRevoke = (id: string): Promise<void> =>
   invoke("lan_revoke", { id });
+
+export { mergePlaylists } from "./sharedPlaylists";
