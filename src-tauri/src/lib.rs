@@ -749,8 +749,11 @@ mod tests {
         let initial = serde_json::json!({"playlistBase":[],"playlists":[first],"volume":0.5});
         persist_settings(initial, &mut conn).unwrap();
         let received = serde_json::json!({"playlists":[first,phone],"volume":0.5});
-        conn.execute("UPDATE settings SET value=?1 WHERE key='app'", [received.to_string()])
-            .unwrap();
+        conn.execute(
+            "UPDATE settings SET value=?1 WHERE key='app'",
+            [received.to_string()],
+        )
+        .unwrap();
         let stale = serde_json::json!({"playlistBase":[first],"playlists":[first],"volume":0.8});
         let merged = persist_settings(stale.clone(), &mut conn).unwrap();
         assert_eq!(merged, serde_json::json!([first, phone]));
@@ -761,7 +764,9 @@ mod tests {
             serde_json::json!([first])
         );
         let deleted: i64 = conn
-            .query_row("SELECT COUNT(*) FROM sync_deleted_playlists", [], |r| r.get(0))
+            .query_row("SELECT COUNT(*) FROM sync_deleted_playlists", [], |r| {
+                r.get(0)
+            })
             .unwrap();
         assert_eq!(deleted, 1);
     }
