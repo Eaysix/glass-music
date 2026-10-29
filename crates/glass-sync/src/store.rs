@@ -36,7 +36,7 @@ pub struct Store {
 impl Store {
     pub fn open(db: PathBuf, root: PathBuf) -> Result<Self> {
         let conn = db_result(Connection::open(&db))?;
-        db_result(conn.execute_batch("CREATE TABLE IF NOT EXISTS sync_meta(key TEXT PRIMARY KEY,value TEXT NOT NULL); CREATE TABLE IF NOT EXISTS sync_devices(id TEXT PRIMARY KEY,name TEXT NOT NULL,token_hash TEXT NOT NULL UNIQUE,last_seen REAL NOT NULL); CREATE TABLE IF NOT EXISTS sync_resume(device_id TEXT PRIMARY KEY,track_id TEXT NOT NULL,position REAL NOT NULL,updated_at REAL NOT NULL);"))?;
+        db_result(conn.execute_batch("CREATE TABLE IF NOT EXISTS sync_listening(source TEXT NOT NULL,day TEXT NOT NULL,track TEXT NOT NULL,seconds REAL NOT NULL,PRIMARY KEY(source,day,track)); CREATE TABLE IF NOT EXISTS sync_deleted_playlists(id TEXT PRIMARY KEY); CREATE TABLE IF NOT EXISTS sync_meta(key TEXT PRIMARY KEY,value TEXT NOT NULL); CREATE TABLE IF NOT EXISTS sync_devices(id TEXT PRIMARY KEY,name TEXT NOT NULL,token_hash TEXT NOT NULL UNIQUE,last_seen REAL NOT NULL); CREATE TABLE IF NOT EXISTS sync_resume(device_id TEXT PRIMARY KEY,track_id TEXT NOT NULL,position REAL NOT NULL,updated_at REAL NOT NULL);"))?;
         let id: Option<String> = db_result(
             conn.query_row(
                 "SELECT value FROM sync_meta WHERE key='server_id'",
@@ -206,6 +206,9 @@ impl Store {
             tracks,
             playlists,
             resumes,
+            listening: self.listening()?,
+            deleted_playlists: { let mut stmt = db_result(conn.prepare("SELECT id FROM sync_deleted_playlists"))?; let rows = db_result(stmt.query_map([], |r| r.get::<_, String>(0)))?; rows.map(|r| r.map_err(|e| e.to_string())).collect::<Result<Vec<_>>>()? },
+            capabilities: vec!["shared-playlists-v1".into(), "shared-listening-v1".into()],
         })
     }
     fn playlist(&self, p: &Value) -> Playlist {
@@ -271,6 +274,21 @@ impl Store {
         let p = Path::new(path?).canonicalize().ok()?;
         (p.starts_with(root) && p.is_file()).then_some(p)
     }
+    pub fn listening(&self) -> Result<Vec<ListeningEntry>> {
+        let conn = self.connect()?;
+        let mut stmt = db_result(conn.prepare("SELECT source,day,track,seconds FROM sync_listening ORDER BY source,day,track"))?;
+        let rows = db_result(stmt.query_map([], |r| Ok(ListeningEntry { source: r.get(0)?, value: ListeningValue { day: r.get(1)?, track_id: r.get(2)?, seconds: r.get(3)? } })))?;
+        rows.map(|r| r.map_err(|e| e.to_string())).collect()
+    }
+    pub fn merge_listening(conn: &Connection, source: &str, entries: Vec<ListeningValue>) -> Result<()> {
+        if entries.len() > 500 { return Err("Too many listening entries".into()); }
+        for entry in entries {
+            let day = entry.day.as_bytes();
+            if day.len() != 10 || day[4] != b'-' || day[7] != b'-' || !day.iter().enumerate().all(|(i,c)| i == 4 || i == 7 || c.is_ascii_digit()) || entry.track_id.is_empty() || entry.track_id.len() > 150 || !entry.seconds.is_finite() || entry.seconds < 0.0 || entry.seconds > 86400.0 { return Err("Invalid listening entry".into()); }
+            db_result(conn.execute("INSERT INTO sync_listening VALUES(?1,?2,?3,?4) ON CONFLICT(source,day,track) DO UPDATE SET seconds=MAX(seconds,excluded.seconds)", params![source,entry.day,entry.track_id,entry.seconds]))?;
+        }
+        Ok(())
+    }
     pub fn apply(&self, device_id: &str, changes: Vec<Change>) -> Result<Vec<ChangeResult>> {
         if changes.len() > 500 {
             return Err("Too many changes".into());
@@ -278,9 +296,55 @@ impl Store {
         let mut conn = self.connect()?;
         let mut results = Vec::new();
         for (index, change) in changes.into_iter().enumerate() {
-            let tx = db_result(conn.transaction())?;
+            let tx = db_result(conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate))?;
+            let playlist_id = match &change { Change::Playlist { id, .. } => Some(id.clone()), _ => None };
             let result = (|| -> Result<Option<Value>> {
                 match change {
+                    Change::Listening { source_id, entries } => {
+                        if source_id.is_empty() || source_id.len() > 100 || !source_id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+                            return Err("Invalid listening source".into());
+                        }
+                        Self::merge_listening(&tx, &format!("phone:{source_id}"), entries)?;
+                    }
+                    Change::Playlist { id, name, track_ids, base_revision, deleted, cover } => {
+                        if id.is_empty() || id.len() > 150 || name.len() > 400 || track_ids.len() > 50000 {
+                            return Err("Invalid playlist".into());
+                        }
+                        let mut settings = Self::settings(&tx)?;
+                        let mut lists = settings["playlists"].as_array().cloned().unwrap_or_default();
+                        let index = lists.iter().position(|p| p["id"] == id);
+                        if deleted {
+                            if let Some(i) = index { lists.remove(i); }
+                            db_result(tx.execute("INSERT OR IGNORE INTO sync_deleted_playlists VALUES(?1)", [&id]))?;
+                        } else {
+                            if name.trim().is_empty() { return Err("Playlist needs a name".into()); }
+                            let tombstone: bool = db_result(tx.query_row("SELECT EXISTS(SELECT 1 FROM sync_deleted_playlists WHERE id=?1)", [&id], |r| r.get(0)))?;
+                            if tombstone { return Err("Esta playlist fue eliminada en PC. Crea otra para recuperar tu selección.".into()); }
+                            let candidate = json!({"id":id,"name":name.trim(),"trackIds":track_ids});
+                            if let Some(i) = index {
+                                if base_revision.as_deref() != Some(playlist_revision(&lists[i]).as_str()) && playlist_revision(&candidate) != playlist_revision(&lists[i]) {
+                                    return Err("La playlist cambió en PC. Sincroniza y revisa tu edición antes de reintentar.".into());
+                                }
+                                // Preserve PC cover unless an explicit replacement was supplied.
+                                let old_cover = lists[i]["cover"].clone();
+                                lists[i] = candidate; lists[i]["cover"] = old_cover;
+                            } else { lists.push(candidate); }
+                            if let Some(encoded) = cover {
+                                use base64::Engine;
+                                let bytes = base64::engine::general_purpose::STANDARD.decode(encoded).map_err(|_| "Invalid cover")?;
+                                if bytes.len() > 1024 * 1024 || !bytes.starts_with(&[0xff, 0xd8, 0xff]) { return Err("Invalid JPEG cover".into()); }
+                                let path = self.root.join("covers").join(format!("playlist-{}.jpg", hash(&id)));
+                                fs::create_dir_all(self.root.join("covers")).map_err(|e| e.to_string())?;
+                                // Immutable content name avoids replacing an image still cached by PC.
+                                let path = path.with_file_name(format!("playlist-{}-{}.jpg", hash(&id), hash(&bytes)));
+                                fs::write(&path, bytes).map_err(|e| e.to_string())?;
+                                let target = lists.iter_mut().find(|p| p["id"] == id).ok_or("No playlist")?;
+                                target["cover"] = json!(path);
+                            }
+                        }
+                        settings["playlists"] = json!(lists);
+                        db_result(tx.execute("INSERT INTO settings VALUES('app',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value", [settings.to_string()]))?;
+                    }
                     Change::Lyrics {
                         id,
                         base_revision,
@@ -335,13 +399,15 @@ impl Store {
                         applied,
                         error: None,
                         conflict,
+                        remote_playlist: None,
                     });
                 }
                 Err(error) => results.push(ChangeResult {
                     index,
                     applied: false,
-                    error: Some(error),
+                    error: Some(error.clone()),
                     conflict: None,
+                    remote_playlist: if error.starts_with("La playlist cambió") { playlist_id.as_ref().and_then(|id| Self::settings(&tx).ok().and_then(|s| s["playlists"].as_array().and_then(|a| a.iter().find(|p| p["id"] == id.as_str())).map(|p| self.playlist(p)))) } else { None },
                 }),
             }
         }

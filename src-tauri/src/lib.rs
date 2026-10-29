@@ -103,16 +103,50 @@ fn load_settings(db: State<'_, Database>) -> Result<Option<serde_json::Value>> {
         .transpose()
 }
 #[tauri::command]
-fn save_settings(settings: serde_json::Value, db: State<'_, Database>) -> Result<()> {
-    if !settings.is_object() {
-        return Err("Ajustes inválidos.".into());
+fn save_settings(mut settings: serde_json::Value, db: State<'_, Database>) -> Result<serde_json::Value> {
+    if !settings.is_object() { return Err("Ajustes inválidos.".into()); }
+    if serialize(&settings)?.len() > 16 * 1024 * 1024 { return Err("Los ajustes superan el límite de 16 MB.".into()); }
+    let mut conn = connection(&db)?;
+    let tx = sql(conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate))?;
+    let raw: Option<String> = sql(tx.query_row("SELECT value FROM settings WHERE key='app'", [], |r| r.get(0)).optional())?;
+    let stored: serde_json::Value = raw.and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
+    let base = settings["playlistBase"].as_array().cloned().unwrap_or_default();
+    let incoming = settings["playlists"].as_array().cloned().unwrap_or_default();
+    let mut merged = stored["playlists"].as_array().cloned().unwrap_or_default();
+    sql(tx.execute_batch("CREATE TABLE IF NOT EXISTS sync_deleted_playlists(id TEXT PRIMARY KEY)"))?;
+    for previous in &base {
+        if !incoming.iter().any(|p| p["id"] == previous["id"]) {
+            merged.retain(|p| p["id"] != previous["id"]);
+            sql(tx.execute("INSERT OR IGNORE INTO sync_deleted_playlists VALUES(?1)", [previous["id"].as_str().unwrap_or("")]))?;
+        }
     }
-    let json = serialize(&settings)?;
-    if json.len() > 16 * 1024 * 1024 {
-        return Err("Los ajustes superan el límite de 16 MB.".into());
+    for playlist in incoming {
+        if base.iter().find(|p| p["id"] == playlist["id"]) != Some(&playlist) {
+            if let Some(i) = merged.iter().position(|p| p["id"] == playlist["id"]) { merged[i] = playlist; }
+            else {
+                let deleted: bool = sql(tx.query_row("SELECT EXISTS(SELECT 1 FROM sync_deleted_playlists WHERE id=?1)", [playlist["id"].as_str().unwrap_or("")], |r| r.get(0)))?;
+                if !deleted { merged.push(playlist); }
+            }
+        }
     }
-    sql(connection(&db)?.execute("INSERT INTO settings(key,value) VALUES('app',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value", [json]))?;
-    Ok(())
+    settings.as_object_mut().unwrap().remove("playlistBase");
+    settings["playlists"] = serde_json::json!(merged);
+    sql(tx.execute("INSERT INTO settings(key,value) VALUES('app',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value", [serialize(&settings)?]))?;
+    sql(tx.commit())?;
+    Ok(settings["playlists"].clone())
+}
+#[tauri::command]
+fn listening_exchange(days: std::collections::BTreeMap<String, std::collections::BTreeMap<String, f64>>, app: tauri::AppHandle, db: State<'_, Database>) -> Result<std::collections::BTreeMap<String, std::collections::BTreeMap<String, f64>>> {
+    let root = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
+    let store = glass_sync::store::Store::open(root.join("library.db"), root)?;
+    let mut conn = connection(&db)?;
+    let tx = sql(conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate))?;
+    let entries: Vec<_> = days.into_iter().flat_map(|(day,songs)| songs.into_iter().map(move |(track_id,seconds)| glass_sync::models::ListeningValue { day:day.clone(),track_id,seconds })).collect();
+    for batch in entries.chunks(500) { glass_sync::store::Store::merge_listening(&tx, "pc", batch.to_vec())?; }
+    sql(tx.commit())?;
+    let mut totals: std::collections::BTreeMap<String,std::collections::BTreeMap<String,f64>> = Default::default();
+    for entry in store.listening()? { *totals.entry(entry.value.day).or_default().entry(entry.value.track_id).or_default() += entry.value.seconds; }
+    Ok(totals)
 }
 #[tauri::command]
 fn update_track(mut track: Track, db: State<'_, Database>) -> Result<Track> {
@@ -632,6 +666,7 @@ pub fn run() {
             discord_update,
             media_update,
             open_discord_portal,
+            listening_exchange,
             lan::lan_status,
             lan::lan_start,
             lan::lan_stop,

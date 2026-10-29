@@ -1,10 +1,26 @@
 import { useEffect, useRef, useState } from "react";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { getPosition, subscribePosition } from "./playback";
 import { t, getLanguage } from "./i18n";
 import type { Track } from "./types";
 export type ListeningDays = Record<string, Record<string, number>>;
 const storageKey = "glass-music-listening-v1";
 let history: ListeningDays | undefined;
+let combined: ListeningDays | undefined;
+let exchangeChain: Promise<void> = Promise.resolve();
+export function exchangeListening(): Promise<void> {
+  if (!isTauri()) return Promise.resolve();
+  const local = JSON.parse(JSON.stringify(read())) as ListeningDays;
+  exchangeChain = exchangeChain
+    .catch(() => {})
+    .then(async () => {
+      combined = await invoke<ListeningDays>("listening_exchange", {
+        days: local,
+      });
+      window.dispatchEvent(new Event("listening-updated"));
+    });
+  return exchangeChain;
+}
 let dirty = false,
   accumulated = 0;
 export function dayKey(date: Date): string {
@@ -44,6 +60,7 @@ function flush() {
     localStorage.setItem(storageKey, JSON.stringify(read()));
     dirty = false;
     accumulated = 0;
+    void exchangeListening().catch(() => {});
   } catch {
     /* Keep the unsaved history in memory. */
   }
@@ -59,6 +76,26 @@ export function listeningSample(delta: number, elapsed: number): number {
     : 0;
 }
 export function useListeningRecorder(id: string | null, playing: boolean) {
+  useEffect(() => {
+    void exchangeListening().catch(() => {});
+    if (!isTauri()) return;
+    let alive = true,
+      stop: (() => void) | undefined;
+    void import("@tauri-apps/api/event")
+      .then(({ listen }) =>
+        listen("lan-library-changed", () => {
+          void exchangeListening().catch(() => {});
+        }),
+      )
+      .then((unlisten) => {
+        if (alive) stop = unlisten;
+        else unlisten();
+      });
+    return () => {
+      alive = false;
+      stop?.();
+    };
+  }, []);
   useEffect(() => {
     if (!id || !playing) return;
     let last = getPosition(),
@@ -110,6 +147,13 @@ export function ListeningDialog({
   tracks: Track[];
   close: () => void;
 }) {
+  const [, refresh] = useState(0);
+  useEffect(() => {
+    const update = () => refresh((n) => n + 1);
+    window.addEventListener("listening-updated", update);
+    void exchangeListening().catch(() => {});
+    return () => window.removeEventListener("listening-updated", update);
+  }, []);
   const dialog = useRef<HTMLDialogElement>(null);
   const [annual, setAnnual] = useState(false),
     [offset, setOffset] = useState(0);
@@ -129,7 +173,7 @@ export function ListeningDialog({
   const end = new Date(start);
   if (annual) end.setFullYear(end.getFullYear() + 1);
   else end.setDate(end.getDate() + 7);
-  const totals = listeningTotals(read(), start, end),
+  const totals = listeningTotals(combined ?? read(), start, end),
     top = Object.entries(totals)
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
       .slice(0, 5);
@@ -194,7 +238,7 @@ export function ListeningDialog({
       <strong className="listening-total">
         {Math.floor(Object.values(totals).reduce((a, b) => a + b, 0) / 60)} min
       </strong>
-      <p>{t("Tiempo escuchado en este dispositivo")}</p>
+      <p>{t("Tiempo escuchado en tus dispositivos")}</p>
       <h3>{t("Tus 5 canciones más escuchadas")}</h3>
       {top.length === 0 && (
         <p>{t("Tu historial empieza desde esta actualización.")}</p>
@@ -211,7 +255,9 @@ export function ListeningDialog({
         ))}
       </ol>
       <p className="modal-description">
-        {t("Historial local. Los minutos de PC e iPhone todavía no se suman.")}
+        {t(
+          "Los minutos de PC e iPhone se suman al sincronizar por la red local.",
+        )}
       </p>
     </dialog>
   );
