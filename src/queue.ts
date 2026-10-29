@@ -122,6 +122,20 @@ export function enqueueQueue(
     ].sort((a, b) => a - b),
   };
 }
+// A single FIFO group chosen by the listener, before the automatic context.
+export function addManualQueue(queue: Queue, ids: string[]): Queue {
+  const pins = new Set(queue.manualIndices ?? []);
+  const manual = queue.upcoming.filter((_, i) => pins.has(i));
+  const automatic = queue.upcoming.filter((_, i) => !pins.has(i));
+  return {
+    ...queue,
+    upcoming: [...manual, ...ids, ...automatic],
+    manualIndices: Array.from(
+      { length: manual.length + ids.length },
+      (_, i) => i,
+    ),
+  };
+}
 export function removeQueued(queue: Queue, index: number): Queue {
   return {
     ...queue,

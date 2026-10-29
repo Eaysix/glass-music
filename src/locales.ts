@@ -1,4 +1,61 @@
 export const messages: Record<string, Record<string, string>> = {
+  "Añadir a la cola": {
+    en: "Add to queue",
+    de: "Zur Warteschlange hinzufügen",
+    "zh-CN": "添加到队列",
+  },
+  "Añadida a la cola": {
+    en: "Added to queue",
+    de: "Zur Warteschlange hinzugefügt",
+    "zh-CN": "已添加到队列",
+  },
+  "Tu música en números": {
+    en: "Your listening stats",
+    de: "Deine Hörstatistik",
+    "zh-CN": "聆听统计",
+  },
+  Semana: { en: "Week", de: "Woche", "zh-CN": "周" },
+  "Resumen anual": {
+    en: "Year in review",
+    de: "Jahresrückblick",
+    "zh-CN": "年度回顾",
+  },
+  "Período anterior": {
+    en: "Previous period",
+    de: "Vorheriger Zeitraum",
+    "zh-CN": "上一时段",
+  },
+  "Período siguiente": {
+    en: "Next period",
+    de: "Nächster Zeitraum",
+    "zh-CN": "下一时段",
+  },
+  "Tiempo escuchado en este dispositivo": {
+    en: "Listening time on this device",
+    de: "Hörzeit auf diesem Gerät",
+    "zh-CN": "此设备的聆听时间",
+  },
+  "Tus 5 canciones más escuchadas": {
+    en: "Your top 5 songs",
+    de: "Deine 5 meistgehörten Songs",
+    "zh-CN": "最常听的五首歌",
+  },
+  "Tu historial empieza desde esta actualización.": {
+    en: "Your history starts with this update.",
+    de: "Dein Verlauf beginnt mit diesem Update.",
+    "zh-CN": "历史记录从此次更新开始。",
+  },
+  "Canción fuera de la biblioteca": {
+    en: "Song no longer in library",
+    de: "Song nicht mehr in der Bibliothek",
+    "zh-CN": "歌曲已不在音乐库中",
+  },
+  "Historial local. Los minutos de PC e iPhone todavía no se suman.": {
+    en: "Local history. PC and iPhone listening time is not combined yet.",
+    de: "Lokaler Verlauf. Hörzeiten von PC und iPhone werden noch nicht zusammengezählt.",
+    "zh-CN": "本地记录。电脑和 iPhone 的聆听时间暂不合并。",
+  },
+
   "Fecha: nuevas primero": {
     en: "Date: newest first",
     de: "Datum: neueste zuerst",

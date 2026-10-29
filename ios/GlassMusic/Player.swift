@@ -18,14 +18,20 @@ import UIKit
     private var remoteTargets: [(MPRemoteCommand, Any)] = []
     private var context: [String] = []
     private var collection: String = "library"
+    @Published private(set) var manualQueue: [String] = []
+    @Published private(set) var automaticQueue: [String] = []
+    private var currentWasManual = false
+    private var historyManual: [Bool] = []
     private var upcoming: [String] = []
     private var heard: Set<String> = []
     private var history: [String] = []
+    private var listenedPosition = 0.0
+    private var listenedUptime = ProcessInfo.processInfo.systemUptime
     private var lastPersist: Double = 0
     private var interruptedPlaying = false
     init(library: Library) {
         self.library = library
-        if let queue = library.state.queue { shuffle = queue.shuffle ?? false; repeatAll = queue.repeatAll ?? false; collection = queue.collection; context = queue.context; upcoming = queue.upcoming; history = queue.history; heard = queue.heard }
+        if let queue = library.state.queue { shuffle = queue.shuffle ?? false; repeatAll = queue.repeatAll ?? false; collection = queue.collection; context = queue.context; upcoming = queue.upcoming; history = queue.history; heard = queue.heard; manualQueue = queue.manual ?? []; currentWasManual = queue.currentWasManual ?? false; historyManual = queue.historyManual ?? queue.history.map { _ in false } }
         if let id = library.state.currentId { current = library.state.songs.first { $0.id == id }; position = library.state.position }
         let center = NotificationCenter.default
         tokens.append(center.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: nil, queue: .main) { [weak self] notification in
@@ -59,12 +65,13 @@ import UIKit
         guard library.file(song.id) != nil else { library.message = "Descarga esta canción para escucharla sin conexión."; return }
         let byId = Dictionary(uniqueKeysWithValues: library.state.songs.map { ($0.id, $0) })
         let available = library.songOrder(for: source).apply(ids.compactMap { byId[$0] }).map(\.id).filter { library.isDownloaded($0) }
-        context = available; collection = source; heard = []; history = []
+        context = available; collection = source; heard = []; history = []; historyManual = []; currentWasManual = false
         if shuffle { upcoming = available.filter { $0 != song.id }.shuffled() }
         else { upcoming = Array(available.dropFirst((available.firstIndex(of: song.id) ?? -1) + 1)) }
         start(song, from: from)
     }
     private func start(_ song: Song, from: Double = 0) {
+        sampleListening(); library.listening.flush()
         guard let file = library.file(song.id) else { library.message = "Descarga esta canción para escucharla sin conexión."; return }
         do {
             try activate()
@@ -88,6 +95,7 @@ import UIKit
         catch { library.message = error.localizedDescription }
     }
     func pause() {
+        sampleListening(); library.listening.flush()
         audio.pause(); playing = false
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         if let observer { audio.removeTimeObserver(observer); self.observer = nil }
@@ -103,13 +111,24 @@ import UIKit
     func toggleRepeat() { repeatAll.toggle(); persist() }
     func unload(_ id: String) { if current?.id == id { pause(); itemStatus = nil; audio.replaceCurrentItem(with: nil) } }
     func seek(_ seconds: Double) {
+        sampleListening()
         guard let current else { return }
         position = max(0, min(seconds.isFinite ? seconds : 0, current.duration))
         audio.seek(to: CMTime(seconds: position, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
         persist(); nowPlaying()
     }
+    func enqueue(_ id: String) {
+        guard library.file(id) != nil else { library.message = "Descarga esta canción antes de añadirla a la cola."; return }
+        manualQueue.append(id); persist()
+    }
+    func removeManual(at offsets: IndexSet) { for index in offsets.sorted(by: >) where manualQueue.indices.contains(index) { manualQueue.remove(at: index) }; persist() }
     func next() {
-        if let current { heard.insert(current.id); history.append(current.id) }
+        if let current { if !currentWasManual { heard.insert(current.id) }; history.append(current.id); historyManual.append(currentWasManual) }
+        while !manualQueue.isEmpty {
+            let id = manualQueue.removeFirst()
+            if let song = library.state.songs.first(where: { $0.id == id }), library.file(id) != nil { currentWasManual = true; start(song); return }
+        }
+        currentWasManual = false
         if upcoming.isEmpty && repeatAll { heard = []; upcoming = context.filter { library.isDownloaded($0) }; if shuffle { upcoming.shuffle() } }
         while !upcoming.isEmpty {
             let id = upcoming.removeFirst()
@@ -119,8 +138,9 @@ import UIKit
     }
     func previous() {
         if position > 3 || history.isEmpty { seek(0); return }
-        if let current { upcoming.insert(current.id, at: 0) }
+        if let current { if currentWasManual { manualQueue.insert(current.id, at: 0) } else { upcoming.insert(current.id, at: 0) } }
         let id = history.removeLast(); heard.remove(id)
+        currentWasManual = historyManual.popLast() ?? false
         if let song = library.state.songs.first(where: { $0.id == id }) { start(song) }
     }
     func updateSearch(source: String, ids: [String]) { if collection == source { reconcile(ids: ids) } }
@@ -143,12 +163,23 @@ import UIKit
         if let current, let refreshed = library.state.songs.first(where: { $0.id == current.id }) { self.current = refreshed }
         persist()
     }
-    func persist() { library.remember(current?.id, position: position, queue: PhoneQueue(shuffle: shuffle, repeatAll: repeatAll, collection: collection, context: context, upcoming: upcoming, history: Array(history.suffix(200)), heard: heard)) }
+    func persist() { automaticQueue = upcoming; library.remember(current?.id, position: position, queue: PhoneQueue(shuffle: shuffle, repeatAll: repeatAll, collection: collection, context: context, upcoming: upcoming, history: Array(history.suffix(200)), heard: heard, manual: manualQueue, currentWasManual: currentWasManual, historyManual: Array(historyManual.suffix(200)))) }
     func detailedLyrics(_ visible: Bool) { detailed = visible; if playing { observeClock() } }
+    private func sampleListening() {
+        let uptime = ProcessInfo.processInfo.systemUptime
+        let actual = audio.currentTime().seconds
+        let elapsed = uptime - listenedUptime, delta = actual - listenedPosition
+        if playing, audio.timeControlStatus == .playing, let id = current?.id, elapsed > 0, elapsed <= 30, delta > 0, abs(delta - elapsed) < 2 {
+            library.listening.record(id: id, seconds: min(delta, elapsed))
+        }
+        listenedUptime = uptime; listenedPosition = actual.isFinite ? actual : 0
+    }
     private func observeClock() {
+        listenedUptime = ProcessInfo.processInfo.systemUptime; listenedPosition = audio.currentTime().seconds
+
         if let observer { audio.removeTimeObserver(observer) }
         observer = audio.addPeriodicTimeObserver(forInterval: CMTime(seconds: detailed ? 0.1 : 1, preferredTimescale: 600), queue: .main) { [weak self] time in
-            Task { @MainActor in guard let self, time.seconds.isFinite else { return }; self.position = max(0, time.seconds)
+            Task { @MainActor in guard let self, time.seconds.isFinite else { return }; self.sampleListening(); self.position = max(0, time.seconds)
                 if abs(self.position - self.lastPersist) >= 10 { self.lastPersist = self.position; self.persist(); self.nowPlaying() }
             }
         }

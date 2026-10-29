@@ -128,7 +128,7 @@ struct GlassPressStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.opacity(configuration.isPressed ? 0.8 : 1)
             .scaleEffect(configuration.isPressed && library.phoneAppearance.animations && !reduceMotion ? 0.97 : 1)
-            .animation(library.phoneAppearance.animations && !reduceMotion ? .easeOut(duration: 0.18) : nil, value: configuration.isPressed)
+            .animation(library.phoneAppearance.animations && !reduceMotion ? .spring(response: 0.28, dampingFraction: 0.65) : nil, value: configuration.isPressed)
     }
 }
 

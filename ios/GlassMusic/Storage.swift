@@ -19,6 +19,7 @@ final class SnapshotDatabase {
     deinit { sqlite3_close(database) }
     func load() throws -> LibraryState {
         try queue.sync {
+            writePending()
             var statement: OpaquePointer?
             guard sqlite3_prepare_v2(database, "SELECT snapshot FROM library WHERE id=1", -1, &statement, nil) == SQLITE_OK else { throw AppError.message("No se pudo leer la biblioteca.") }
             defer { sqlite3_finalize(statement) }
@@ -28,21 +29,35 @@ final class SnapshotDatabase {
             return try JSONDecoder().decode(LibraryState.self, from: Data(bytes: bytes, count: count))
         }
     }
+    private let pendingLock = NSLock()
+    private var pendingState: LibraryState?
+    private var completions: [(Error?) -> Void] = []
+    private var scheduled = false
     func save(_ state: LibraryState, completion: @escaping (Error?) -> Void = { _ in }) {
-        queue.async {
-            do {
-                let data = try JSONEncoder().encode(state)
-                var statement: OpaquePointer?
-                guard sqlite3_prepare_v2(self.database, "INSERT INTO library VALUES(1,?1) ON CONFLICT(id) DO UPDATE SET snapshot=excluded.snapshot", -1, &statement, nil) == SQLITE_OK else { throw AppError.message("No se pudieron preparar los cambios.") }
-                defer { sqlite3_finalize(statement) }
-                let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
-                let bound = data.withUnsafeBytes { sqlite3_bind_blob(statement, 1, $0.baseAddress, Int32(data.count), transient) }
-                guard bound == SQLITE_OK, sqlite3_step(statement) == SQLITE_DONE else { throw AppError.message("No se pudieron guardar los cambios locales.") }
-                completion(nil)
-            } catch { completion(error) }
-        }
+        pendingLock.lock()
+        pendingState = state; completions.append(completion)
+        let shouldSchedule = !scheduled; scheduled = true
+        pendingLock.unlock()
+        if shouldSchedule { queue.asyncAfter(deadline: .now() + 0.15) { self.writePending() } }
     }
-    func flush() { queue.sync {} }
+    private func writePending() {
+        pendingLock.lock()
+        let state = pendingState; let callbacks = completions
+        pendingState = nil; completions = []; scheduled = false
+        pendingLock.unlock()
+        guard let state else { return }
+        do {
+            let data = try JSONEncoder().encode(state)
+            var statement: OpaquePointer?
+            guard sqlite3_prepare_v2(database, "INSERT INTO library VALUES(1,?1) ON CONFLICT(id) DO UPDATE SET snapshot=excluded.snapshot", -1, &statement, nil) == SQLITE_OK else { throw AppError.message("No se pudieron preparar los cambios.") }
+            defer { sqlite3_finalize(statement) }
+            let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+            let bound = data.withUnsafeBytes { sqlite3_bind_blob(statement, 1, $0.baseAddress, Int32(data.count), transient) }
+            guard bound == SQLITE_OK, sqlite3_step(statement) == SQLITE_DONE else { throw AppError.message("No se pudieron guardar los cambios locales.") }
+            callbacks.forEach { $0(nil) }
+        } catch { callbacks.forEach { $0(error) } }
+    }
+    func flush() { queue.sync { writePending() } }
     func mediaURL(_ id: String, format: String) -> URL {
         root.appendingPathComponent("Audio").appendingPathComponent(digest(Data(id.utf8)) + (format.uppercased() == "FLAC" ? ".flac" : ".mp3"))
     }

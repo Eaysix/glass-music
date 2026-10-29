@@ -122,6 +122,9 @@ struct PhoneQueue: Codable {
     var upcoming: [String]
     var history: [String]
     var heard: Set<String>
+    var manual: [String]?
+    var currentWasManual: Bool?
+    var historyManual: [Bool]?
 }
 struct LibraryState: Codable {
     var songOrders: [String: String]?

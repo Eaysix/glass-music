@@ -45,8 +45,48 @@ final class GlassMusicTests: XCTestCase {
         XCTAssertEqual(player.position, 3)
         XCTAssertFalse(player.playing)
         XCTAssertEqual(library.state.queue?.upcoming, ["2", "1"])
-        player.next(); player.pause()
-        XCTAssertEqual(player.current?.id, "2")
+        player.enqueue("1"); player.enqueue("2"); player.enqueue("1")
+        XCTAssertEqual(library.state.queue?.manual, ["1", "2", "1"])
+        player.next(); player.pause(); XCTAssertEqual(player.current?.id, "1")
+        player.next(); player.pause(); XCTAssertEqual(player.current?.id, "2")
+        player.next(); player.pause(); XCTAssertEqual(player.current?.id, "1")
+        player.next(); player.pause(); XCTAssertEqual(player.current?.id, "2")
+    }
+    func testLyricMarkingWordsUndoAndLineShiftPreserveTiming() throws {
+        var words = LyricTimingDraft("Hola mundo\nOtra vez")
+        XCTAssertNil(words.encoded(words: true))
+        for time in [1.0, 2, 4, 5] { words.mark(time, words: true) }
+        let result = try XCTUnwrap(words.encoded(words: true))
+        XCTAssertEqual(Lyrics.parse(result).flatMap(\.words).map(\.time), [1, 2, 4, 5])
+        words.undoMark(); XCTAssertNil(words.encoded(words: true))
+        words.mark(3, words: true); XCTAssertNil(words.encoded(words: true), "Out-of-order times must not save")
+        var shifted = LyricTimingDraft(result)
+        shifted.mark(2, words: false)
+        XCTAssertEqual(Lyrics.parse(try XCTUnwrap(shifted.encoded(words: false)))[0].words.map(\.time), [2, 3])
+    }
+    func testListeningSplitsMidnightAndDoesNotInventTimeFromSeeks() {
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let ending = calendar.date(from: DateComponents(year: 2026, month: 1, day: 1, second: 5))!
+        var history = ListeningHistory()
+        history.record(id: "one", seconds: 10, ending: ending, calendar: calendar)
+        XCTAssertEqual(history.days["2025-12-31"]?.seconds, 5)
+        XCTAssertEqual(history.days["2026-01-01"]?.seconds, 5)
+        history.record(id: "one", seconds: 3600, ending: ending, calendar: calendar)
+        history.record(id: "one", seconds: -1, ending: ending, calendar: calendar)
+        XCTAssertEqual(history.days.values.reduce(0) { $0 + $1.seconds }, 10)
+    }
+    @MainActor func testBatchedMetadataKeepsNewLocalEditsAndCoalescesSnapshots() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let db = try SnapshotDatabase(root: root), library = try Library(database: db)
+        try library.setLink(Link(serverId: "metadata", host: "10.0.0.2", port: 38473, fingerprint: "a", deviceId: "phone"))
+        library.beginMetadataBatch()
+        for i in 0..<1500 { library.cacheLyrics(String(i), payload: LyricPayload(text: "PC", revision: "r")) }
+        XCTAssertTrue(library.state.lyrics.isEmpty)
+        library.editLyrics("1", text: "Editado mientras sincroniza")
+        library.endMetadataBatch(); db.flush()
+        XCTAssertEqual(library.state.lyrics.count, 1500)
+        XCTAssertEqual(try db.load().lyrics["1"]?.text, "Editado mientras sincroniza")
     }
     func testPairingRejectsPublicAddressesExpiredCodesAndInvalidPins() throws {
         let now = Date()

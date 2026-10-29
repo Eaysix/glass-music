@@ -60,7 +60,7 @@ import UIKit
                 let manifest: Manifest = try await client.json("manifest")
                 try self.library.merge(manifest)
                 var downloadIds = Set(ids)
-                for song in manifest.tracks where self.library.file(song.id) != nil && self.library.state.files[song.id]?.revision != song.fileRevision { downloadIds.insert(song.id) }
+                for song in manifest.tracks where self.library.isDownloaded(song.id) && self.library.state.files[song.id]?.revision != song.fileRevision { downloadIds.insert(song.id) }
                 let selected = manifest.tracks.filter { downloadIds.contains($0.id) }
                 for (index, song) in selected.enumerated() {
                     try Task.checkCancellation()
@@ -72,11 +72,13 @@ import UIKit
                     }
                     self.progress = Double(index + 1) / Double(max(1, selected.count))
                 }
+                self.library.beginMetadataBatch()
+                defer { self.library.endMetadataBatch() }
                 let cachedIds = Set(self.library.downloaded.map(\.id))
                 let needed = manifest.tracks.filter { cachedIds.contains($0.id) || downloadIds.contains($0.id) }
-                for song in needed {
+                for (index, song) in needed.enumerated() {
                     try Task.checkCancellation()
-                    self.detail = "Actualizando letras y portadas…"
+                    self.detail = "Actualizando letras y portadas \(index + 1)/\(needed.count)…"
                     if self.library.state.lyrics[song.id]?.revision != song.lyricsRevision,
                        !self.library.state.pending.contains(where: { $0.kind == "lyrics" && $0.id == song.id }) {
                         let payload: LyricPayload = try await client.json("lyrics/" + song.id)
@@ -84,17 +86,19 @@ import UIKit
                     }
                     if let revision = song.coverRevision, self.library.state.coverRevisions[song.id] != revision {
                         let image = try await client.image("cover/" + song.id)
-                        try self.library.storeCover(song.id, data: image, revision: revision)
+                        try await self.library.storeCoverAsync(song.id, data: image, revision: revision)
                     }
+                    if index % 16 == 15 { self.library.flushMetadataBatch(); await Task.yield() }
                 }
                 for playlist in manifest.playlists {
                     try Task.checkCancellation()
                     let id = "playlist:" + playlist.id
                     if let revision = playlist.coverRevision, self.library.state.coverRevisions[id] != revision {
                         let image = try await client.image("playlist-cover/" + playlist.id)
-                        try self.library.storeCover(id, data: image, revision: revision)
+                        try await self.library.storeCoverAsync(id, data: image, revision: revision)
                     }
                 }
+                self.library.flushMetadataBatch()
                 self.library.finishSync(); self.progress = 1
                 self.detail = self.library.state.conflicts.isEmpty ? "Todo al día. Tu música está lista sin conexión." : "Hay letras con cambios en ambos equipos. Revisa los conflictos."
             } catch {

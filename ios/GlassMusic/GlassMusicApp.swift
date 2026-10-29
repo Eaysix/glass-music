@@ -26,7 +26,7 @@ import SwiftUI
         WindowGroup {
             if let library = application.library, let player = application.player, let sync = application.sync {
                 RootView(player: player).environmentObject(library).environmentObject(sync)
-                    .onChange(of: phase) { _, value in if value != .active { player.persist(); player.detailedLyrics(false) } }
+                    .onChange(of: phase) { _, value in if value != .active { player.persist(); library.listening.flush(); player.detailedLyrics(false) } }
             } else { ContentUnavailableView("No se pudo abrir la biblioteca", systemImage: "externaldrive.badge.exclamationmark", description: Text(application.failure ?? "")) }
         }
     }

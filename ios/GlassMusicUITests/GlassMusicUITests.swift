@@ -97,4 +97,35 @@ final class GlassMusicUITests: XCTestCase {
         XCTAssertTrue(app.segmentedControls["hud-size"].buttons["Grande"].isSelected)
         assertDock(app)
     }
+    func testLyricsMarkingAndLocalStatsAndPlaylistCreation() throws {
+        let app = launch(resetAppearance: true); startSong(app)
+        app.buttons["Abrir reproductor"].tap()
+        let editor = app.buttons["Editar letra"]; reveal(editor, in: app); editor.tap()
+        let text = app.textViews["Letra y tiempos LRC"]
+        XCTAssertTrue(text.waitForExistence(timeout: 5)); text.tap()
+        let old = text.value as? String ?? ""
+        if old.isEmpty { text.typeText("Uno dos\nOtra línea") }
+        app.segmentedControls.buttons["Palabras"].tap()
+        let play = app.buttons["Reproducir"].firstMatch
+        if play.exists { play.tap() }
+        XCTAssertTrue(app.buttons["Marcar palabra y seguir"].exists)
+        app.buttons["Marcar palabra y seguir"].tap()
+        snapshot(app, "Glass Music · Marcar palabras")
+        app.buttons["Cancelar"].tap()
+        app.buttons["Cerrar reproductor"].tap()
+        app.buttons["nav-home"].tap()
+        let stats = app.buttons["Tu música en números"]; reveal(stats, in: app); stats.tap()
+        XCTAssertTrue(app.staticTexts["Tus 5 canciones más escuchadas"].waitForExistence(timeout: 5))
+        snapshot(app, "Glass Music · Estadísticas")
+        app.buttons["Listo"].tap()
+        let create = app.buttons["Crear playlist local"]; reveal(create, in: app); create.tap()
+        let name = app.textFields["Nombre de la playlist"]
+        XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Mi playlist")
+        let selection = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "playlist-select-")).firstMatch
+        selection.tap()
+        snapshot(app, "Glass Music · Crear playlist")
+        app.buttons["Guardar"].tap()
+        XCTAssertTrue(app.buttons["nav-home"].waitForExistence(timeout: 5))
+    }
+
 }

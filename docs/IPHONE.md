@@ -47,3 +47,15 @@ El HUD anima el indicador de pestaña, cambios de portada, aparición del minirr
 Para actualizar, instalar el IPA firmado sobre la app existente con el mismo bundle ID y la misma identidad/equipo de firma. No desinstalar: hacerlo borra las descargas y datos locales. Si cambia la identidad o la herramienta altera el bundle ID, la actualización puede fallar o instalar otra app; conservar la instalación existente y revisar la firma.
 
 Apple ofrece portadas animadas en pantalla bloqueada mediante MPMediaItemAnimatedArtwork en iOS 26. Requiere video local y vista previa, no solamente la imagen integrada del FLAC. Se investigó su viabilidad; esta versión conserva portada estática del sistema y no incluye importación ni generación de videos. Referencia: https://developer.apple.com/documentation/mediaplayer/providing-animated-artwork-for-media-items
+
+## iPhone 0.4.0 · colección, letras y escucha
+
+La actualización de letras y portadas agrupa publicaciones de estado y guardados. Las imágenes se normalizan y escriben fuera del hilo principal. Una edición local durante la transferencia prevalece sobre una letra pendiente de aplicar. Falta comparar la fluidez en el iPhone físico y con la colección del usuario.
+
+Deslizar una canción hacia la derecha añade a la cola manual FIFO. Desde Biblioteca o el reproductor se abre Cola: primero lo añadido por el usuario, después la lista automática. La cola manual persiste, admite repeticiones y no cambia al activar aleatorio.
+
+El editor de letras permite Texto, Líneas y Palabras: reproducir, escuchar desde una posición, marcar y avanzar, deshacer, seleccionar una marca y corregir segundos. Impide guardar marcas incompletas o fuera de orden. Ajustar una línea conserva los tiempos relativos de sus palabras. Cancelar conserva la letra previa.
+
+Las playlists locales tienen portada, búsqueda, selección y edición posterior. Se pueden crear vacías. La selección inicial conserva el orden de elección. Las listas recibidas de PC siguen siendo de lectura; las listas nuevas del teléfono todavía no se envían al PC.
+
+Inicio → Tu música en números muestra minutos por semana, top 5 por tiempo escuchado y resumen anual con períodos anteriores. Empieza desde esta actualización; no reconstruye años anteriores. Registra avance real durante reproducción, excluye saltos y pausas, y reparte intervalos que crucen medianoche. El historial se guarda localmente por dispositivo; los minutos de PC e iPhone no se fusionan todavía. Sin telemetría ni servidor.

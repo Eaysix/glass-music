@@ -86,6 +86,7 @@ struct HomeView: View {
     let link: () -> Void
     let importFiles: () -> Void
     let settings: () -> Void
+    @State private var stats = false
     @State private var create = false
     private var lists: [Playlist] { library.state.playlists + library.state.localPlaylists }
     var body: some View {
@@ -117,6 +118,7 @@ struct HomeView: View {
                         else { Text("Descarga la canción desde Biblioteca para continuar sin conexión.").font(.caption).foregroundStyle(.secondary) }
                     }.glassCard()
                 }
+                Button { stats = true } label: { Label("Tu música en números", systemImage: "chart.bar.fill").frame(maxWidth: .infinity).padding(.vertical, 10) }.glassSurface(radius: 22, chrome: true).buttonStyle(GlassPressStyle())
                 HStack { Text("Tus playlists").font(.title2.bold()); Spacer(); Button { create = true } label: { Image(systemName: "plus.circle") }.accessibilityLabel("Crear playlist local") }
                 if lists.isEmpty { Text("Tus playlists de la PC aparecerán aquí al sincronizar. También puedes crear una lista local.").foregroundStyle(.secondary).padding(.vertical) }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 140 * library.phoneAppearance.hudScale), spacing: 16)], spacing: 22) {
@@ -127,6 +129,7 @@ struct HomeView: View {
                 Button(action: importFiles) { Label("Añadir música local", systemImage: "plus").frame(maxWidth: .infinity).padding(.vertical, 6) }.buttonStyle(.bordered).padding(.vertical).accessibilityIdentifier("import-local-music")
             }.padding(22).padding(.bottom, 20)
         }.glassScreen().navigationBarTitleDisplayMode(.inline).toolbar(.hidden, for: .tabBar).toolbar(.hidden, for: .navigationBar)
+        .sheet(isPresented: $stats) { ListeningStatsView().environmentObject(library) }
         .sheet(isPresented: $create) { LocalPlaylistView().environmentObject(library) }
     }
 }
@@ -138,15 +141,20 @@ struct SongList: View {
     let ids: [String]?
     let downloadedOnly: Bool
     var source = "library"
+    @State private var showQueue = false
+    @State private var editPlaylist = false
     @State private var search = ""
     private var songs: [Song] {
         let list: [Song]
-        if let ids { let map = Dictionary(uniqueKeysWithValues: library.state.songs.map { ($0.id, $0) }); list = ids.compactMap { map[$0] } }
+        let resolvedIds = source.hasPrefix("playlist:") ? (library.state.playlists + library.state.localPlaylists).first(where: { "playlist:" + $0.id == source })?.trackIds ?? ids : ids
+        if let ids = resolvedIds { let map = Dictionary(uniqueKeysWithValues: library.state.songs.map { ($0.id, $0) }); list = ids.compactMap { map[$0] } }
         else { list = library.state.songs }
         return library.songOrder(for: source).apply(list).filter { (!downloadedOnly || library.isDownloaded($0.id)) && (search.isEmpty || "\($0.title) \($0.artist) \($0.album)".localizedCaseInsensitiveContains(search)) }
     }
     var body: some View {
-        List {
+        let visible = songs
+        let context = visible.map(\.id)
+        return List {
             Section {
                 Picker("Orden de canciones", selection: Binding(get: { library.songOrder(for: source) }, set: { library.setSongOrder($0, for: source) })) {
                     ForEach(SongOrder.allCases) { order in Text(order.label).tag(order) }
@@ -159,9 +167,12 @@ struct SongList: View {
                     }.listRowBackground(Color.clear)
                 }
             }
-            ForEach(songs) { song in SongRow(song: song, player: player, context: songs.map(\.id), source: source) }.listRowBackground(Color.white.opacity(0.035))
+            ForEach(visible) { song in SongRow(song: song, player: player, context: context, source: source) }.listRowBackground(Color.white.opacity(0.035))
             if songs.isEmpty { ContentUnavailableView(search.isEmpty ? "Tu música aparecerá aquí" : "Sin resultados", systemImage: "music.note", description: Text("Sincroniza tu PC o importa archivos FLAC y MP3." )).listRowBackground(Color.clear) }
         }.glassScreen().toolbar(.hidden, for: .tabBar).listStyle(.insetGrouped).navigationTitle(title).searchable(text: $search, prompt: "Canciones, artistas, álbumes")
+        .sheet(isPresented: $showQueue) { PhoneQueueView(player: player).environmentObject(library) }
+        .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { showQueue = true } label: { Image(systemName: "list.bullet") }.accessibilityLabel("Cola") }; if source.hasPrefix("playlist:local-") { ToolbarItem(placement: .topBarTrailing) { Button { editPlaylist = true } label: { Image(systemName: "pencil") }.accessibilityLabel("Editar playlist") } } }
+        .sheet(isPresented: $editPlaylist) { LocalPlaylistView(playlistID: String(source.dropFirst("playlist:".count))).environmentObject(library) }
         .onChange(of: songs.map(\.id)) { _, ids in player.updateSearch(source: source, ids: ids) }
     }
 }
@@ -181,12 +192,16 @@ struct SongRow: View {
             if library.file(song.id) == nil { Button { sync.download([song.id]) } label: { Image(systemName: "arrow.down.circle") }.disabled(sync.busy || library.state.localIds.contains(song.id)).accessibilityLabel("Descargar \(song.title)") }
             else { Image(systemName: "checkmark.circle.fill").font(.caption).foregroundStyle(.secondary).accessibilityLabel("Disponible sin conexión") }
             Menu {
+                Button("Añadir a la cola", systemImage: "text.badge.plus") { player.enqueue(song.id) }.disabled(!library.isDownloaded(song.id))
                 Button(song.favorite ? "Quitar de Me gusta" : "Me gusta", systemImage: song.favorite ? "heart.slash" : "heart") { library.favorite(song.id) }
                 Button("Editar letra", systemImage: "text.quote") { editor = true }.disabled(library.state.lyrics[song.id] == nil && !library.state.localIds.contains(song.id) && song.lyricsRevision != digest(Data()))
                 if library.file(song.id) != nil { Button("Quitar descarga del iPhone", systemImage: "trash", role: .destructive) { removing = true } }
             } label: { Image(systemName: "ellipsis").padding(.vertical, 10) }.accessibilityLabel("Opciones de \(song.title)")
         }.padding(.vertical, 5)
-        .sheet(isPresented: $editor) { LyricsEditorView(song: song).environmentObject(library) }
+        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+            Button { player.enqueue(song.id) } label: { Label("Añadir a la cola", systemImage: "text.badge.plus") }.tint(library.tint).disabled(!library.isDownloaded(song.id))
+        }
+        .sheet(isPresented: $editor) { LyricsEditorView(song: song, player: player).environmentObject(library) }
         .confirmationDialog("¿Quitar la descarga de este iPhone?", isPresented: $removing, titleVisibility: .visible) { Button("Quitar descarga", role: .destructive) { player.unload(song.id); library.removeDownload(song.id) } } message: { Text("La canción y su letra se conservan en la PC.") }
     }
 }

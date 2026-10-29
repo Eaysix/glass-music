@@ -6,6 +6,7 @@ struct NowPlayingView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var phase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var queue = false
     @State private var lyrics = false
     @State private var edit = false
     @State private var appearance = false
@@ -45,7 +46,8 @@ struct NowPlayingView: View {
                 }.scrollBounceBehavior(.basedOnSize)
             }
         }.background { GlassBackdrop() }.tint(library.tint).preferredColorScheme(.dark)
-        .sheet(isPresented: $edit) { if let song = player.current { LyricsEditorView(song: song).environmentObject(library).tint(library.tint) } }
+        .sheet(isPresented: $queue) { PhoneQueueView(player: player).environmentObject(library) }
+        .sheet(isPresented: $edit) { if let song = player.current { LyricsEditorView(song: song, player: player).environmentObject(library).tint(library.tint) } }
         .sheet(isPresented: $appearance) {
             NavigationStack { PhoneSettingsView().toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Listo") { appearance = false } } } }.environmentObject(library).tint(library.tint).preferredColorScheme(.dark)
         }
@@ -58,6 +60,7 @@ struct NowPlayingView: View {
             Image(systemName: "waveform").font(.title3)
             Text("GLASS MUSIC").font(.system(size: 10, weight: .semibold)).tracking(2.2)
             Spacer(minLength: 8)
+            Button { queue = true } label: { Image(systemName: "list.bullet").frame(width: 44, height: 44) }.buttonStyle(GlassPressStyle()).accessibilityLabel("Cola")
             Button { lyrics.toggle(); player.detailedLyrics(lyrics) } label: {
                 Image(systemName: lyrics ? "square.stack" : "text.quote").font(.system(size: 19)).frame(width: 44, height: 44)
             }.glassSurface(radius: 17, chrome: true).buttonStyle(GlassPressStyle()).accessibilityLabel(lyrics ? "Mostrar portada" : "Mostrar letra")
@@ -131,40 +134,5 @@ struct LyricPanel: View {
             }
         }
         return Text(line.text.isEmpty ? "♪" : line.text).foregroundColor(isActive ? .white : .white.opacity(index < (active ?? 0) ? 0.45 : 0.25))
-    }
-}
-struct LyricsEditorView: View {
-    @EnvironmentObject private var library: Library
-    @Environment(\.dismiss) private var dismiss
-    let song: Song
-    @State private var text = ""
-    @State private var loaded = false
-    var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 14) {
-                Text(song.title).font(.headline)
-                Text("La letra se guarda en este iPhone. Si la canción viene de la PC, se enviará al sincronizar. Conserva las etiquetas LRC si quieres mantener los tiempos por línea o palabra.").font(.subheadline).foregroundStyle(.secondary)
-                TextEditor(text: $text).font(.body.monospaced()).accessibilityLabel("Letra y tiempos LRC").scrollContentBackground(.hidden).padding(12).background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
-                Text("Los archivos de audio originales no se modifican.").font(.caption).foregroundStyle(.secondary)
-            }.padding(20).glassScreen().navigationTitle("Editar letra").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancelar") { dismiss() } }; ToolbarItem(placement: .confirmationAction) { Button("Guardar") { library.editLyrics(song.id, text: text); dismiss() }.disabled(text.utf8.count > 1024 * 1024) } }
-            .onAppear { if !loaded { text = library.state.lyrics[song.id]?.text ?? ""; loaded = true } }
-        }.tint(library.tint).preferredColorScheme(.dark)
-    }
-}
-struct LocalPlaylistView: View {
-    @EnvironmentObject private var library: Library
-    @Environment(\.dismiss) private var dismiss
-    @State private var name = ""
-    @State private var selected: Set<String> = []
-    var body: some View {
-        NavigationStack {
-            List {
-                TextField("Nombre de la playlist", text: $name)
-                Text("Esta lista se guarda solo en este iPhone. Las playlists de tu PC se reciben al sincronizar.").font(.caption).foregroundStyle(.secondary)
-                ForEach(library.downloaded) { song in Button { if selected.contains(song.id) { selected.remove(song.id) } else { selected.insert(song.id) } } label: { HStack { VStack(alignment: .leading) { Text(song.title).foregroundStyle(.primary); Text(song.artist).font(.caption).foregroundStyle(.secondary) }; Spacer(); Image(systemName: selected.contains(song.id) ? "checkmark.circle.fill" : "circle") } } }
-            }.glassScreen().navigationTitle("Nueva playlist").navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancelar") { dismiss() } }; ToolbarItem(placement: .confirmationAction) { Button("Crear") { library.createLocalPlaylist(name: name, ids: library.downloaded.filter { selected.contains($0.id) }.map(\.id)); dismiss() }.disabled(name.trimmingCharacters(in: .whitespaces).isEmpty) } }
-        }.tint(library.tint).preferredColorScheme(.dark)
     }
 }

@@ -5,10 +5,24 @@ import UIKit
 @MainActor final class Library: ObservableObject {
     @Published private(set) var state: LibraryState
     @Published var message: String?
+    let listening: ListeningStore
     let database: SnapshotDatabase
+    private var metadataBatch = false
+    private var receivedLyrics: [String: LyricPayload] = [:]
+    private var receivedCovers: [String: String] = [:]
+    func beginMetadataBatch() { metadataBatch = true }
+    func flushMetadataBatch() {
+        let edited = Set(state.pending.filter { $0.kind == "lyrics" }.compactMap(\.id))
+        var next = state
+        for (id, payload) in receivedLyrics where !edited.contains(id) { next.lyrics[id] = payload }
+        next.coverRevisions.merge(receivedCovers) { _, new in new }
+        if !receivedLyrics.isEmpty || !receivedCovers.isEmpty { state = next; persist() }
+        receivedLyrics.removeAll(); receivedCovers.removeAll()
+    }
+    func endMetadataBatch() { flushMetadataBatch(); metadataBatch = false }
     private let imageCache = NSCache<NSString, UIImage>()
     var catalogChanged: (() -> Void)?
-    init(database: SnapshotDatabase) throws { self.database = database; state = try database.load() }
+    init(database: SnapshotDatabase) throws { self.database = database; listening = ListeningStore(root: database.root); state = try database.load() }
     func songOrder(for source: String) -> SongOrder {
         SongOrder(rawValue: state.songOrders?[source] ?? "") ?? .oldest
     }
@@ -90,7 +104,7 @@ import UIKit
     }
     func cacheLyrics(_ id: String, payload: LyricPayload) {
         guard !state.pending.contains(where: { $0.kind == "lyrics" && $0.id == id }) else { return }
-        state.lyrics[id] = payload; persist()
+        if metadataBatch { receivedLyrics[id] = payload } else { state.lyrics[id] = payload; persist() }
     }
     func editLyrics(_ id: String, text: String) {
         guard text.utf8.count <= 1024 * 1024 else { message = "La letra supera 1 MB."; return }
@@ -144,9 +158,20 @@ import UIKit
         state.files[song.id] = OfflineFile(relativePath: "Audio/" + destination.lastPathComponent, revision: song.fileRevision ?? "")
         persist(); catalogChanged?()
     }
-    func createLocalPlaylist(name: String, ids: [String]) {
-        guard !name.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-        state.localPlaylists.append(Playlist(id: "local-" + UUID().uuidString.lowercased(), name: name.trimmingCharacters(in: .whitespaces), trackIds: ids, revision: "local")); persist(); catalogChanged?()
+    @discardableResult func createLocalPlaylist(name: String, ids: [String]) -> String? {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return nil }
+        let id = "local-" + UUID().uuidString.lowercased()
+        var seen: Set<String> = []
+        state.localPlaylists.append(Playlist(id: id, name: String(name.prefix(100)), trackIds: ids.filter { seen.insert($0).inserted }, revision: "local"))
+        persist(); catalogChanged?(); return id
+    }
+    func updateLocalPlaylist(_ id: String, name: String, ids: [String]) {
+        guard let index = state.localPlaylists.firstIndex(where: { $0.id == id }), !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        var seen: Set<String> = []
+        state.localPlaylists[index].name = String(name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(100))
+        state.localPlaylists[index].trackIds = ids.filter { seen.insert($0).inserted }
+        persist(); catalogChanged?()
     }
     func removeDownload(_ id: String) {
         do { if let file = file(id) { try FileManager.default.removeItem(at: file) }; state.files.removeValue(forKey: id); persist(); catalogChanged?() }
@@ -157,6 +182,16 @@ import UIKit
         try jpeg.write(to: database.coverURL(id), options: .atomic)
         imageCache.removeObject(forKey: id as NSString)
         state.coverRevisions[id] = revision; persist()
+    }
+    func storeCoverAsync(_ id: String, data: Data, revision: String) async throws {
+        let url = database.coverURL(id)
+        let stored = try await Task.detached(priority: .utility) {
+            guard let image = UIImage(data: data), let jpeg = PhoneImages.thumbnail(image, maxSide: 512).jpegData(compressionQuality: 0.9) else { return false }
+            try jpeg.write(to: url, options: .atomic); return true
+        }.value
+        guard stored else { return }
+        imageCache.removeObject(forKey: id as NSString)
+        if metadataBatch { receivedCovers[id] = revision } else { state.coverRevisions[id] = revision; persist() }
     }
     func remember(_ id: String?, position: Double, queue: PhoneQueue? = nil) { state.currentId = id; state.position = max(0, position.isFinite ? position : 0); if let queue { state.queue = queue }; persist() }
     func finishSync() { state.lastSync = Date(); persist() }

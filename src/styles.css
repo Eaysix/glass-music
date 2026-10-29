@@ -4277,3 +4277,40 @@ button:active:not(:disabled) {
 .lan-device > span {
   flex: 1;
 }
+
+.listening-dialog {
+  padding: 28px;
+  max-height: 85dvh;
+  overflow: auto;
+}
+.listening-period {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 18px 0;
+}
+.listening-period button {
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 14px;
+  padding: 8px 14px;
+}
+.listening-period button[aria-pressed="true"] {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.listening-total {
+  font-size: clamp(36px, 7vw, 64px);
+  color: var(--accent);
+}
+.listening-dialog ol {
+  padding-left: 24px;
+}
+.listening-dialog li {
+  padding: 12px 0;
+}
+.listening-dialog li strong {
+  float: right;
+  padding-left: 16px;
+}
