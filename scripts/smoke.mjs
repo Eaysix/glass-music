@@ -473,7 +473,7 @@ try {
     .getByRole("button", { name: "Opciones de Otro momento", exact: true })
     .click();
   await page
-    .getByRole("menuitem", { name: "Reproducir después", exact: true })
+    .getByRole("menuitem", { name: "Añadir a la cola", exact: true })
     .click();
   await page.getByRole("button", { name: "Mostrar cola", exact: true }).click();
   await present(".queue-row");
@@ -555,7 +555,7 @@ try {
     .getByRole("button", { name: "Opciones de Otro momento", exact: true })
     .click();
   await page
-    .getByRole("menuitem", { name: "Reproducir después", exact: true })
+    .getByRole("menuitem", { name: "Añadir a la cola", exact: true })
     .click();
   await page.locator(".player-track").click({ button: "right" });
   const menuBox = await page.getByRole("menu").boundingBox();
@@ -920,6 +920,20 @@ try {
   await page.keyboard.press("Control+0");
   await page.getByRole("button", { name: "Listo", exact: true }).click();
   console.log("150% HUD and settings fit the 960px window");
+  await page
+    .getByRole("button", { name: "Tu música en números", exact: true })
+    .click();
+  await page
+    .getByRole("heading", { name: "Tu música en números", exact: true })
+    .waitFor();
+  await page
+    .getByRole("button", { name: "Resumen anual", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Período anterior", exact: true })
+    .click();
+  await page.screenshot({ path: "artifacts/listening-stats.png" });
+  await page.getByRole("button", { name: "Cerrar", exact: true }).click();
   assert.deepEqual(errors, []);
   console.log(
     "PASS: importar FLAC/MP3, reproducción web, letras, edición, portada, favoritas, playlists, cola, perfil con foto, temas, persistencia y ancho 960px.",
