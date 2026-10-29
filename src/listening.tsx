@@ -16,7 +16,7 @@ export function recordListening(
   seconds: number,
   ending: Date,
 ): void {
-  if (!Number.isFinite(seconds) || seconds <= 0 || seconds > 30) return;
+  if (!Number.isFinite(seconds) || seconds <= 0 || seconds > 86400) return;
   let start = new Date(ending.getTime() - seconds * 1000);
   while (start < ending) {
     const boundary = new Date(start);
@@ -48,6 +48,16 @@ function flush() {
     /* Keep the unsaved history in memory. */
   }
 }
+export function listeningSample(delta: number, elapsed: number): number {
+  return Number.isFinite(delta) &&
+    Number.isFinite(elapsed) &&
+    elapsed > 0 &&
+    elapsed <= 86400 &&
+    delta > 0 &&
+    Math.abs(delta - elapsed) < 2
+    ? Math.min(delta, elapsed)
+    : 0;
+}
 export function useListeningRecorder(id: string | null, playing: boolean) {
   useEffect(() => {
     if (!id || !playing) return;
@@ -58,13 +68,8 @@ export function useListeningRecorder(id: string | null, playing: boolean) {
         position = getPosition();
       const elapsed = (now - lastTime) / 1000,
         delta = position - last;
-      if (
-        elapsed > 0 &&
-        elapsed <= 30 &&
-        delta > 0 &&
-        Math.abs(delta - elapsed) < 2
-      ) {
-        const seconds = Math.min(delta, elapsed);
+      const seconds = listeningSample(delta, elapsed);
+      if (seconds > 0) {
         recordListening(read(), id, seconds, new Date());
         dirty = true;
         accumulated += seconds;
