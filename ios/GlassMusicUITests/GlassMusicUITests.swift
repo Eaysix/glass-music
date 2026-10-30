@@ -153,7 +153,9 @@ final class GlassMusicUITests: XCTestCase {
         app.buttons["Listo"].tap()
         let create = app.buttons["Crear playlist local"]; reveal(create, in: app); create.tap()
         let name = app.textFields["Nombre de la playlist"]
-        XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Mi playlist")
+        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["import-playlist-files"].isHittable, "Import must be visible above the existing song list")
+        name.tap(); name.typeText("Mi playlist")
         let selection = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "playlist-select-")).firstMatch
         selection.tap()
         snapshot(app, "Glass Music · Crear playlist")

@@ -42,6 +42,9 @@ struct LocalPlaylistView: View {
                     }.padding(.vertical, 12)
                 }.listRowBackground(Color.white.opacity(0.04))
                 Section {
+                    Button { importFiles = true } label: { Label(importingFiles ? "Importando…" : "Importar archivos a esta playlist", systemImage: "folder.badge.plus") }.disabled(importingFiles).accessibilityIdentifier("import-playlist-files")
+                } footer: { Text("Los archivos elegidos se seleccionan automáticamente. Guarda la playlist para conservar su selección.") }
+                Section {
                     ForEach(filtered) { song in
                         Button {
                             withAnimation(library.phoneAppearance.animations && !reduceMotion ? .easeInOut(duration: 0.18) : nil) {
@@ -57,9 +60,6 @@ struct LocalPlaylistView: View {
                         }.buttonStyle(GlassPressStyle()).accessibilityIdentifier("playlist-select-" + song.id)
                     }
                 } header: { Text("Añade canciones") } footer: { Text("La playlist se sincroniza con tu PC cuando conectas ambos equipos. Las canciones importadas solo en el iPhone siguen siendo locales.") }
-                Section {
-                    Button { importFiles = true } label: { Label(importingFiles ? "Importando…" : "Importar archivos a esta playlist", systemImage: "folder.badge.plus") }.disabled(importingFiles).accessibilityIdentifier("import-playlist-files")
-                } footer: { Text("Los archivos elegidos se seleccionan automáticamente. Guarda la playlist para conservar su selección.") }
                 if playlistID != nil {
                     Section { Button("Eliminar playlist", role: .destructive) { deleting = true }.accessibilityIdentifier("delete-playlist") }
                 }
