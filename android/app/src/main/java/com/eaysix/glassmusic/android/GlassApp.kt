@@ -92,7 +92,7 @@ internal fun Modifier.glass(radius: Int = 24) = clip(RoundedCornerShape(radius.d
     val current = library.songs.firstOrNull { it.id == media.id }
     val tint = Color(library.appearance.accent)
     val density = LocalDensity.current
-    CompositionLocalProvider(LocalDensity provides Density(density.density, density.fontScale * library.appearance.scale)) {
+    CompositionLocalProvider(LocalDensity provides Density(density.density, density.fontScale * library.appearance.scale), LocalContentColor provides Color.White) {
         MaterialTheme(colorScheme = darkColorScheme(primary = tint, onPrimary = Ink, surface = Color(0xFF1A2435), background = Ink)) {
             Box(Modifier.fillMaxSize()) {
                 GlassBackground(tint, library.appearance.animated && lifecycleState.isAtLeast(Lifecycle.State.STARTED))
