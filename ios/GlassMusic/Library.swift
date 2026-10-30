@@ -40,6 +40,16 @@ import UIKit
         guard url.path.hasPrefix(database.root.path + "/"), FileManager.default.fileExists(atPath: url.path) else { return nil }
         return url
     }
+    func playbackDuration(_ song: Song) -> Double {
+        let value = state.files[song.id]?.duration ?? song.duration
+        return value.isFinite && value > 0 ? value : 0
+    }
+    func recordPlaybackDuration(_ id: String, seconds: Double, file: URL, revision: String) {
+        guard seconds.isFinite, seconds > 0, self.file(id) == file,
+              var entry = state.files[id], entry.revision == revision,
+              entry.duration.map({ abs($0 - seconds) > 0.001 }) ?? true else { return }
+        entry.duration = seconds; state.files[id] = entry; persist()
+    }
     var phoneAppearance: PhoneAppearance { state.phoneAppearance ?? PhoneAppearance(accent: state.accent, useComputerAccent: true) }
     var effectiveAccent: String { phoneAppearance.useComputerAccent ? state.accent : phoneAppearance.accent }
     var displayName: String {
@@ -245,7 +255,11 @@ import UIKit
     }
     func remember(_ id: String?, position: Double, queue: PhoneQueue? = nil) { state.currentId = id; state.position = max(0, position.isFinite ? position : 0); if let queue { state.queue = queue }; persist() }
     func finishSync() { state.lastSync = Date(); persist() }
-    func importFiles(_ urls: [URL]) async {
+    @discardableResult func importFiles(_ urls: [URL], into playlistID: String? = nil) async -> [String] {
+        if let playlistID, !(state.localPlaylists + state.playlists).contains(where: { $0.id == playlistID }) {
+            message = "La playlist ya no existe. No se importaron archivos."; return []
+        }
+        var imported: [String] = []
         for url in urls {
             let access = url.startAccessingSecurityScopedResource(); defer { if access { url.stopAccessingSecurityScopedResource() } }
             do {
@@ -254,7 +268,7 @@ import UIKit
                 let id = "local-" + UUID().uuidString.lowercased()
                 let destination = database.mediaURL(id, format: format)
                 try await Task.detached { try FileManager.default.copyItem(at: url, to: destination) }.value
-                let asset = AVURLAsset(url: destination)
+                let asset = AVURLAsset(url: destination, options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
                 guard try await asset.load(.isPlayable) else { try? FileManager.default.removeItem(at: destination); throw AppError.message("iOS no pudo reproducir este archivo.") }
                 let metadata = try await asset.load(.commonMetadata)
                 func string(_ key: AVMetadataIdentifier) async -> String? {
@@ -267,7 +281,8 @@ import UIKit
                 let album = await string(.commonIdentifierAlbumName) ?? "Sin álbum"
                 let song = Song(id: id, title: title, artist: artist, album: album, duration: duration.isFinite ? duration : 0, format: format, modifiedAt: Date().timeIntervalSince1970 * 1000, lyricsRevision: digest(Data()))
                 state.songs.append(song); state.localIds.insert(id)
-                state.files[id] = OfflineFile(relativePath: "Audio/" + destination.lastPathComponent, revision: "local")
+                state.files[id] = OfflineFile(relativePath: "Audio/" + destination.lastPathComponent, revision: "local", duration: duration.isFinite && duration > 0 ? duration : nil)
+                imported.append(id)
                 if let item = AVMetadataItem.metadataItems(from: metadata, filteredByIdentifier: .commonIdentifierArtwork).first,
                    let bytes = try? await item.load(.dataValue), let image = UIImage(data: bytes) {
                     let preview = PhoneImages.thumbnail(image, maxSide: 512)
@@ -276,5 +291,17 @@ import UIKit
                 persist(); catalogChanged?()
             } catch { message = error.localizedDescription }
         }
+        if let playlistID, !imported.isEmpty {
+            // A remote list becomes editable locally with the same ID/revision.
+            if let index = state.playlists.firstIndex(where: { $0.id == playlistID }) {
+                state.localPlaylists.append(state.playlists.remove(at: index))
+            }
+            if let index = state.localPlaylists.firstIndex(where: { $0.id == playlistID }) {
+                var seen = Set(state.localPlaylists[index].trackIds)
+                state.localPlaylists[index].trackIds += imported.filter { seen.insert($0).inserted }
+                queuePlaylist(playlistID); persist(); catalogChanged?()
+            } else { message = "La playlist se eliminó durante la importación. Los archivos se conservaron en tu biblioteca." }
+        }
+        return imported
     }
 }

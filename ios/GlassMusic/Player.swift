@@ -6,6 +6,7 @@ import UIKit
 @MainActor final class MusicPlayer: ObservableObject {
     @Published private(set) var current: Song?
     @Published private(set) var position: Double = 0
+    @Published private(set) var duration: Double = 0
     @Published private(set) var playing = false
     @Published var shuffle = false
     @Published var repeatAll = false
@@ -13,6 +14,9 @@ import UIKit
     private let audio = AVPlayer()
     private var detailed = false
     private var itemStatus: NSKeyValueObservation?
+    private var itemDuration: NSKeyValueObservation?
+    private var seeking = false
+    private var seekRequest = UUID()
     private var observer: Any?
     private var clockGeneration = UUID()
     private var tokens: [NSObjectProtocol] = []
@@ -33,7 +37,7 @@ import UIKit
     init(library: Library) {
         self.library = library
         if let queue = library.state.queue { shuffle = queue.shuffle ?? false; repeatAll = queue.repeatAll ?? false; collection = queue.collection; context = queue.context; upcoming = queue.upcoming; automaticQueue = queue.upcoming; history = queue.history; heard = queue.heard; manualQueue = queue.manual ?? []; currentWasManual = queue.currentWasManual ?? false; historyManual = queue.historyManual ?? queue.history.map { _ in false } }
-        if let id = library.state.currentId { current = library.state.songs.first { $0.id == id }; position = library.state.position }
+        if let id = library.state.currentId { current = library.state.songs.first { $0.id == id }; position = library.state.position; if let current { duration = library.playbackDuration(current) } }
         let center = NotificationCenter.default
         tokens.append(center.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: nil, queue: .main) { [weak self] notification in
             Task { @MainActor in guard let self, notification.object as? AVPlayerItem === self.audio.currentItem else { return }; self.next() }
@@ -78,27 +82,35 @@ import UIKit
             try activate()
             clockGeneration = UUID()
             if let observer { audio.removeTimeObserver(observer); self.observer = nil }
-            let item = AVPlayerItem(url: file)
-            current = song; audio.replaceCurrentItem(with: item)
-            itemStatus = item.observe(\.status, options: [.new]) { [weak self] item, _ in
-                guard item.status == .failed else { return }
-                Task { @MainActor in self?.pause(); self?.library.message = item.error?.localizedDescription ?? "No se pudo reproducir este archivo." }
+            let item = AVPlayerItem(asset: AVURLAsset(url: file, options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]))
+            let revision = library.state.files[song.id]?.revision ?? ""
+            current = song; duration = library.playbackDuration(song); audio.replaceCurrentItem(with: item)
+            itemStatus = item.observe(\.status, options: [.initial, .new]) { [weak self] item, _ in
+                Task { @MainActor in
+                    guard let self, self.audio.currentItem === item else { return }
+                    if item.status == .failed { self.pause(); self.library.message = item.error?.localizedDescription ?? "No se pudo reproducir este archivo." }
+                    else if item.status == .readyToPlay { self.resolveDuration(item, file: file, revision: revision) }
+                }
             }
-            position = max(0, min(from, song.duration > 0 ? song.duration : from))
-            audio.seek(to: CMTime(seconds: position, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+            itemDuration = item.observe(\.duration, options: [.new]) { [weak self] item, _ in
+                Task { @MainActor in self?.resolveDuration(item, file: file, revision: revision) }
+            }
+            position = max(0, from.isFinite ? from : 0)
+            performSeek(position)
             audio.play(); playing = true; lastPersist = position
             observeClock(); persist(); nowPlaying()
         } catch { library.message = error.localizedDescription; pause() }
     }
     func resume() {
         guard let song = current else { if let first = library.downloaded.first { play(first, ids: library.downloaded.map(\.id)) }; return }
-        if audio.currentItem == nil { if context.isEmpty { context = library.songOrder(for: collection).apply(library.downloaded).map(\.id) }; start(song, from: song.duration > 0 && position >= song.duration - 0.5 ? 0 : position); return }
-        if song.duration > 0 && position >= song.duration - 0.5 { seek(0) }
+        if audio.currentItem == nil { if context.isEmpty { context = library.songOrder(for: collection).apply(library.downloaded).map(\.id) }; start(song, from: library.state.files[song.id]?.duration != nil && duration > 0 && position >= duration - 0.5 ? 0 : position); return }
+        if duration > 0 && position >= duration - 0.5 { seek(0) }
         do { try activate(); audio.play(); playing = true; observeClock(); nowPlaying() }
         catch { library.message = error.localizedDescription }
     }
     func pause() {
         sampleListening(); library.listening.flush()
+        if !seeking, audio.currentItem?.status == .readyToPlay { position = bounded(audio.currentTime().seconds) }
         audio.pause(); playing = false
         clockGeneration = UUID()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
@@ -113,13 +125,37 @@ import UIKit
         persist()
     }
     func toggleRepeat() { repeatAll.toggle(); persist() }
-    func unload(_ id: String) { if current?.id == id { pause(); itemStatus = nil; audio.replaceCurrentItem(with: nil) } }
+    func unload(_ id: String) { if current?.id == id { pause(); itemStatus = nil; itemDuration = nil; seekRequest = UUID(); seeking = false; audio.replaceCurrentItem(with: nil) } }
     func seek(_ seconds: Double) {
         sampleListening()
-        guard let current else { return }
-        position = max(0, min(seconds.isFinite ? seconds : 0, current.duration))
-        audio.seek(to: CMTime(seconds: position, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+        guard current != nil else { return }
+        position = bounded(seconds)
+        performSeek(position)
         persist(); nowPlaying()
+    }
+    private func bounded(_ seconds: Double) -> Double {
+        let value = max(0, seconds.isFinite ? seconds : 0)
+        return duration > 0 ? min(value, duration) : value
+    }
+    private func resolveDuration(_ item: AVPlayerItem, file: URL, revision: String) {
+        guard audio.currentItem === item, let current else { return }
+        let actual = item.duration.seconds
+        guard actual.isFinite, actual > 0 else { return }
+        if abs(duration - actual) > 0.001 { duration = actual; if !seeking { position = bounded(position) }; nowPlaying() }
+        library.recordPlaybackDuration(current.id, seconds: actual, file: file, revision: revision)
+    }
+    private func performSeek(_ seconds: Double) {
+        guard let item = audio.currentItem else { return }
+        let request = UUID(); seekRequest = request; seeking = true
+        audio.seek(to: CMTime(seconds: seconds, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] finished in
+            Task { @MainActor in
+                guard let self, self.seekRequest == request, self.audio.currentItem === item else { return }
+                self.seeking = false
+                if finished { self.position = self.bounded(self.audio.currentTime().seconds) }
+                self.listenedUptime = ProcessInfo.processInfo.systemUptime; self.listenedPosition = self.audio.currentTime().seconds
+                self.persist(); self.nowPlaying()
+            }
+        }
     }
     func enqueue(_ id: String) {
         guard library.file(id) != nil else { library.message = "Descarga esta canción antes de añadirla a la cola."; return }
@@ -138,7 +174,7 @@ import UIKit
             let id = upcoming.removeFirst()
             if let song = library.state.songs.first(where: { $0.id == id }), library.file(id) != nil { start(song); return }
         }
-        pause(); if let current { position = current.duration; persist() }
+        pause(); if current != nil { position = duration; persist(); nowPlaying() }
     }
     func previous() {
         if position > 3 || history.isEmpty { seek(0); return }
@@ -186,18 +222,18 @@ import UIKit
         let item = audio.currentItem
         observer = audio.addPeriodicTimeObserver(forInterval: CMTime(seconds: detailed ? 0.1 : 1, preferredTimescale: 600), queue: .main) { [weak self] _ in
             Task { @MainActor in
-                guard let self, self.clockGeneration == generation, self.audio.currentItem === item else { return }
+                guard let self, self.clockGeneration == generation, self.audio.currentItem === item, !self.seeking else { return }
                 // A queued callback can predate a seek. Read the current item's clock, not its old sample.
                 let seconds = self.audio.currentTime().seconds
                 guard seconds.isFinite else { return }
-                self.sampleListening(); self.position = max(0, seconds)
+                self.sampleListening(); self.position = self.bounded(seconds)
                 if abs(self.position - self.lastPersist) >= 10 { self.lastPersist = self.position; self.persist(); self.nowPlaying() }
             }
         }
     }
     private func nowPlaying() {
         guard let current else { MPNowPlayingInfoCenter.default().nowPlayingInfo = nil; return }
-        var info: [String: Any] = [MPMediaItemPropertyTitle: current.title, MPMediaItemPropertyArtist: current.artist, MPMediaItemPropertyAlbumTitle: current.album, MPMediaItemPropertyPlaybackDuration: current.duration, MPNowPlayingInfoPropertyElapsedPlaybackTime: position, MPNowPlayingInfoPropertyPlaybackRate: playing ? 1.0 : 0.0]
+        var info: [String: Any] = [MPMediaItemPropertyTitle: current.title, MPMediaItemPropertyArtist: current.artist, MPMediaItemPropertyAlbumTitle: current.album, MPMediaItemPropertyPlaybackDuration: duration, MPNowPlayingInfoPropertyElapsedPlaybackTime: position, MPNowPlayingInfoPropertyPlaybackRate: playing ? 1.0 : 0.0]
         if let image = library.cover(current.id) { info[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: image.size) { _ in image } }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
     }

@@ -30,7 +30,7 @@ struct LyricsEditorView: View {
                         Button("Deshacer") { draft.undoMark() }.disabled(!draft.canUndo)
                     }
                     if player.current?.id == song.id {
-                        Slider(value: Binding(get: { min(player.position, max(1, song.duration)) }, set: { player.seek($0) }), in: 0...max(1, song.duration)).accessibilityLabel("Escuchar desde")
+                        Slider(value: Binding(get: { min(player.position, max(1, player.duration)) }, set: { player.seek($0) }), in: 0...max(1, player.duration)).accessibilityLabel("Escuchar desde")
                     }
                     if draft.cursor < draft.count(words: words) {
                         HStack {

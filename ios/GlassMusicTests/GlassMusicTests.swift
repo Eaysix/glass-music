@@ -3,6 +3,64 @@ import XCTest
 @testable import GlassMusic
 
 final class GlassMusicTests: XCTestCase {
+    func testOldOfflineFileWithoutMeasuredDurationStillDecodes() throws {
+        let file = try JSONDecoder().decode(OfflineFile.self, from: Data(#"{"relativePath":"Audio/one.flac","revision":"old"}"#.utf8))
+        XCTAssertNil(file.duration)
+    }
+    @MainActor func testRealFileDurationOverridesShortAndLongCatalogValues() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let database = try SnapshotDatabase(root: root), library = try Library(database: database)
+        let names = ["first.flac", "second.mp3"]
+        var songs: [Song] = []
+        try library.setLink(Link(serverId: "duration-test", host: "10.0.0.2", port: 38473, fingerprint: "a", deviceId: "phone"))
+        for (index, name) in names.enumerated() {
+            let fixture = try XCTUnwrap(Bundle.main.url(forResource: name, withExtension: nil, subdirectory: "Fixtures") ?? Bundle.main.url(forResource: name, withExtension: nil))
+            let size = (try FileManager.default.attributesOfItem(atPath: fixture.path)[.size] as? NSNumber)?.int64Value
+            let song = Song(id: "duration-\(index)", title: name, artist: "Test", album: "Test", duration: index == 0 ? 3 : 40, format: index == 0 ? "FLAC" : "MP3", fileSize: size, fileRevision: "first-revision", lyricsRevision: "")
+            songs.append(song)
+            let copy = root.appendingPathComponent(name); try FileManager.default.copyItem(at: fixture, to: copy)
+            try library.install(copy, song: song)
+        }
+        try library.merge(Manifest(protocolVersion: 1, serverId: "duration-test", libraryName: "Test", accent: "#8CCDF3", tracks: songs, playlists: [], resumes: []))
+        let player = MusicPlayer(library: library)
+        for (index, song) in songs.enumerated() {
+            player.play(song, ids: songs.map(\.id))
+            for _ in 0..<100 {
+                if abs(player.duration - 16) < 0.1 { break }
+                try await Task.sleep(nanoseconds: 50_000_000)
+            }
+            player.pause()
+            XCTAssertEqual(player.duration, 16, accuracy: 0.1)
+            player.seek(index == 0 ? 8 : 100)
+            XCTAssertEqual(player.position, index == 0 ? 8 : player.duration, accuracy: 0.1)
+            XCTAssertFalse(player.playing)
+            XCTAssertEqual(try XCTUnwrap(library.state.files[song.id]?.duration), 16, accuracy: 0.1)
+        }
+        database.flush()
+        let restored = try database.load()
+        XCTAssertEqual(try XCTUnwrap(restored.files[songs[0].id]?.duration), 16, accuracy: 0.1)
+    }
+    @MainActor func testImportDirectlyIntoRemotePlaylistKeepsTargetAndFilesAfterRestart() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let database = try SnapshotDatabase(root: root), library = try Library(database: database)
+        try library.setLink(Link(serverId: "import-test", host: "10.0.0.2", port: 38473, fingerprint: "a", deviceId: "phone"))
+        let playlist = Playlist(id: "pc-list", name: "Desde PC", trackIds: [], revision: "server-revision")
+        try library.merge(Manifest(protocolVersion: 1, serverId: "import-test", libraryName: "Test", accent: "#8CCDF3", tracks: [], playlists: [playlist], resumes: []))
+        let fixtures = try ["first.flac", "second.mp3"].map { name in try XCTUnwrap(Bundle.main.url(forResource: name, withExtension: nil, subdirectory: "Fixtures") ?? Bundle.main.url(forResource: name, withExtension: nil)) }
+        let imported = await library.importFiles(fixtures, into: playlist.id)
+        XCTAssertEqual(imported.count, 2)
+        XCTAssertEqual(library.state.localPlaylists.first?.trackIds, imported)
+        XCTAssertTrue(library.state.playlists.isEmpty)
+        XCTAssertEqual(library.state.pending.first(where: { $0.kind == "playlist" })?.baseRevision, playlist.revision)
+        database.flush()
+        let restored = try Library(database: SnapshotDatabase(root: root))
+        XCTAssertEqual(restored.state.localPlaylists.first?.trackIds, imported)
+        for id in imported { XCTAssertNotNil(restored.file(id)) }
+        restored.deletePlaylist(playlist.id)
+        for id in imported { XCTAssertNotNil(restored.file(id)) }
+    }
     @MainActor func testSharedMinutesNeverEchoAndPlaylistDeletionPreservesSongs() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

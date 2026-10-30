@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import UniformTypeIdentifiers
 struct LocalPlaylistView: View {
     @EnvironmentObject private var library: Library
     @Environment(\.dismiss) private var dismiss
@@ -15,6 +16,8 @@ struct LocalPlaylistView: View {
     @State private var loaded = false
     @State private var error: String?
     @State private var deleting = false
+    @State private var importFiles = false
+    @State private var importingFiles = false
     private var filtered: [Song] {
         library.state.songs.filter { search.isEmpty || "\($0.title) \($0.artist) \($0.album)".localizedCaseInsensitiveContains(search) }
     }
@@ -54,6 +57,9 @@ struct LocalPlaylistView: View {
                         }.buttonStyle(GlassPressStyle()).accessibilityIdentifier("playlist-select-" + song.id)
                     }
                 } header: { Text("Añade canciones") } footer: { Text("La playlist se sincroniza con tu PC cuando conectas ambos equipos. Las canciones importadas solo en el iPhone siguen siendo locales.") }
+                Section {
+                    Button { importFiles = true } label: { Label(importingFiles ? "Importando…" : "Importar archivos a esta playlist", systemImage: "folder.badge.plus") }.disabled(importingFiles).accessibilityIdentifier("import-playlist-files")
+                } footer: { Text("Los archivos elegidos se seleccionan automáticamente. Guarda la playlist para conservar su selección.") }
                 if playlistID != nil {
                     Section { Button("Eliminar playlist", role: .destructive) { deleting = true }.accessibilityIdentifier("delete-playlist") }
                 }
@@ -61,7 +67,18 @@ struct LocalPlaylistView: View {
                 .navigationTitle(playlistID == nil ? "Crea tu playlist" : "Edita tu playlist").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("Cancelar") { dismiss() }.disabled(saving) }
-                    ToolbarItem(placement: .confirmationAction) { Button(saving ? "Guardando…" : "Guardar") { save() }.disabled(saving || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
+                    ToolbarItem(placement: .confirmationAction) { Button(saving ? "Guardando…" : "Guardar") { save() }.disabled(saving || importingFiles || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
+                }
+                .fileImporter(isPresented: $importFiles, allowedContentTypes: [UTType(filenameExtension: "flac") ?? .audio, .mp3], allowsMultipleSelection: true) { result in
+                    switch result {
+                    case .success(let urls): Task {
+                        importingFiles = true
+                        let ids = await library.importFiles(urls)
+                        var seen = Set(selected); selected += ids.filter { seen.insert($0).inserted }
+                        importingFiles = false
+                    }
+                    case .failure(let error): self.error = error.localizedDescription
+                    }
                 }
                 .onAppear {
                     guard !loaded else { return }; loaded = true

@@ -110,3 +110,9 @@ El usuario informó aproximadamente 8% de CPU y menos de 300 MB de RAM con 0.1.2
 - Un arrastre pendiente pertenece a su canción y se descarta al cambiar de pista. Adelantar al final mantiene el orden de la cola y la siguiente canción empieza con su propia posición. Las muestras/respuestas antiguas no deben sobrescribir el reloj de la nueva pista.
 
 - iPhone 0.5.1: entrega de corrección de la barra; no reutilizar el número de la compilación anterior. Las pruebas esperan la pausa y su guardado antes de comprobar posiciones exactas.
+
+## iPhone 0.6.0 · duración real e importación por playlist
+
+- Duración medida por AVPlayerItem, coherente en reproductor grande, mini reproductor, editor de letras, saltos y pantalla bloqueada. Se conserva por archivo/revisión, no se modifica el audio original ni se sustituye por una duración de catálogo al sincronizar. Muestras durante un seek pendiente se descartan.
+- Importar FLAC/MP3 desde una playlist añade los archivos directamente a esa lista; el editor de creación permite importar y seleccionar los archivos nuevos antes de guardar. Conserva descargas al eliminar listas. Las playlists recibidas de PC mantienen su ID y revisión al añadirles canciones desde el teléfono. Los audios importados solo en iPhone continúan locales.
+- Android 0.1.0 comienza por reproducción local y playlists, independiente de main. La sincronización Android-PC queda para una siguiente etapa.
