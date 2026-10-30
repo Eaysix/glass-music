@@ -123,6 +123,7 @@ struct ChangeResult: Codable {
 struct OfflineFile: Codable {
     var relativePath: String
     var revision: String
+    var duration: Double? = nil
 }
 struct PhoneQueue: Codable {
     var shuffle: Bool?

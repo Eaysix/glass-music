@@ -85,7 +85,7 @@ struct NowPlayingView: View {
     }
     private func timeline(_ song: Song) -> some View {
         VStack(spacing: 5) {
-            Slider(value: Binding(get: { min(editing ? scrubbing : player.position, max(1, song.duration)) }, set: { scrubbing = $0 }), in: 0...max(1, song.duration), onEditingChanged: { value in
+            Slider(value: Binding(get: { min(editing ? scrubbing : player.position, max(1, player.duration)) }, set: { scrubbing = $0 }), in: 0...max(1, player.duration), onEditingChanged: { value in
                 if value { scrubbing = player.position; scrubbingSongId = song.id }
                 editing = value
                 if !value {
@@ -93,7 +93,7 @@ struct NowPlayingView: View {
                     scrubbingSongId = nil
                 }
             }).accessibilityLabel("Posición de reproducción")
-            HStack { Text(clock(editing ? scrubbing : player.position)).accessibilityIdentifier("player-elapsed"); Spacer(); Text(clock(song.duration)) }.font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+            HStack { Text(clock(editing ? scrubbing : player.position)).accessibilityIdentifier("player-elapsed"); Spacer(); Text(clock(player.duration)).accessibilityIdentifier("player-duration") }.font(.caption.monospacedDigit()).foregroundStyle(.secondary)
         }
     }
     private var transport: some View {

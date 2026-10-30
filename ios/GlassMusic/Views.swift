@@ -156,6 +156,8 @@ struct SongList: View {
     @State private var editPlaylist = false
     @State private var deleteList = false
     @State private var leaveDeletedPlaylist = false
+    @State private var importFiles = false
+    @State private var importingFiles = false
     @Environment(\.dismiss) private var dismiss
     @State private var search = ""
     private var playlistExists: Bool {
@@ -187,11 +189,19 @@ struct SongList: View {
             ForEach(visible) { song in SongRow(song: song, player: player, context: context, source: source) }.listRowBackground(Color.white.opacity(0.035))
             if songs.isEmpty { ContentUnavailableView(search.isEmpty ? "Tu música aparecerá aquí" : "Sin resultados", systemImage: "music.note", description: Text("Sincroniza tu PC o importa archivos FLAC y MP3." )).listRowBackground(Color.clear) }
         }.glassScreen().toolbar(.hidden, for: .tabBar).listStyle(.insetGrouped).navigationTitle(title).searchable(text: $search, prompt: "Canciones, artistas, álbumes")
+        .fileImporter(isPresented: $importFiles, allowedContentTypes: [UTType(filenameExtension: "flac") ?? .audio, .mp3], allowsMultipleSelection: true) { result in
+            switch result {
+            case .success(let urls):
+                let target = source.hasPrefix("playlist:") ? String(source.dropFirst("playlist:".count)) : nil
+                Task { importingFiles = true; await library.importFiles(urls, into: target); importingFiles = false }
+            case .failure(let error): library.message = error.localizedDescription
+            }
+        }
         .sheet(isPresented: $showQueue) { PhoneQueueView(player: player).environmentObject(library) }
         .confirmationDialog("¿Eliminar esta playlist?", isPresented: $deleteList, titleVisibility: .visible) {
             Button("Eliminar playlist", role: .destructive) { library.deletePlaylist(String(source.dropFirst("playlist:".count))); leaveDeletedPlaylist = true }.accessibilityIdentifier("confirm-delete-playlist")
         } message: { Text("Las canciones y descargas se conservan. Se eliminará también de PC al sincronizar.") }
-        .toolbar { if source.hasPrefix("playlist:") { ToolbarItem(placement: .topBarTrailing) { Button(role: .destructive) { deleteList = true } label: { Image(systemName: "trash") }.accessibilityLabel("Eliminar playlist") } }; ToolbarItem(placement: .topBarTrailing) { Button { showQueue = true } label: { Image(systemName: "list.bullet") }.accessibilityLabel("Cola") }; if library.state.localPlaylists.contains(where: { "playlist:" + $0.id == source }) { ToolbarItem(placement: .topBarTrailing) { Button { editPlaylist = true } label: { Image(systemName: "pencil") }.accessibilityLabel("Editar playlist") } } }
+        .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { importFiles = true } label: { Image(systemName: "plus") }.disabled(importingFiles).accessibilityLabel(source.hasPrefix("playlist:") ? "Importar a esta playlist" : "Importar música").accessibilityIdentifier("import-to-collection") }; if source.hasPrefix("playlist:") { ToolbarItem(placement: .topBarTrailing) { Button(role: .destructive) { deleteList = true } label: { Image(systemName: "trash") }.accessibilityLabel("Eliminar playlist") } }; ToolbarItem(placement: .topBarTrailing) { Button { showQueue = true } label: { Image(systemName: "list.bullet") }.accessibilityLabel("Cola") }; if library.state.localPlaylists.contains(where: { "playlist:" + $0.id == source }) { ToolbarItem(placement: .topBarTrailing) { Button { editPlaylist = true } label: { Image(systemName: "pencil") }.accessibilityLabel("Editar playlist") } } }
         .sheet(isPresented: $editPlaylist) { LocalPlaylistView(playlistID: String(source.dropFirst("playlist:".count))).environmentObject(library) }
         .onChange(of: playlistExists) { _, exists in if !exists { leaveDeletedPlaylist = true } }
         .task(id: leaveDeletedPlaylist) {
@@ -257,7 +267,7 @@ struct MiniPlayer: View {
                 }.foregroundStyle(library.tint)
                 GeometryReader { geometry in
                     Capsule().fill(.white.opacity(0.1))
-                    Capsule().fill(library.tint.opacity(0.8)).frame(width: geometry.size.width * min(1, max(0, player.position / max(1, song.duration))))
+                    Capsule().fill(library.tint.opacity(0.8)).frame(width: geometry.size.width * min(1, max(0, player.position / max(1, player.duration))))
                 }.frame(height: 2).accessibilityHidden(true)
             }.animation(motion, value: song.id).animation(motion, value: player.playing).padding(.horizontal, 12).padding(.top, 9).padding(.bottom, 7).glassSurface(radius: 24, chrome: true)
                 .transition(.move(edge: .bottom).combined(with: .opacity))

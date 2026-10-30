@@ -2,8 +2,7 @@ name: iPhone · comprobar y crear IPA de prueba
 on:
   push:
     branches: ["feat/ios-**"]
-  pull_request:
-    paths: ["ios/**", "crates/glass-sync/**", ".github/workflows/ios.yml"]
+  # Mobile branches already build on push; a second PR run used to cancel and block macOS.
   workflow_dispatch:
 concurrency:
   group: ios-${{ github.head_ref || github.ref_name }}

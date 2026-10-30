@@ -160,6 +160,7 @@ final class GlassMusicUITests: XCTestCase {
         app.buttons["Guardar"].tap()
         XCTAssertTrue(app.buttons["nav-home"].waitForExistence(timeout: 5))
         let created = app.staticTexts["Mi playlist"].firstMatch; reveal(created, in: app); created.tap()
+        XCTAssertTrue(app.buttons["import-to-collection"].waitForExistence(timeout: 5))
         let delete = app.buttons["Eliminar playlist"].firstMatch
         XCTAssertTrue(delete.waitForExistence(timeout: 5)); delete.tap()
         let namedConfirmation = app.buttons.matching(identifier: "confirm-delete-playlist").firstMatch
