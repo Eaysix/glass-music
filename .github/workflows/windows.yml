@@ -2,9 +2,23 @@ name: Windows · comprobar y crear instalador
 on:
   push:
     branches: [main, "feat/**"]
-    paths-ignore: ["ios/**", "docs/**", ".github/workflows/ios.yml"]
+    paths-ignore:
+      [
+        "ios/**",
+        "android/**",
+        "docs/**",
+        ".github/workflows/ios.yml",
+        ".github/workflows/android.yml",
+      ]
   pull_request:
-    paths-ignore: ["ios/**", "docs/**", ".github/workflows/ios.yml"]
+    paths-ignore:
+      [
+        "ios/**",
+        "android/**",
+        "docs/**",
+        ".github/workflows/ios.yml",
+        ".github/workflows/android.yml",
+      ]
   workflow_dispatch:
 concurrency:
   group: windows-${{ github.head_ref || github.ref_name }}
@@ -13,7 +27,7 @@ permissions:
   contents: read
 jobs:
   windows:
-    if: ${{ !startsWith(github.head_ref || github.ref_name, 'feat/ios-') }}
+    if: ${{ !startsWith(github.head_ref || github.ref_name, 'feat/ios-') && !startsWith(github.head_ref || github.ref_name, 'feat/android-') }}
     runs-on: windows-latest
     timeout-minutes: 40
     steps:

@@ -21,3 +21,12 @@ crates/*/target/
 ios/build/
 ios/*.xcodeproj/
 *.xcuserstate
+
+android/.gradle/
+android/**/build/
+android/local.properties
+android/.idea/
+*.apk
+*.aab
+*.jks
+*.keystore

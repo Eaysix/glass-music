@@ -102,3 +102,9 @@ El usuario informó aproximadamente 8% de CPU y menos de 300 MB de RAM con 0.1.2
 - Un arrastre pendiente pertenece a su canción y se descarta al cambiar de pista. Adelantar al final mantiene el orden de la cola y la siguiente canción empieza con su propia posición. Las muestras/respuestas antiguas no deben sobrescribir el reloj de la nueva pista.
 
 - Windows 1.0.0-rc.8: entrega de corrección de la barra; no reutilizar el número de la compilación anterior. Las pruebas esperan la pausa y su guardado antes de comprobar posiciones exactas.
+
+## Android 0.1.0 · primera versión local
+
+- APK de prueba para Android 8+, importación FLAC/MP3 por selector del sistema y copia privada sin modificar originales. Playlists con importación directa, biblioteca/favoritas, portadas embebidas, cola manual FIFO, orden por fecha, letras locales editables y LRC por línea. Audio Media3 en segundo plano con controles multimedia.
+- Persistir cola real, posición y personalización sin reproducir al abrir; aurora opcional y mini reproductor sobre navegación reservada. Sin cuentas, permisos globales de archivos, conexión a internet ni servidor.
+- Primera etapa Android local; sincronización con PC/iPhone, estadísticas compartidas y Android Auto quedan pendientes. Mantener Android en una rama separada de main. Guía: [ANDROID.md](ANDROID.md).
