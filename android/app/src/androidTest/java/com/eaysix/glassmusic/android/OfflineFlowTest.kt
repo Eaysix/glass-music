@@ -15,6 +15,10 @@ import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.content.ContentValues
+import android.provider.MediaStore
+import android.os.Build
+import androidx.test.platform.app.InstrumentationRegistry
 
 @RunWith(AndroidJUnit4::class)
 class OfflineFlowTest {
@@ -51,6 +55,20 @@ class OfflineFlowTest {
             out.write(byteArrayOf(0x86.toByte(), (payload.size shr 16).toByte(), (payload.size shr 8).toByte(), payload.size.toByte()))
             out.write(payload); out.write(bytes, offset, bytes.size - offset)
         }
+    }
+
+    private fun screenshot(name: String) {
+        if (Build.VERSION.SDK_INT < 29) return
+        val context = ui.activity
+        val image = requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, name)
+            put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+            put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/GlassMusic")
+        }
+        val uri = requireNotNull(context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values))
+        context.contentResolver.openOutputStream(uri)?.use { image.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        image.recycle()
     }
 
     @Test fun importsPlaylistRealAudioEndOfTrackLyricsAndDeletion() {
@@ -94,6 +112,7 @@ class OfflineFlowTest {
         ui.runOnIdle { activity.playback.seek(8000) }
         ui.waitUntil(5000) { activity.playback.state.value.position in 7500..8500 }
         assertFalse(activity.playback.state.value.playing)
+        screenshot("player.png")
         ui.onNodeWithText("Editar letra").performScrollTo().performClick()
         ui.onNodeWithTag("lyrics-text").performTextInput("[00:01]Hola Android\n[00:03]Sigue la música")
         ui.onNodeWithText("Guardar letra").performClick()
@@ -111,6 +130,7 @@ class OfflineFlowTest {
         ui.onNodeWithText("Eliminar playlist").performClick()
         ui.onNodeWithText("Eliminar playlist").performClick()
         ui.waitUntil(5000) { store.state.value.playlists.isEmpty() }
+        screenshot("home.png")
         imported.forEach { id -> assertTrue(store.mediaFile(store.state.value.songs.first { it.id == id }).exists()) }
     }
 }
