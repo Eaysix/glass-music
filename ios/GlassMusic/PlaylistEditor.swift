@@ -41,25 +41,8 @@ struct LocalPlaylistView: View {
                         }
                     }.padding(.vertical, 12)
                 }.listRowBackground(Color.white.opacity(0.04))
-                Section {
-                    Button { importFiles = true } label: { Label(importingFiles ? "Importando…" : "Importar archivos a esta playlist", systemImage: "folder.badge.plus") }.disabled(importingFiles).accessibilityIdentifier("import-playlist-files")
-                } footer: { Text("Los archivos elegidos se seleccionan automáticamente. Guarda la playlist para conservar su selección.") }
-                Section {
-                    ForEach(filtered) { song in
-                        Button {
-                            withAnimation(library.phoneAppearance.animations && !reduceMotion ? .easeInOut(duration: 0.18) : nil) {
-                                if let index = selected.firstIndex(of: song.id) { selected.remove(at: index) } else { selected.append(song.id) }
-                            }
-                        } label: {
-                            HStack(spacing: 12) {
-                                Artwork(id: song.id, size: 42)
-                                VStack(alignment: .leading, spacing: 4) { Text(song.title).foregroundStyle(.primary).lineLimit(1); Text(song.artist).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
-                                Spacer()
-                                Image(systemName: selected.contains(song.id) ? "checkmark.circle.fill" : "circle").foregroundStyle(library.tint)
-                            }.frame(minHeight: 48).contentShape(Rectangle())
-                        }.buttonStyle(GlassPressStyle()).accessibilityIdentifier("playlist-select-" + song.id)
-                    }
-                } header: { Text("Añade canciones") } footer: { Text("La playlist se sincroniza con tu PC cuando conectas ambos equipos. Las canciones importadas solo en el iPhone siguen siendo locales.") }
+                importSection
+                songSection
                 if playlistID != nil {
                     Section { Button("Eliminar playlist", role: .destructive) { deleting = true }.accessibilityIdentifier("delete-playlist") }
                 }
@@ -96,6 +79,29 @@ struct LocalPlaylistView: View {
                 } message: { Text("Las canciones y sus descargas se conservan. La eliminación se enviará a tu PC al sincronizar.") }
                 .alert("Playlist", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) { Button("Listo") { error = nil } } message: { Text(error ?? "") }
         }.tint(library.tint).preferredColorScheme(.dark)
+    }
+    private var importSection: some View {
+    Section {
+        Button { importFiles = true } label: { Label(importingFiles ? "Importando…" : "Importar archivos a esta playlist", systemImage: "folder.badge.plus") }.disabled(importingFiles).accessibilityIdentifier("import-playlist-files")
+    } footer: { Text("Los archivos elegidos se seleccionan automáticamente. Guarda la playlist para conservar su selección.") }
+    }
+    private var songSection: some View {
+    Section {
+        ForEach(filtered) { song in
+            Button {
+                withAnimation(library.phoneAppearance.animations && !reduceMotion ? .easeInOut(duration: 0.18) : nil) {
+                    if let index = selected.firstIndex(of: song.id) { selected.remove(at: index) } else { selected.append(song.id) }
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    Artwork(id: song.id, size: 42)
+                    VStack(alignment: .leading, spacing: 4) { Text(song.title).foregroundStyle(.primary).lineLimit(1); Text(song.artist).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
+                    Spacer()
+                    Image(systemName: selected.contains(song.id) ? "checkmark.circle.fill" : "circle").foregroundStyle(library.tint)
+                }.frame(minHeight: 48).contentShape(Rectangle())
+            }.buttonStyle(GlassPressStyle()).accessibilityIdentifier("playlist-select-" + song.id)
+        }
+    } header: { Text("Añade canciones") } footer: { Text("La playlist se sincroniza con tu PC cuando conectas ambos equipos. Las canciones importadas solo en el iPhone siguen siendo locales.") }
     }
     private func save() {
         saving = true
