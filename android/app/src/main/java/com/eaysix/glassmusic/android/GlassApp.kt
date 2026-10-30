@@ -93,7 +93,7 @@ internal fun Modifier.glass(radius: Int = 24) = clip(RoundedCornerShape(radius.d
     val tint = Color(library.appearance.accent)
     val density = LocalDensity.current
     CompositionLocalProvider(LocalDensity provides Density(density.density, density.fontScale * library.appearance.scale), LocalContentColor provides Color.White) {
-        MaterialTheme(colorScheme = darkColorScheme(primary = tint, onPrimary = Ink, surface = Color(0xFF1A2435), background = Ink)) {
+        MaterialTheme(colorScheme = darkColorScheme(primary = tint, onPrimary = Ink, primaryContainer = tint.copy(alpha = .18f), onPrimaryContainer = Color.White, secondary = tint, onSecondary = Ink, secondaryContainer = tint.copy(alpha = .16f), onSecondaryContainer = tint, surface = Color(0xFF1A2435), background = Ink)) {
             Box(Modifier.fillMaxSize()) {
                 GlassBackground(tint, library.appearance.animated && lifecycleState.isAtLeast(Lifecycle.State.STARTED))
                 Scaffold(containerColor = Color.Transparent, bottomBar = {

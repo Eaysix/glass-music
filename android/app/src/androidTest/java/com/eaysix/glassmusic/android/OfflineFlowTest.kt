@@ -58,6 +58,7 @@ class OfflineFlowTest {
     }
 
     private fun screenshot(name: String) {
+        ui.waitForIdle()
         if (Build.VERSION.SDK_INT < 29) return
         val context = ui.activity
         val image = requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
@@ -112,6 +113,7 @@ class OfflineFlowTest {
         ui.runOnIdle { activity.playback.seek(8000) }
         ui.waitUntil(5000) { activity.playback.state.value.position in 7500..8500 }
         assertFalse(activity.playback.state.value.playing)
+        ui.onNodeWithTag("elapsed").assert(hasText("0:07") or hasText("0:08"))
         screenshot("player.png")
         ui.onNodeWithText("Editar letra").performScrollTo().performClick()
         ui.onNodeWithTag("lyrics-text").performTextInput("[00:01]Hola Android\n[00:03]Sigue la música")
