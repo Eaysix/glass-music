@@ -3,6 +3,7 @@ package com.eaysix.glassmusic.android
 import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
@@ -87,6 +88,7 @@ internal fun Modifier.glass(radius: Int = 24) = clip(RoundedCornerShape(radius.d
         importer.launch(arrayOf("audio/*", "application/octet-stream"))
     }
     val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
+    BackHandler(enabled = !expanded && (playlistId != null || tab != 0)) { playlistId = null; tab = 0 }
     val current = library.songs.firstOrNull { it.id == media.id }
     val tint = Color(library.appearance.accent)
     val density = LocalDensity.current

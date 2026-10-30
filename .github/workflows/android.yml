@@ -56,7 +56,7 @@ jobs:
           script: |
             cd android && gradle --no-daemon :app:connectedDebugAndroidTest
             adb shell am start -n com.eaysix.glassmusic.android/.MainActivity
-            adb exec-out screencap -p > android-screen.png
+            adb exec-out screencap -p > "$GITHUB_WORKSPACE/android-screen.png"
       - name: Identify APK
         run: |
           mkdir -p android/build/artifacts
