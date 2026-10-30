@@ -144,7 +144,7 @@ class LibraryStore private constructor(private val context: Context) {
                     if (picture != null && picture.size <= 12 * 1024 * 1024) {
                         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                         BitmapFactory.decodeByteArray(picture, 0, picture.size, bounds)
-                        val options = BitmapFactory.Options().apply { while (maxOf(bounds.outWidth, bounds.outHeight) / inSampleSize > 512) inSampleSize *= 2 }
+                        val options = BitmapFactory.Options().apply { inSampleSize = 1; while (maxOf(bounds.outWidth, bounds.outHeight) / inSampleSize > 512) inSampleSize *= 2 }
                         BitmapFactory.decodeByteArray(picture, 0, picture.size, options)?.let { bitmap ->
                             cover = "$id.jpg"
                             File(covers, cover!!).outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 88, it) }

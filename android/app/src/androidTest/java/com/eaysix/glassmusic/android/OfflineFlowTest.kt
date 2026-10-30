@@ -11,10 +11,47 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.io.ByteArrayOutputStream
+import java.io.DataOutputStream
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 
 @RunWith(AndroidJUnit4::class)
 class OfflineFlowTest {
     @get:Rule val ui = createAndroidComposeRule<MainActivity>()
+
+    // Add a standard FLAC PICTURE block to a private copy of the silent fixture.
+    private fun attachSyntheticCover(file: File) {
+        val image = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.BLUE) }
+        val png = ByteArrayOutputStream().also { image.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
+        image.recycle()
+        val picture = ByteArrayOutputStream()
+        DataOutputStream(picture).use { out ->
+            out.writeInt(3)
+            val mime = "image/png".toByteArray(Charsets.US_ASCII)
+            out.writeInt(mime.size); out.write(mime); out.writeInt(0)
+            out.writeInt(32); out.writeInt(32); out.writeInt(32); out.writeInt(0)
+            out.writeInt(png.size); out.write(png)
+        }
+        val bytes = file.readBytes()
+        check(String(bytes.copyOfRange(0, 4), Charsets.US_ASCII) == "fLaC")
+        var offset = 4
+        var lastHeader: Int
+        do {
+            lastHeader = offset
+            val last = bytes[offset].toInt() and 128 != 0
+            val length = ((bytes[offset + 1].toInt() and 255) shl 16) or ((bytes[offset + 2].toInt() and 255) shl 8) or (bytes[offset + 3].toInt() and 255)
+            offset += 4 + length
+        } while (!last)
+        val metadata = bytes.copyOfRange(0, offset)
+        metadata[lastHeader] = (metadata[lastHeader].toInt() and 127).toByte()
+        val payload = picture.toByteArray()
+        file.outputStream().use { out ->
+            out.write(metadata)
+            out.write(byteArrayOf(0x86.toByte(), (payload.size shr 16).toByte(), (payload.size shr 8).toByte(), payload.size.toByte()))
+            out.write(payload); out.write(bytes, offset, bytes.size - offset)
+        }
+    }
 
     @Test fun importsPlaylistRealAudioEndOfTrackLyricsAndDeletion() {
         val activity = ui.activity
@@ -30,11 +67,17 @@ class OfflineFlowTest {
         val uris = listOf("first.flac", "second.mp3").mapIndexed { index, name ->
             val file = File(activity.cacheDir, name)
             activity.assets.open(name).use { input -> file.outputStream().use { input.copyTo(it) } }
+            if (index == 0) attachSyntheticCover(file)
             file.setLastModified(1_600_000_000_000L + index * 1000)
             Uri.fromFile(file)
         }
         val imported = runBlocking { store.importFiles(uris, list.id) }
         assertEquals(2, imported.size)
+        val artwork = store.coverFile(store.state.value.songs.first { it.id == imported[0] })
+        assertNotNull("Embedded FLAC cover must be imported", artwork)
+        val preview = requireNotNull(BitmapFactory.decodeFile(artwork!!.path))
+        assertTrue(preview.width <= 512 && preview.height <= 512)
+        preview.recycle()
         assertEquals(imported, store.state.value.playlists.single().ids)
         runBlocking { store.importFiles(uris, list.id) }
         assertEquals(2, store.state.value.songs.size)
@@ -62,7 +105,9 @@ class OfflineFlowTest {
         assertTrue(saved.queue.position in 7500..8500)
         ui.activityRule.scenario.recreate()
         ui.waitUntil(10_000) { ui.activity.playback.state.value.let { it.connected && it.id == imported[1] && !it.playing } }
-        ui.onNodeWithContentDescription("Opciones de playlist").performClick()
+        ui.onNodeWithContentDescription("Cerrar reproductor").performClick()
+        ui.onNodeWithText("Inicio").performClick()
+        ui.onNodeWithContentDescription("Opciones de playlist").performScrollTo().performClick()
         ui.onNodeWithText("Eliminar playlist").performClick()
         ui.onNodeWithText("Eliminar playlist").performClick()
         ui.waitUntil(5000) { store.state.value.playlists.isEmpty() }
