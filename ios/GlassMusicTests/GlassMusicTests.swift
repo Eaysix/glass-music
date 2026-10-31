@@ -35,6 +35,14 @@ final class GlassMusicTests: XCTestCase {
         XCTAssertGreaterThan(player.position, 0.5)
         XCTAssertLessThan(player.position, 5)
     }
+    func testOnlineLyricsKeepProvidedTimingAndRequireTheSameRecordingForBatch() {
+        let result = OnlineLyrics(id: 1, trackName: "Canción (En Vivo)", artistName: "Artista", albumName: "Álbum", duration: 200, plainLyrics: "Texto", syncedLyrics: "[00:01]Texto")
+        var song = Song(id: "test", title: "Canción (En Vivo)", artist: "Artista", album: "Álbum", duration: 201, format: "FLAC", lyricsRevision: "")
+        XCTAssertTrue(result.matches(song))
+        XCTAssertEqual(result.text, "[00:01]Texto")
+        song.title = "Canción"; XCTAssertFalse(result.matches(song))
+        song.title = result.trackName; song.duration = 230; XCTAssertFalse(result.matches(song))
+    }
     func testOldOfflineFileWithoutMeasuredDurationStillDecodes() throws {
         let file = try JSONDecoder().decode(OfflineFile.self, from: Data(#"{"relativePath":"Audio/one.flac","revision":"old"}"#.utf8))
         XCTAssertNil(file.duration)

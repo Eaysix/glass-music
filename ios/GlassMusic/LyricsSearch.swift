@@ -18,13 +18,16 @@ struct OnlineLyrics: Decodable, Identifiable {
 actor LyricsSearch {
     static let shared = LyricsSearch()
     private var next = Date.distantPast
+    private var inFlight = false
     private var cache: [String: [OnlineLyrics]] = [:]
     func search(_ song: Song) async throws -> [OnlineLyrics] {
         var url = URLComponents(string: "https://lrclib.net/api/search")!
         url.queryItems = [URLQueryItem(name: "track_name", value: song.title), URLQueryItem(name: "artist_name", value: song.artist)]
         let key = url.url!.absoluteString
         if let saved = cache[key] { return saved }
-        guard Date() >= next else { throw AppError.message("Espera antes de volver a buscar letras en LRCLIB.") }
+        guard !inFlight, Date() >= next else { throw AppError.message("Espera antes de volver a buscar letras en LRCLIB.") }
+        inFlight = true
+        defer { inFlight = false }
         next = Date().addingTimeInterval(0.8)
         var request = URLRequest(url: url.url!); request.timeoutInterval = 20
         request.setValue("Glass Music iOS 0.6.1 (https://github.com/Eaysix/glass-music)", forHTTPHeaderField: "Lrclib-Client")
