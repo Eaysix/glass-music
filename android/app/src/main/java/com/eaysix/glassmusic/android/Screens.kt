@@ -210,14 +210,14 @@ import kotlinx.coroutines.CancellationException
     var notice by remember { mutableStateOf("") }
     var chosen by remember { mutableStateOf<org.json.JSONObject?>(null) }
     AlertDialog(onDismissRequest = dismiss, title = { Text("Letra · ${song.title}", maxLines = 2) }, text = {
-        Column {
+        Column(Modifier.heightIn(max=520.dp).verticalScroll(rememberScrollState())) {
             TextButton(enabled=!searching,onClick={scope.launch {
                 searching=true;notice="";try{candidates=LyricsSearch.search(song);if(candidates.isEmpty())notice="Sin coincidencias. Puedes escribirla manualmente."}catch(e:Exception){notice=e.message ?: "No se pudo buscar."}finally{searching=false}
             }}) {Text(if(searching)"Buscando…"else"Buscar letra en LRCLIB")}
             Text("Envía título y artista; el audio se queda en tu teléfono.",fontSize=11.sp)
             if(notice.isNotEmpty())Text(notice,fontSize=11.sp)
             if(candidates.isNotEmpty()) LazyColumn(Modifier.heightIn(max=120.dp)) { items(candidates) { result ->
-                TextButton(onClick={chosen=result}) {Text("${result.optString("trackName")} · ${result.optDouble("duration").toInt()} s · ${if(result.optional("syncedLyrics")!=null)"Sincronizada"else"Texto"}",fontSize=11.sp)}
+                TextButton(onClick={chosen=result}) {Text("${result.optString("trackName")} · ${result.optString("artistName")} · ${result.optDouble("duration").toInt()} s · ${if(result.optional("syncedLyrics")!=null)"Sincronizada"else"Texto"}",fontSize=11.sp)}
             } }
             if(chosen!=null) { Text(lyricsText(chosen!!).take(180),fontSize=11.sp);TextButton(onClick={text=TextFieldValue(lyricsText(chosen!!));chosen=null;candidates=emptyList()}){Text("Usar en el borrador")} }
             Text("Texto libre o LRC. Coloca el cursor antes de una línea para marcarla con el tiempo actual.", fontSize = 12.sp, color = Color.White.copy(alpha = .55f))
