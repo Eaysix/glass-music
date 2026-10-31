@@ -399,6 +399,7 @@ nav button:hover,
   gap: 12px;
 }
 .hero-copy {
+  flex: 1;
   z-index: 1;
   min-width: 0;
 }
@@ -427,6 +428,7 @@ nav button:hover,
 }
 .hero-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin-top: 22px;
 }

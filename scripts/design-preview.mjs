@@ -22,7 +22,7 @@ const browser = await chromium.launch({
       }
     : {}),
 });
-const page = await browser.newPage({ viewport: { width: 1360, height: 880 } });
+const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
 await fs.mkdir("artifacts/motion", { recursive: true });
 try {
   await page.goto("http://127.0.0.1:1422");
