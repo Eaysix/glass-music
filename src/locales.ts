@@ -1,4 +1,23 @@
 export const messages: Record<string, Record<string, string>> = {
+  Sincronizar: { en: "Sync", de: "Synchronisieren", "zh-CN": "同步" },
+  "Tu música, también en el teléfono": {
+    en: "Your music, on your phone too",
+    de: "Deine Musik, auch auf deinem Smartphone",
+    "zh-CN": "你的音乐，也在手机上",
+  },
+  "Continuar desde otro dispositivo": {
+    en: "Continue from another device",
+    de: "Von einem anderen Gerät fortsetzen",
+    "zh-CN": "从其他设备继续",
+  },
+  "Mantén Glass Music abierto en la PC y usa la misma red en tu teléfono. Si Windows pide acceso de red, permite la red privada. Al cerrar o desactivar la sincronización deja de compartir.":
+    {
+      en: "Keep Glass Music open on your PC and connect your phone to the same network. If Windows asks for network access, allow the private network. Closing the app or turning off sync stops sharing.",
+      de: "Lass Glass Music auf dem PC geöffnet und verbinde dein Smartphone mit demselben Netzwerk. Erlaube bei einer Windows-Abfrage den Zugriff im privaten Netzwerk. Schließen oder Deaktivieren der Synchronisierung beendet die Freigabe.",
+      "zh-CN":
+        "保持电脑上的 Glass Music 打开，并将手机连接到同一网络。如果 Windows 请求网络访问，请允许专用网络。关闭应用或禁用同步后将停止共享。",
+    },
+
   "QR para vincular tu dispositivo": {
     en: "QR code to link your device",
     de: "QR-Code zum Verknüpfen deines Geräts",

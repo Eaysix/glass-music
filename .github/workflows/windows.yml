@@ -51,6 +51,7 @@ jobs:
       - run: npm run test:home
       - run: npm run test:stability
       - run: npm run test:words
+      - run: node scripts/lyrics-search-smoke.mjs
       - name: Capture Windows interface for promotion
         run: node scripts/design-preview.mjs
       - uses: actions/upload-artifact@v4

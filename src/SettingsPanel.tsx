@@ -10,7 +10,7 @@ const tabs = [
   ["player", "Reproductor"],
   ["discord", "Discord"],
   ["performance", "Rendimiento"],
-  ["sync", "iPhone"],
+  ["sync", "Sincronizar"],
 ] as const;
 export default function SettingsPanel({
   settings: s,
