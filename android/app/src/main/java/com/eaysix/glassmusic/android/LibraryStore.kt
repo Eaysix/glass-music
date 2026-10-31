@@ -54,6 +54,7 @@ class LibraryStore private constructor(private val context: Context) {
     @Synchronized private fun change(edit: (LibraryState) -> LibraryState) {
         check(mutable.value.ready) { "Espera a que abra la biblioteca." }
         val next = edit(mutable.value)
+        if (next == mutable.value) return
         mutable.value = next
         writer.execute {
             var output: java.io.FileOutputStream? = null
@@ -248,7 +249,7 @@ class LibraryStore private constructor(private val context: Context) {
             val id=t.getString("id"); require(Regex("[a-zA-Z0-9_-]{1,150}").matches(id))
             val was=old[id]
             Song(id,t.getString("title"),t.getString("artist"),t.getString("album"),(t.optDouble("duration",0.0)*1000).toLong().coerceAtLeast(0),t.getString("format"),if(t.isNull("modifiedAt"))null else t.optDouble("modifiedAt").toLong(),
-                was?.fileName ?: "",was?.coverName,if(edited("favorite",id))was?.favorite ?: false else t.optBoolean("favorite"),was?.lyrics ?: "",server,t.optional("fileRevision"),was?.fileRevision,was?.lyricsRevision ?: "",if(t.isNull("fileSize"))null else t.optLong("fileSize"))
+                was?.fileName ?: "",was?.coverName,if(edited("favorite",id))was?.favorite ?: false else t.optBoolean("favorite"),was?.lyrics ?: "",server,t.optional("fileRevision"),was?.fileRevision,was?.lyricsRevision ?: "",if(t.isNull("fileSize"))null else t.optLong("fileSize"),t.optString("lyricsRevision"))
         }
         val ids=incoming.map { it.id }.toSet()
         val lists = manifest.getJSONArray("playlists").objects().map { p ->
@@ -264,9 +265,12 @@ class LibraryStore private constructor(private val context: Context) {
         sync.put("resumes",manifest.optJSONArray("resumes") ?: JSONArray())
         current.copy(songs=current.songs.filter { it.id !in ids }+incoming, playlists=kept+lists.filterNot { edited("playlist",it.id) },sync=sync.toString())
     }
-    internal fun cachePCLyrics(id: String, payload: JSONObject) = change { current ->
-        val edited=syncObject(current).optJSONArray("pending")?.objects().orEmpty().any { it.optString("kind")=="lyrics" && it.optString("id")==id }
-        if(edited) current else current.copy(songs=current.songs.map { if(it.id==id)it.copy(lyrics=payload.getString("text"),lyricsRevision=payload.getString("revision"))else it })
+    internal fun cachePCLyrics(payloads: Map<String, JSONObject>) = change { current ->
+        val edits=syncObject(current).optJSONArray("pending")?.objects().orEmpty().filter { it.optString("kind")=="lyrics" }.map { it.optString("id") }.toSet()
+        current.copy(songs=current.songs.map { song ->
+            val payload=payloads[song.id]
+            if(payload==null || song.id in edits) song else song.copy(lyrics=payload.getString("text"),lyricsRevision=payload.getString("revision"))
+        })
     }
     internal fun installPC(song: Song, client: LanClient) {
         val temporary=File(audio,"${UUID.randomUUID()}.part")
@@ -322,7 +326,7 @@ class LibraryStore private constructor(private val context: Context) {
             put("songs", JSONArray(state.songs.map { s -> JSONObject().apply {
                 put("id", s.id); put("title", s.title); put("artist", s.artist); put("album", s.album)
                 put("duration", s.durationMs); put("format", s.format); put("modified", s.modifiedAt ?: JSONObject.NULL)
-                put("file", s.fileName); put("cover", s.coverName ?: JSONObject.NULL); put("favorite", s.favorite); put("lyrics", s.lyrics); put("remoteServer",s.remoteServer); put("remoteRevision",s.remoteRevision); put("fileRevision",s.fileRevision); put("lyricsRevision",s.lyricsRevision); put("fileSize",s.fileSize)
+                put("file", s.fileName); put("cover", s.coverName ?: JSONObject.NULL); put("favorite", s.favorite); put("lyrics", s.lyrics); put("remoteServer",s.remoteServer); put("remoteRevision",s.remoteRevision); put("fileRevision",s.fileRevision); put("lyricsRevision",s.lyricsRevision); put("fileSize",s.fileSize); put("remoteLyricsRevision",s.remoteLyricsRevision)
             } }))
             put("playlists", JSONArray(state.playlists.map { JSONObject().put("id", it.id).put("name", it.name).put("ids", JSONArray(it.ids)) }))
             val q = state.queue
@@ -334,7 +338,7 @@ class LibraryStore private constructor(private val context: Context) {
             require(json.optInt("schema", 1) == 1) { "Versión de biblioteca desconocida." }
             val songs = objects(json.optJSONArray("songs")).map { s -> Song(s.getString("id"), s.getString("title"), s.optString("artist"), s.optString("album"),
                 s.optLong("duration"), s.optString("format"), if (s.isNull("modified")) null else s.optLong("modified"), s.getString("file"),
-                if (s.isNull("cover")) null else s.optString("cover"), s.optBoolean("favorite"), s.optString("lyrics"), s.optional("remoteServer"), s.optional("remoteRevision"), s.optional("fileRevision"), s.optString("lyricsRevision"), if (s.isNull("fileSize")) null else s.optLong("fileSize")) }
+                if (s.isNull("cover")) null else s.optString("cover"), s.optBoolean("favorite"), s.optString("lyrics"), s.optional("remoteServer"), s.optional("remoteRevision"), s.optional("fileRevision"), s.optString("lyricsRevision"), if (s.isNull("fileSize")) null else s.optLong("fileSize"), s.optString("remoteLyricsRevision")) }
             val playlists = objects(json.optJSONArray("playlists")).map { Playlist(it.getString("id"), it.getString("name"), it.optJSONArray("ids")?.strings() ?: emptyList()) }
             val q = json.optJSONObject("queue") ?: JSONObject()
             val flags = q.optJSONArray("manual")

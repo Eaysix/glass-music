@@ -5,7 +5,7 @@ data class Song(
     val durationMs: Long, val format: String, val modifiedAt: Long?,
     val fileName: String, val coverName: String? = null, val favorite: Boolean = false,
     val lyrics: String = "", val remoteServer: String? = null, val remoteRevision: String? = null,
-    val fileRevision: String? = null, val lyricsRevision: String = "", val fileSize: Long? = null,
+    val fileRevision: String? = null, val lyricsRevision: String = "", val fileSize: Long? = null, val remoteLyricsRevision: String = "",
 )
 data class Playlist(val id: String, val name: String, val ids: List<String>)
 data class QueueState(

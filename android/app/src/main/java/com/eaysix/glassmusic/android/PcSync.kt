@@ -196,11 +196,17 @@ internal class PcSync(private val context: Context, private val store: LibrarySt
             detail.value = "Descargando ${index+1}/${selected.size}: ${song.title}"
             if (!store.isDownloaded(song) || song.fileRevision != song.remoteRevision) store.installPC(song, client)
         }
-        for (song in store.state.value.songs.filter { it.remoteServer == link.getString("serverId") && store.isDownloaded(it) }) {
-            currentCoroutineContext().ensureActive()
-            val edited = syncObject(store.state.value).optJSONArray("pending")?.objects().orEmpty().any { it.optString("kind") == "lyrics" && it.optString("id") == song.id }
-            if (!edited) store.cachePCLyrics(song.id, JSONObject(client.json("lyrics/${song.id}")))
-        }
+        val metadata=linkedMapOf<String,JSONObject>()
+        try {
+            val needed=store.state.value.songs.filter { it.remoteServer==link.getString("serverId") && store.isDownloaded(it) && it.lyricsRevision!=it.remoteLyricsRevision }
+            for ((index,song) in needed.withIndex()) {
+                currentCoroutineContext().ensureActive()
+                detail.value="Actualizando letras ${index+1}/${needed.size}…"
+                val edited=syncObject(store.state.value).optJSONArray("pending")?.objects().orEmpty().any { it.optString("kind")=="lyrics" && it.optString("id")==song.id }
+                if(!edited)metadata[song.id]=JSONObject(client.json("lyrics/${song.id}"))
+                if(metadata.size>=32){store.cachePCLyrics(metadata);metadata.clear();yield()}
+            }
+        } finally { if(metadata.isNotEmpty())store.cachePCLyrics(metadata) }
         val count = syncObject(store.state.value).optJSONArray("conflicts")?.length() ?: 0
         detail.value = if (count == 0) "Todo al día. Tus descargas funcionan sin conexión." else "Sincronizado con $count conflictos. Elige qué versión conservar."
     }
