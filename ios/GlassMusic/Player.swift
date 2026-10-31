@@ -17,7 +17,9 @@ import UIKit
     private var itemDuration: NSKeyValueObservation?
     private var seeking = false
     private var seekRequest = UUID()
-    private var observer: Any?
+    private var clockTask: Task<Void, Never>?
+    private var pendingSeek: Double?
+    private var seekStarted = 0.0
     private var clockGeneration = UUID()
     private var tokens: [NSObjectProtocol] = []
     private var remoteTargets: [(MPRemoteCommand, Any)] = []
@@ -81,7 +83,7 @@ import UIKit
         do {
             try activate()
             clockGeneration = UUID()
-            if let observer { audio.removeTimeObserver(observer); self.observer = nil }
+            clockTask?.cancel(); clockTask = nil
             let item = AVPlayerItem(asset: AVURLAsset(url: file, options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]))
             let revision = library.state.files[song.id]?.revision ?? ""
             current = song; duration = library.playbackDuration(song); audio.replaceCurrentItem(with: item)
@@ -89,14 +91,17 @@ import UIKit
                 Task { @MainActor in
                     guard let self, self.audio.currentItem === item else { return }
                     if item.status == .failed { self.pause(); self.library.message = item.error?.localizedDescription ?? "No se pudo reproducir este archivo." }
-                    else if item.status == .readyToPlay { self.resolveDuration(item, file: file, revision: revision) }
+                    else if item.status == .readyToPlay { self.resolveDuration(item, file: file, revision: revision); if let target = self.pendingSeek { self.pendingSeek = nil; self.performSeek(target) } }
                 }
             }
             itemDuration = item.observe(\.duration, options: [.new]) { [weak self] item, _ in
                 Task { @MainActor in self?.resolveDuration(item, file: file, revision: revision) }
             }
+            seekRequest = UUID(); seeking = false; pendingSeek = nil
             position = max(0, from.isFinite ? from : 0)
-            performSeek(position)
+            // A fresh item already starts at zero. Seeking before readyToPlay can
+            // leave the seek gate waiting for a completion that never arrives.
+            if position > 0 { pendingSeek = position }
             audio.play(); playing = true; lastPersist = position
             observeClock(); persist(); nowPlaying()
         } catch { library.message = error.localizedDescription; pause() }
@@ -114,7 +119,7 @@ import UIKit
         audio.pause(); playing = false
         clockGeneration = UUID()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-        if let observer { audio.removeTimeObserver(observer); self.observer = nil }
+        clockTask?.cancel(); clockTask = nil
         persist(); nowPlaying()
     }
     func toggle() { playing ? pause() : resume() }
@@ -146,7 +151,8 @@ import UIKit
     }
     private func performSeek(_ seconds: Double) {
         guard let item = audio.currentItem else { return }
-        let request = UUID(); seekRequest = request; seeking = true
+        guard item.status == .readyToPlay else { pendingSeek = seconds; return }
+        let request = UUID(); seekRequest = request; seeking = true; seekStarted = ProcessInfo.processInfo.systemUptime
         audio.seek(to: CMTime(seconds: seconds, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] finished in
             Task { @MainActor in
                 guard let self, self.seekRequest == request, self.audio.currentItem === item else { return }
@@ -217,20 +223,29 @@ import UIKit
     private func observeClock() {
         listenedUptime = ProcessInfo.processInfo.systemUptime; listenedPosition = audio.currentTime().seconds
 
-        if let observer { audio.removeTimeObserver(observer) }
+        clockTask?.cancel()
         let generation = UUID(); clockGeneration = generation
         let item = audio.currentItem
-        observer = audio.addPeriodicTimeObserver(forInterval: CMTime(seconds: detailed ? 0.1 : 1, preferredTimescale: 600), queue: .main) { [weak self] _ in
-            Task { @MainActor in
-                guard let self, self.clockGeneration == generation, self.audio.currentItem === item, !self.seeking else { return }
-                // A queued callback can predate a seek. Read the current item's clock, not its old sample.
+        let interval: UInt64 = detailed ? 100_000_000 : 500_000_000
+        clockTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                do { try await Task.sleep(nanoseconds: interval) } catch { return }
+                guard let self, self.playing, self.clockGeneration == generation, self.audio.currentItem === item else { return }
+                // Always sample the native clock. The display never increments its own timer.
+                // A canceled/failed seek must not freeze every subsequent clock sample.
+                if self.seeking {
+                    if ProcessInfo.processInfo.systemUptime - self.seekStarted < 5 { continue }
+                    self.seekRequest = UUID(); self.seeking = false
+                }
                 let seconds = self.audio.currentTime().seconds
-                guard seconds.isFinite else { return }
+                guard seconds.isFinite else { continue }
+                if let item, item.duration.seconds.isFinite, item.duration.seconds > 0 { self.duration = item.duration.seconds }
                 self.sampleListening(); self.position = self.bounded(seconds)
                 if abs(self.position - self.lastPersist) >= 10 { self.lastPersist = self.position; self.persist(); self.nowPlaying() }
             }
         }
     }
+
     private func nowPlaying() {
         guard let current else { MPNowPlayingInfoCenter.default().nowPlayingInfo = nil; return }
         var info: [String: Any] = [MPMediaItemPropertyTitle: current.title, MPMediaItemPropertyArtist: current.artist, MPMediaItemPropertyAlbumTitle: current.album, MPMediaItemPropertyPlaybackDuration: duration, MPNowPlayingInfoPropertyElapsedPlaybackTime: position, MPNowPlayingInfoPropertyPlaybackRate: playing ? 1.0 : 0.0]

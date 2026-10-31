@@ -4,7 +4,16 @@ Tu música local, a tu manera. Reproductor para Windows centrado en FLAC y MP3, 
 
 ![Interfaz de la alpha con archivos de prueba sintéticos](docs/interface.webp)
 
-## Candidata 1.0.0-rc.3
+## Estado del proyecto
+
+**Windows: candidata 1.0.0-rc.9.** `main` sigue reservado a PC. [Versiones y distribución](docs/VERSIONES.md) identifica las ramas vigentes y cómo generar un único candidato tras las pruebas. Las releases antiguas no representan automáticamente el código más reciente.
+
+- Letras: búsqueda opcional en LRCLIB, vista previa y elección de versión. Buscar letras faltantes procesa una lista conservando las letras ya guardadas; las coincidencias dudosas se revisan manualmente. Solo se envían título/artista; no el audio. Los resultados LRC se guardan para escuchar sin conexión.
+- La cabecera de una playlist empieza por una canción aleatoria. Elegir una fila conserva esa selección.
+- Sincronización local compatible con [iPhone](https://github.com/Eaysix/glass-music/tree/platform/ios) y [Android](https://github.com/Eaysix/glass-music/tree/platform/android). En Windows abre **Ajustes → Sincronizar**. iPhone permite QR o código; Android usa el código de vinculación. Cada móvil conserva sus descargas. Los archivos importados en el teléfono no se suben a la PC.
+- Pruebas automáticas y paquetes están separados. Las ramas de trabajo comprueban cambios sin entregar otro instalador. Los candidatos se generan explícitamente desde una rama release de la plataforma o con `package=true`. No se crean releases públicas automáticamente.
+
+## Historial: Windows 1.0.0-rc.6
 
 Corrige la salida de audio retenida al cambiar de audífonos o dispositivo predeterminado de Windows durante una canción. Reconstruye la salida con la canción, posición y volumen actuales. Si no hay salida disponible tras reintentar brevemente, queda en pausa y avisa; conecta una salida y pulsa **Reproducir** para continuar sin reiniciar la app. Cambiar de dispositivo mientras estaba pausada no inicia música. La publicación estable sigue pausada mientras se prueba este cambio con hardware real.
 
@@ -64,7 +73,7 @@ Para ampliar: toca la portada junto a los controles o el botón **Vista grande**
 
 Descarga la versión publicada en **[Releases](https://github.com/Eaysix/glass-music/releases)** y ejecuta el instalador `*-setup.exe`. Para actualizar, cierra la app e instala en la misma ubicación: se conservan biblioteca, playlists y perfil.
 
-Las compilaciones de desarrollo están en [Actions](https://github.com/Eaysix/glass-music/actions), en ejecuciones completadas correctamente de **Windows · comprobar y crear instalador**, artefacto **Glass-Music-Windows-x64**. Se generan solo si pasan las comprobaciones; no equivalen a una release publicada.
+Las compilaciones de desarrollo están en [Actions](https://github.com/Eaysix/glass-music/actions), en candidatos completados correctamente de **Windows · pruebas y candidato manual**, artefacto **Glass-Music-Windows-x64**. Se generan solo si pasan las comprobaciones; no equivalen a una release publicada.
 
 La alpha no está firmada con un certificado de distribución. Windows puede mostrar una advertencia de editor desconocido. El instalador utiliza WebView2; si falta, su instalación inicial puede requerir internet. La reproducción y los datos de la app funcionan sin internet.
 

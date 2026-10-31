@@ -3,6 +3,46 @@ import XCTest
 @testable import GlassMusic
 
 final class GlassMusicTests: XCTestCase {
+    @MainActor func testNaturalPlaybackFromZeroAdvancesClockAcrossBothFormats() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = try Library(database: SnapshotDatabase(root: root))
+        let files = try ["first.flac", "second.mp3"].map { name in
+            try XCTUnwrap(Bundle.main.url(forResource: name, withExtension: nil, subdirectory: "Fixtures") ?? Bundle.main.url(forResource: name, withExtension: nil))
+        }
+        let ids = await library.importFiles(files)
+        let songs = ids.compactMap { id in library.downloaded.first { $0.id == id } }
+        XCTAssertEqual(songs.count, 2)
+        let player = MusicPlayer(library: library)
+        defer { player.pause() }
+        player.play(songs[0], ids: ids)
+        // No seek: reproduce the reported path, including the natural EOF transition.
+        for _ in 0..<200 {
+            if player.current?.id == songs[1].id && player.position > 2 { break }
+            try await Task.sleep(nanoseconds: 150_000_000)
+        }
+        XCTAssertEqual(player.current?.id, songs[1].id)
+        XCTAssertGreaterThan(player.position, 2)
+        XCTAssertLessThan(player.position, 10)
+        for _ in 0..<160 {
+            if !player.playing { break }
+            try await Task.sleep(nanoseconds: 150_000_000)
+        }
+        XCTAssertFalse(player.playing)
+        XCTAssertEqual(player.position, player.duration, accuracy: 0.2)
+        player.resume()
+        try await Task.sleep(nanoseconds: 2_000_000_000)
+        XCTAssertGreaterThan(player.position, 0.5)
+        XCTAssertLessThan(player.position, 5)
+    }
+    func testOnlineLyricsKeepProvidedTimingAndRequireTheSameRecordingForBatch() {
+        let result = OnlineLyrics(id: 1, trackName: "Canción (En Vivo)", artistName: "Artista", albumName: "Álbum", duration: 200, plainLyrics: "Texto", syncedLyrics: "[00:01]Texto")
+        var song = Song(id: "test", title: "Canción (En Vivo)", artist: "Artista", album: "Álbum", duration: 201, format: "FLAC", lyricsRevision: "")
+        XCTAssertTrue(result.matches(song))
+        XCTAssertEqual(result.text, "[00:01]Texto")
+        song.title = "Canción"; XCTAssertFalse(result.matches(song))
+        song.title = result.trackName; song.duration = 230; XCTAssertFalse(result.matches(song))
+    }
     func testOldOfflineFileWithoutMeasuredDurationStillDecodes() throws {
         let file = try JSONDecoder().decode(OfflineFile.self, from: Data(#"{"relativePath":"Audio/one.flac","revision":"old"}"#.utf8))
         XCTAssertNil(file.duration)
