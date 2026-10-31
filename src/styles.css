@@ -399,6 +399,7 @@ nav button:hover,
   gap: 12px;
 }
 .hero-copy {
+  flex: 1;
   z-index: 1;
   min-width: 0;
 }
@@ -427,6 +428,7 @@ nav button:hover,
 }
 .hero-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin-top: 22px;
 }
@@ -4313,4 +4315,31 @@ button:active:not(:disabled) {
 .listening-dialog li strong {
   float: right;
   padding-left: 16px;
+}
+
+.lyrics-search {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 12px 0;
+}
+.lyrics-search small {
+  color: var(--muted);
+  flex: 1;
+}
+.lyrics-search select {
+  max-width: 100%;
+  background: #172331;
+  color: white;
+  padding: 10px;
+  border-radius: 12px;
+}
+.lyrics-search-preview {
+  width: 100%;
+  max-height: 160px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font: inherit;
+  color: var(--muted);
 }

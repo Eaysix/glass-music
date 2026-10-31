@@ -5,3 +5,6 @@ dist
 artifacts
 package-lock.json
 src-tauri/Cargo.lock
+
+android/.gradle
+android/**/build

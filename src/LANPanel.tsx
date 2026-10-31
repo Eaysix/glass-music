@@ -72,7 +72,7 @@ export default function LANPanel({
       <div className="lan-heading">
         <Smartphone size={30} />
         <div>
-          <h3>{t("Tu música, también en el iPhone")}</h3>
+          <h3>{t("Tu música, también en el teléfono")}</h3>
           <p>
             {t(
               "Reproducción local y sincronización por la misma red, sin cuentas ni datos móviles.",
@@ -178,13 +178,13 @@ export default function LANPanel({
               {image && (
                 <img
                   src={image}
-                  alt={t("QR para vincular tu iPhone")}
+                  alt={t("QR para vincular tu dispositivo")}
                   className="lan-qr"
                 />
               )}
               <p>
                 {t(
-                  "En el iPhone abre Sincronizar → Vincular mi PC y escanea este QR. El código dura 5 minutos y se usa una sola vez.",
+                  "En iPhone escanea este QR desde Sincronizar. En Android pega el código en Ajustes → Windows ↔ Android. El código dura 5 minutos y se usa una sola vez.",
                 )}
               </p>
               <details>
@@ -240,7 +240,7 @@ export default function LANPanel({
           </div>
           {status.latestResume && (
             <div className="settings-section">
-              <h3>{t("Continuar desde el iPhone")}</h3>
+              <h3>{t("Continuar desde otro dispositivo")}</h3>
               <p>
                 {status.latestResume.title} ·{" "}
                 {timeLabel(status.latestResume.position)}
@@ -278,7 +278,7 @@ export default function LANPanel({
       )}
       <p className="settings-help">
         {t(
-          "Mantén Glass Music abierto en la PC y usa la misma red en el iPhone. Si Windows pide acceso de red, permite la red privada. Al cerrar o desactivar la sincronización deja de compartir.",
+          "Mantén Glass Music abierto en la PC y usa la misma red en tu teléfono. Si Windows pide acceso de red, permite la red privada. Al cerrar o desactivar la sincronización deja de compartir.",
         )}
       </p>
       {error && (
