@@ -1,3 +1,4 @@
+import LyricsSearch from "./LyricsSearch";
 import { useListeningRecorder, ListeningDialog } from "./listening";
 import { t as tr, useLanguage, setLanguage, dateLabel } from "./i18n";
 import {
@@ -1471,7 +1472,14 @@ export default function App() {
                     className="primary"
                     disabled={!visibleTracks.length}
                     onClick={() =>
-                      visibleTracks[0] && playTrack(visibleTracks[0])
+                      visibleTracks.length > 0 &&
+                      playTrack(
+                        visibleTracks[
+                          selectedPlaylist
+                            ? Math.floor(Math.random() * visibleTracks.length)
+                            : 0
+                        ],
+                      )
                     }
                   >
                     <Play size={16} fill="currentColor" />
@@ -2987,6 +2995,9 @@ function Editor({
               </button>
             )}
           </>
+        )}
+        {modal.type === "lyrics" && lyricTrack && (
+          <LyricsSearch key={modal.id} track={lyricTrack} apply={setText} />
         )}
         {modal.type === "lyrics" && (
           <LyricsEditor

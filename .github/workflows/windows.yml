@@ -1,11 +1,26 @@
-name: Windows · comprobar y crear instalador
+name: Windows · pruebas y candidato manual
 on:
   push:
-    branches: [main, "feat/**"]
-    paths-ignore: ["ios/**", "docs/**", ".github/workflows/ios.yml"]
-  pull_request:
-    paths-ignore: ["ios/**", "docs/**", ".github/workflows/ios.yml"]
+    branches: [main, "feat/pc-**", "release/windows-**"]
+    paths:
+      [
+        "src/**",
+        "src-tauri/**",
+        "crates/**",
+        "tests/**",
+        "scripts/**",
+        "public/**",
+        "package*.json",
+        "*config*",
+        ".github/workflows/windows.yml",
+        ".prettierignore",
+      ]
   workflow_dispatch:
+    inputs:
+      package:
+        description: "Crear instalador candidato después de las pruebas"
+        type: boolean
+        default: false
 concurrency:
   group: windows-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
@@ -40,7 +55,9 @@ jobs:
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
       - run: cargo test --locked --manifest-path src-tauri/Cargo.toml
       - run: npm run tauri -- build --bundles nsis
+        if: startsWith(github.ref_name, 'release/windows-') || inputs.package == true
       - name: Identify Windows package
+        if: startsWith(github.ref_name, 'release/windows-') || inputs.package == true
         id: package
         shell: pwsh
         run: |
@@ -48,6 +65,7 @@ jobs:
           $shortSha = $env:GITHUB_SHA.Substring(0, 7)
           "name=Glass-Music-Windows-$version-$shortSha" >> $env:GITHUB_OUTPUT
       - uses: actions/upload-artifact@v4
+        if: startsWith(github.ref_name, 'release/windows-') || inputs.package == true
         with:
           name: ${{ steps.package.outputs.name }}
           path: src-tauri/target/release/bundle/nsis/*-setup.exe
