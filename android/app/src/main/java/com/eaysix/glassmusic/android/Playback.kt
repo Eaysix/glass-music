@@ -44,6 +44,7 @@ class PlaybackService : MediaSessionService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val handler = Handler(Looper.getMainLooper())
     private var restoring = true
+    private var listenedPlaying = false
     private var listenedId: String? = null
     private var listenedPosition = 0L
     private var listenedAt = android.os.SystemClock.elapsedRealtime()
@@ -62,6 +63,11 @@ class PlaybackService : MediaSessionService() {
                     if (!restoring) persist()
                     handler.removeCallbacks(checkpoint)
                     if (player.isPlaying) handler.postDelayed(checkpoint, 10_000)
+                }
+                override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
+                    sampleListening(oldPosition.mediaItem?.mediaId, oldPosition.positionMs, false)
+                    listenedId = newPosition.mediaItem?.mediaId; listenedPosition = newPosition.positionMs
+                    listenedAt = android.os.SystemClock.elapsedRealtime(); listenedPlaying = session?.player?.isPlaying == true
                 }
                 override fun onPlayerError(error: PlaybackException) {
                     store.message.value = "No se pudo reproducir este archivo. Prueba otra canción o vuelve a importarlo."
@@ -98,18 +104,16 @@ class PlaybackService : MediaSessionService() {
     private fun persist() {
         if (restoring || !store.state.value.ready) return
         val player = session?.player ?: return
-        val now = android.os.SystemClock.elapsedRealtime()
-        val id = player.currentMediaItem?.mediaId
-        val delta = player.currentPosition - listenedPosition
-        val elapsed = now - listenedAt
-        if (listenedId == id && player.isPlaying && delta > 0 && elapsed in 1..20_000 && kotlin.math.abs(delta - elapsed) < 1500) {
-            if (id != null) store.recordListening(id, minOf(delta,elapsed) / 1000.0)
-        }
-        listenedId = id; listenedPosition = player.currentPosition; listenedAt = now
+        sampleListening(player.currentMediaItem?.mediaId, player.currentPosition, player.isPlaying)
         val ids = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }
         val manual = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaMetadata.extras?.getBoolean("manual") == true }
         store.saveQueue(QueueState(ids, manual, player.currentMediaItemIndex.coerceAtLeast(0),
             player.currentPosition.coerceAtLeast(0), store.state.value.queue.shuffle, player.repeatMode))
+    }
+    private fun sampleListening(id: String?, position: Long, playing: Boolean) {
+        val now=android.os.SystemClock.elapsedRealtime();val elapsed=now-listenedAt;val delta=position-listenedPosition
+        if(listenedPlaying && listenedId==id && id!=null && elapsed in 1..20_000 && delta>0 && kotlin.math.abs(delta-elapsed)<1500)store.recordListening(id,minOf(delta,elapsed)/1000.0)
+        listenedId=id;listenedPosition=position;listenedAt=now;listenedPlaying=playing
     }
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
     override fun onDestroy() {
@@ -157,13 +161,13 @@ class PlaybackClient(context: Context, private val store: LibraryStore) {
             p.currentPosition.coerceAtLeast(0).let { if (duration > 0) it.coerceAtMost(duration) else it }, duration,
             ((p.currentMediaItemIndex + 1).coerceAtLeast(0) until p.mediaItemCount).map { p.getMediaItemAt(it).mediaId }, p.repeatMode)
     }
-    fun play(id: String, context: List<String>) {
+    fun play(id: String, context: List<String>, from: Long = 0) {
         val p = player ?: return
         val byId = store.state.value.songs.associateBy { it.id }
         val available = context.distinct().mapNotNull { byId[it] }.filter(store::isDownloaded)
         if (available.none { it.id == id }) return
         val ordered = if (store.state.value.queue.shuffle) available.filter { it.id == id } + available.filter { it.id != id }.shuffled() else available
-        p.setMediaItems(ordered.map { it.item(store) }, ordered.indexOfFirst { it.id == id }, 0)
+        p.setMediaItems(ordered.map { it.item(store) }, ordered.indexOfFirst { it.id == id }, from.coerceIn(0, available.first { it.id == id }.durationMs.coerceAtLeast(0)))
         p.prepare(); p.play(); publish()
     }
     fun toggle() {

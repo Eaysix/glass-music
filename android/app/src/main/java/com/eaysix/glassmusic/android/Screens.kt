@@ -27,13 +27,40 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import java.util.Locale
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 
 @Composable internal fun LibraryScreen(title: String, songs: List<Song>, newest: Boolean, store: LibraryStore,
     modifier: Modifier, back: (() -> Unit)?, onImport: () -> Unit, importing: Boolean,
     play: (Song, List<String>) -> Unit, enqueue: (String) -> Unit, favorite: (String) -> Unit,
     add: (String) -> Unit, remove: (String) -> Unit, sort: () -> Unit) {
+    val scope=rememberCoroutineScope()
+    var batchJob by remember { mutableStateOf<Job?>(null) }
+    var confirmBatch by remember { mutableStateOf(false) }
+    var batchStatus by remember { mutableStateOf("") }
     var query by rememberSaveable(title) { mutableStateOf("") }
     val visible = remember(songs, query, newest) { orderedSongs(songs, newest).filter { "${it.title} ${it.artist} ${it.album}".contains(query, true) } }
+    if(confirmBatch) AlertDialog(onDismissRequest={confirmBatch=false},title={Text("Buscar letras faltantes")},text={Text("Envía título y artista de esta lista a LRCLIB. No envía audio ni reemplaza letras guardadas. Las coincidencias dudosas se revisan manualmente.")},confirmButton={TextButton(onClick={
+        confirmBatch=false
+        batchJob=scope.launch {
+            var saved=0;var skipped=0
+            try {
+                for(song in visible) {
+                    val before=store.state.value.songs.firstOrNull{it.id==song.id} ?: continue
+                    if(before.lyrics.isNotBlank())continue
+                    val match=LyricsSearch.search(song).firstOrNull {
+                        it.optString("trackName").trim().equals(song.title.trim(),true) && it.optString("artistName").trim().equals(song.artist.trim(),true) && kotlin.math.abs(it.optDouble("duration")-song.durationMs/1000.0)<=2
+                    }
+                    if(match!=null && store.state.value.songs.firstOrNull{it.id==song.id}?.lyrics?.isBlank()==true){store.lyrics(song.id,lyricsText(match));saved++}else skipped++
+                    batchStatus="$saved guardadas · $skipped por revisar";delay(900)
+                }
+                batchStatus="Listo: $saved guardadas · $skipped por revisar"
+            }catch(e:CancellationException){batchStatus="Búsqueda detenida. Letras guardadas: $saved";throw e}
+            catch(e:Exception){batchStatus=e.message ?: "No se pudo buscar."}
+            finally{batchJob=null}
+        }
+    }){Text("Buscar en LRCLIB")}},dismissButton={TextButton(onClick={confirmBatch=false}){Text("Cancelar")}})
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -44,6 +71,10 @@ import kotlinx.coroutines.launch
         }
         item { OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), label = { Text("Canción, artista o álbum") }, singleLine = true, leadingIcon = { Icon(Icons.Default.Search, null) }) }
         item { Row(verticalAlignment = Alignment.CenterVertically) { Text("${visible.size} canciones", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f)); TextButton(onClick = sort) { Text(if (newest) "Nuevas primero" else "Antiguas primero", fontSize = 12.sp) } } }
+        if(visible.isNotEmpty()) item { Column {
+            TextButton(onClick={if(batchJob!=null)batchJob?.cancel()else confirmBatch=true}){Text(if(batchJob==null)"Buscar letras faltantes"else"Detener búsqueda de letras")}
+            if(batchStatus.isNotBlank())Text(batchStatus,fontSize=11.sp)
+        } }
         if (back != null && visible.isNotEmpty()) item {
             Row { Button(onClick = { visible.filter(store::isDownloaded).randomOrNull()?.let { play(it,visible.map { s -> s.id }) } }) { Text("Reproducir") }
                 TextButton(onClick = { store.syncManager.sync(visible.map { it.id }) }) { Text("Descargar playlist") } }
@@ -74,7 +105,7 @@ import kotlinx.coroutines.launch
 
 @Composable internal fun SettingsScreen(appearance: Appearance, store: LibraryStore, client: PlaybackClient, modifier: Modifier) {
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
-        item { SyncScreen(store) }
+        item { SyncScreen(store, client) }
         item { Text("A tu manera.", fontSize = 34.sp, fontWeight = FontWeight.Bold) }
         item { OutlinedTextField(appearance.name, { text -> store.appearance { it.copy(name = text.take(60)) } }, Modifier.fillMaxWidth(), label = { Text("Nombre de tu espacio") }, singleLine = true) }
         item { Column(Modifier.glass().padding(20.dp)) {

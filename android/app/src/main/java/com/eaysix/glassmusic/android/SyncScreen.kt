@@ -11,7 +11,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-@Composable internal fun SyncScreen(store: LibraryStore) {
+@Composable internal fun SyncScreen(store: LibraryStore, client: PlaybackClient) {
     val state by store.state.collectAsStateWithLifecycle()
     val busy by store.syncManager.busy.collectAsStateWithLifecycle()
     val detail by store.syncManager.detail.collectAsStateWithLifecycle()
@@ -45,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
         val resume=sync.optJSONArray("resumes")?.objects()?.firstOrNull{it.optString("deviceId")=="pc"}
         if(resume!=null) {
             val song=state.songs.firstOrNull{it.id==resume.optString("trackId")}
+            if(song!=null && store.isDownloaded(song))TextButton(onClick={client.play(song.id,state.songs.filter(store::isDownloaded).map{it.id},(resume.optDouble("position")*1000).toLong())}){Text("Continuar aquí")}
             Text("En tu PC: ${song?.title ?: "Canción"} · ${clock((resume.optDouble("position")*1000).toLong())}",fontSize=12.sp)
         }
     }

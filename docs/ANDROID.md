@@ -1,30 +1,25 @@
-# Glass Music · Android 0.1.0
+# Glass Music para Android 0.2.0
 
-Primera versión local para Android 8 o posterior. APK de prueba con firma de depuración, sin cuenta, publicidad ni permisos para acceder a toda la música del teléfono. No requiere internet. No se publica en Google Play todavía.
+Reproducción local FLAC/MP3 y sincronización opcional con Windows por Wi-Fi. No necesita cuenta.
 
-- Importa FLAC/MP3 desde el selector de archivos de Android. Se copia el audio a la app para escucharlo sin conexión; el original se conserva. Las copias idénticas se reutilizan por SHA-256.
-- Inicio, biblioteca, favoritas, playlists, portada embebida y reproductor grande. El mini reproductor reserva espacio sobre la navegación.
-- Importación directamente a playlists y desde el editor de creación. Eliminar una playlist conserva canciones; quitar una canción de la app requiere confirmar y solo elimina la copia privada.
-- Audio nativo con Media3, servicio multimedia, controles de pantalla bloqueada/auriculares, foco de audio y pausa al desconectar audífonos.
-- Cola manual FIFO antes del contexto automático. Orden por fecha de modificación del proveedor, antiguo/nuevo; desconocidas al final. La cola real, repetición, selección de mezcla y posición se guardan sin reproducir al iniciar.
-- Letras locales editables en texto o LRC, resaltado y navegación por línea, e inserción manual del tiempo en el cursor. El marcado asistido por palabra y la lectura de todas las variantes de letras embebidas no forman parte de esta primera versión.
-- Nombre local, acento `#8CCDF3`, tamaño de interfaz, volumen y aurora animada opcional. No hay promesas de CPU/RAM hasta medir el APK en un teléfono físico.
+## Vincular
 
-La sincronización Android-PC, las estadísticas compartidas y Android Auto quedan para una siguiente etapa. Los datos de PC/iPhone no se importan automáticamente en Android.
+1. En Windows abre Ajustes → Sincronizar, activa la conexión local y genera un código.
+2. Abre «Usar un código en lugar de la cámara» y copia el JSON. El código dura cinco minutos y se usa una vez.
+3. En Android abre Ajustes → Windows ↔ Android, pega el código y pulsa Vincular PC.
+4. Pulsa Sincronizar datos. Descarga una canción desde sus opciones, una playlist desde su cabecera o toda la biblioteca desde Ajustes.
+5. Letras, favoritas, playlists y minutos se intercambian al sincronizar. Los conflictos se resuelven explícitamente conservando Android o PC. Las descargas siguen disponibles sin red.
 
-## Instalar
+La conexión usa el mismo protocolo v1 de iPhone. El certificado se fija al código y el token se cifra con Android Keystore. La sincronización requiere Wi-Fi/Ethernet, no usa datos móviles. Buscar letras en LRCLIB es una función externa separada y requiere internet. Solo envía título/artista; revisa el resultado antes de aplicarlo. Buscar letras faltantes por lista usa coincidencia exacta y duración ±2 s; nunca reemplaza una letra guardada.
 
-Descarga el artefacto APK de una ejecución **aprobada** de Android en Actions y descomprime el ZIP. Abre el `.apk` en el teléfono y autoriza instalar desde esa fuente. La firma de prueba se conserva en la caché del CI; una distribución estable necesitará una clave de firma duradera. No desinstales una instalación con música sin haber conservado sus originales.
+## Límites de esta versión
 
-## Desarrollo y validación
+- Los archivos importados en Android no se suben a Windows. Una playlist puede sincronizar referencias a esas canciones aunque la PC no tenga el archivo.
+- No incluye Android Auto, catálogo comercial ni alineación automática del audio por palabra. Los resultados LRC disponibles se conservan; la edición manual sigue disponible.
+- Sincronización manual en primer plano: no promete transferencia permanente cuando Android cierra la app.
+- APK de prueba firmado con clave debug en caché de Actions. Para distribución estable hay que provisionar una clave duradera; la caché por sí sola no garantiza futuras actualizaciones encima.
+- No se han medido CPU, RAM ni batería en teléfono físico.
 
-JDK 17, Gradle 8.13, Android SDK 36 y Build Tools 35.0.0. Desde `android/`:
+## Verificación
 
-```sh
-gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
-gradle :app:connectedDebugAndroidTest
-```
-
-Para las pruebas instrumentadas, copia únicamente los audios sintéticos de `tests/fixtures/` a `android/app/src/debug/assets/`, como hace CI. No añadir música personal ni claves de firma al repositorio. El proyecto Android permanece en su propia rama; `main` conserva la versión de PC.
-
-Referencias: [MediaSessionService](https://developer.android.com/media/media3/session/background-playback), [Media3](https://developer.android.com/jetpack/androidx/releases/media3), [compatibilidad AGP 8.13](https://developer.android.com/build/releases/agp-8-13-0-release-notes).
+Gradle 8.13, JDK 17 y SDK 36. `:app:testDebugUnitTest :app:lintDebug :app:assembleDebug` y pruebas instrumentadas con servidor TLS sintético. El workflow comprueba el protocolo Rust existente y, en el emulador, hace intercambio real de descargas, letras, playlists, favoritas, conflictos y minutos sin duplicados. Los candidatos se generan explícitamente como indica [VERSIONES.md](VERSIONES.md).

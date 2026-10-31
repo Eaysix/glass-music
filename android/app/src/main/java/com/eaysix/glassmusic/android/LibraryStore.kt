@@ -199,7 +199,7 @@ class LibraryStore private constructor(private val context: Context) {
         val sync = syncObject(current)
         val list = sync.optJSONArray("pending")?.objects().orEmpty().filterNot { it.optString("operationId") == sent.optString("operationId") }
         val revision = if (sent.optString("kind") == "lyrics") sha(sent.optString("text").toByteArray()) else
-            manifest.optJSONArray("playlists")?.objects()?.firstOrNull { it.optString("id") == sent.optString("id") }?.optString("revision")
+            manifest.optJSONArray("playlists")?.objects()?.firstOrNull { it.optString("id") == sent.optString("id") && it.optString("name") == sent.optString("name") && it.optJSONArray("trackIds")?.toString() == sent.optJSONArray("trackIds")?.toString() }?.optString("revision")
         list.filter { changeKey(it) == changeKey(sent) }.forEach { if (revision != null) it.put("baseRevision",revision) }
         sync.put("pending",JSONArray(list))
         val revisions = sync.optJSONObject("playlistRevisions") ?: JSONObject()
