@@ -158,6 +158,9 @@ struct SongList: View {
     @State private var leaveDeletedPlaylist = false
     @State private var importFiles = false
     @State private var importingFiles = false
+    @State private var lyricSearchTask: Task<Void, Never>?
+    @State private var confirmLyrics = false
+    @State private var lyricSearchStatus = ""
     @Environment(\.dismiss) private var dismiss
     @State private var search = ""
     private var playlistExists: Bool {
@@ -181,9 +184,17 @@ struct SongList: View {
             }
             if !songs.isEmpty {
                 Section {
-                    HStack { Button { if let first = (source.hasPrefix("playlist:") ? songs.filter { library.file($0.id) != nil }.randomElement() : songs.first(where: { library.file($0.id) != nil })) { player.play(first, ids: songs.map(\.id), source: source) } } label: { Label("Reproducir", systemImage: "play.fill") }.buttonStyle(.borderedProminent)
+                    HStack { Button { playCollection() } label: { Label("Reproducir", systemImage: "play.fill") }.buttonStyle(.borderedProminent)
                         Spacer(); if !downloadedOnly, library.state.link != nil { Button { sync.download(songs.map(\.id)) } label: { Image(systemName: "arrow.down.circle") }.disabled(sync.busy).accessibilityLabel("Descargar esta lista") }
                     }.listRowBackground(Color.clear)
+                }
+            }
+            if !visible.isEmpty {
+                Section {
+                    Button(lyricSearchTask == nil ? "Buscar letras faltantes" : "Detener búsqueda de letras") {
+                        if lyricSearchTask != nil { lyricSearchTask?.cancel() } else { confirmLyrics = true }
+                    }
+                    if !lyricSearchStatus.isEmpty { Text(lyricSearchStatus).font(.caption) }
                 }
             }
             ForEach(visible) { song in SongRow(song: song, player: player, context: context, source: source) }.listRowBackground(Color.white.opacity(0.035))
@@ -197,6 +208,10 @@ struct SongList: View {
             case .failure(let error): library.message = error.localizedDescription
             }
         }
+        .confirmationDialog("Buscar letras faltantes", isPresented: $confirmLyrics, titleVisibility: .visible) {
+            Button("Buscar en LRCLIB") { searchMissingLyrics() }
+        } message: { Text("Envía título y artista de esta lista. No envía audio ni reemplaza letras guardadas. Las coincidencias dudosas requieren revisión manual.") }
+        .onDisappear { lyricSearchTask?.cancel() }
         .sheet(isPresented: $showQueue) { PhoneQueueView(player: player).environmentObject(library) }
         .confirmationDialog("¿Eliminar esta playlist?", isPresented: $deleteList, titleVisibility: .visible) {
             Button("Eliminar playlist", role: .destructive) { library.deletePlaylist(String(source.dropFirst("playlist:".count))); leaveDeletedPlaylist = true }.accessibilityIdentifier("confirm-delete-playlist")
@@ -213,6 +228,34 @@ struct SongList: View {
         }
         .onChange(of: songs.map(\.id)) { _, ids in player.updateSearch(source: source, ids: ids) }
     }
+    private func playCollection() {
+        let available = songs.filter { library.file($0.id) != nil }
+        let chosen = source.hasPrefix("playlist:") ? available.randomElement() : available.first
+        if let chosen { player.play(chosen, ids: songs.map(\.id), source: source) }
+    }
+    private func searchMissingLyrics() {
+        let requested = songs
+        lyricSearchTask = Task { @MainActor in
+            defer { lyricSearchTask = nil }
+            var saved = 0, skipped = 0
+            do {
+                for song in requested {
+                    try Task.checkCancellation()
+                    guard library.state.lyrics[song.id]?.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true else { continue }
+                    let results = try await LyricsSearch.shared.search(song)
+                    let match = results.first { $0.matches(song) && $0.syncedLyrics?.isEmpty == false } ?? results.first { $0.matches(song) }
+                    try Task.checkCancellation()
+                    if let match, library.state.lyrics[song.id]?.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true {
+                        library.editLyrics(song.id, text: match.text); saved += 1
+                    } else { skipped += 1 }
+                    lyricSearchStatus = "\(saved) guardadas · \(skipped) por revisar"
+                    try await Task.sleep(nanoseconds: 900_000_000)
+                }
+                lyricSearchStatus = "Listo: \(saved) letras guardadas · \(skipped) por revisar"
+            } catch { lyricSearchStatus = Task.isCancelled ? "Búsqueda detenida. Letras guardadas: \(saved)" : error.localizedDescription }
+        }
+    }
+
 }
 struct SongRow: View {
     @EnvironmentObject private var library: Library
