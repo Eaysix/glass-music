@@ -31,7 +31,7 @@ internal fun JSONArray.strings() = (0 until length()).map { getString(it) }
 internal fun JSONObject.optional(key: String): String? = if (isNull(key)) null else optString(key).takeIf { it.isNotEmpty() }
 internal fun privateHost(host: String): Boolean {
     val parts = host.split('.')
-    if (parts.size != 4 || parts.any { it != "0" && it.startsWith('0') }) return false
+    if (parts.size != 4 || parts.any { !Regex("[0-9]{1,3}").matches(it) || it != "0" && it.startsWith('0') }) return false
     val p = parts.map { it.toIntOrNull()?.takeIf { n -> n in 0..255 } ?: return false }
     return p[0] == 10 || p[0] == 192 && p[1] == 168 || p[0] == 172 && p[1] in 16..31 || p[0] == 169 && p[1] == 254
 }
@@ -81,7 +81,7 @@ internal class LanClient(private val context: Context, private val link: JSONObj
     private fun connection(path: String, body: JSONObject? = null): HttpsURLConnection {
         require(privateHost(host) || testLoopback && host == "127.0.0.1")
         require(port in 1..65535 && Regex("[a-f0-9]{64}").matches(fingerprint))
-        require(Regex("[a-z0-9/-]+").matches(path))
+        require(Regex("[a-zA-Z0-9_/-]+").matches(path))
         val manager = context.getSystemService(ConnectivityManager::class.java)
         val network = requireNotNull(manager.activeNetwork) { "Conecta Android y Windows a la misma red Wi-Fi." }
         val capabilities = requireNotNull(manager.getNetworkCapabilities(network))
@@ -157,12 +157,12 @@ internal class PcSync(private val context: Context, private val store: LibrarySt
             finally { busy.value = false }
         }
     }
-    fun sync(download: List<String> = emptyList()) = begin {
+    fun sync(download: List<String> = emptyList(), downloadAll: Boolean = false) = begin {
         val link = requireNotNull(syncObject(store.state.value).optJSONObject("link")) { "Vincula primero la PC." }
         val client = LanClient(context, link, vault.read())
-        exchange(client, link, download)
+        exchange(client, link, download, downloadAll)
     }
-    internal suspend fun exchange(client: LanClient, link: JSONObject, download: List<String>) {
+    internal suspend fun exchange(client: LanClient, link: JSONObject, download: List<String>, downloadAll: Boolean = false) {
         detail.value = "Enviando cambios…"
         val initial = JSONObject(client.json("manifest"))
         require(initial.getInt("protocolVersion") == 1 && initial.getString("serverId") == link.getString("serverId"))
@@ -190,7 +190,7 @@ internal class PcSync(private val context: Context, private val store: LibrarySt
         if (current != null) client.json("changes",JSONObject().put("changes",JSONArray().put(JSONObject().put("kind","resume").put("trackId",current.id).put("position",q.position / 1000.0))))
         val manifest = JSONObject(client.json("manifest"))
         store.mergePC(manifest)
-        val selected = store.state.value.songs.filter { it.remoteServer == link.getString("serverId") && (it.id in download || store.isDownloaded(it) && it.fileRevision != it.remoteRevision) }
+        val selected = store.state.value.songs.filter { it.remoteServer == link.getString("serverId") && (downloadAll || it.id in download || store.isDownloaded(it) && it.fileRevision != it.remoteRevision) }
         for ((index, song) in selected.withIndex()) {
             currentCoroutineContext().ensureActive()
             detail.value = "Descargando ${index+1}/${selected.size}: ${song.title}"

@@ -15,6 +15,8 @@ class LanSyncTest {
     @Test fun pinnedWindowsProtocolDownloadsAndRoundTripsWithoutDuplicateMinutes() = runBlocking(Dispatchers.IO) {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val raw=InstrumentationRegistry.getArguments().getString("hub") ?: error("The real TLS hub fixture is required")
+        assertTrue(privateHost("192.168.68.120"));assertTrue(privateHost("10.0.2.2"))
+        assertFalse(privateHost("+10.0.0.1"));assertFalse(privateHost("010.0.0.1"));assertFalse(privateHost("8.8.8.8"));assertFalse(privateHost("127.0.0.1"))
         val code=JSONObject(String(Base64.decode(raw,Base64.DEFAULT),Charsets.UTF_8))
         val pair=JSONObject(LanClient(context,code,null,true).json("pair",JSONObject().put("secret",code.getString("secret")).put("deviceName","Android integration")))
         assertEquals(code.getString("serverId"),pair.getString("serverId"))
@@ -24,7 +26,7 @@ class LanSyncTest {
         val original=store.state.value
         try {
         val sync=PcSync(context,store)
-        sync.exchange(client,code,listOf("first","second"))
+        sync.exchange(client,code,emptyList(),downloadAll=true)
         val song=store.state.value.songs.first{it.id=="first"}
         assertTrue(store.isDownloaded(song));assertEquals(16000.0,song.durationMs.toDouble(),100.0)
         assertTrue(song.lyrics.contains("Hola"))

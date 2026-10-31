@@ -26,7 +26,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
             Button(onClick={store.syncManager.pair(code);code=""},enabled=!busy && code.isNotBlank()) {Text("Vincular PC")}
         } else {
             Button(onClick={store.syncManager.sync()},enabled=!busy) {Text("Sincronizar datos")}
-            OutlinedButton(onClick={store.syncManager.sync(state.songs.filter{it.remoteServer!=null}.map{it.id})},enabled=!busy) {Text("Descargar biblioteca de la PC")}
+            OutlinedButton(onClick={store.syncManager.sync(downloadAll=true)},enabled=!busy) {Text("Descargar biblioteca de la PC")}
             TextButton(onClick={store.syncManager.unlink()},enabled=!busy) {Text("Desvincular conservando descargas")}
         }
         Text(detail,fontSize=12.sp)
