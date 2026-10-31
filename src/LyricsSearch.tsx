@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import { useState } from "react";
 import type { Track } from "./types";
 import { searchLyrics, lyricText, type LyricResult } from "./lyrics-search";
@@ -25,7 +26,7 @@ export default function LyricsSearch({
             setResults(found);
             if (!found.length)
               setError(
-                "Sin coincidencias. Puedes escribir la letra manualmente.",
+                t("Sin coincidencias. Puedes escribir la letra manualmente."),
               );
           } catch (e) {
             setError(String(e));
@@ -34,25 +35,25 @@ export default function LyricsSearch({
           }
         }}
       >
-        {busy ? "Buscando…" : "Buscar letra en LRCLIB"}
+        {busy ? t("Buscando…") : t("Buscar letra en LRCLIB")}
       </button>
       <small>
-        Envía título y artista a LRCLIB. El audio se queda en tu equipo.
+        {t("Envía título y artista a LRCLIB. El audio se queda en tu equipo.")}
       </small>
       {error && <p role="status">{error}</p>}
       {results.length > 0 && (
         <select
-          aria-label="Coincidencia de letra"
+          aria-label={t("Coincidencia de letra")}
           value={selected?.id ?? ""}
           onChange={(e) =>
             setSelected(results.find((r) => r.id === Number(e.target.value)))
           }
         >
-          <option value="">Elige una versión…</option>
+          <option value="">{t("Elige una versión…")}</option>
           {results.map((r) => (
             <option key={r.id} value={r.id}>
               {r.trackName} · {r.artistName} · {Math.round(r.duration)} s ·{" "}
-              {r.syncedLyrics ? "Sincronizada" : "Texto"}
+              {r.syncedLyrics ? t("Sincronizada") : t("Texto")}
             </option>
           ))}
         </select>
@@ -68,7 +69,7 @@ export default function LyricsSearch({
               setSelected(undefined);
             }}
           >
-            Usar esta letra en el borrador
+            {t("Usar esta letra en el borrador")}
           </button>
         </>
       )}

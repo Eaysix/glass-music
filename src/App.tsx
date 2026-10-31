@@ -1,3 +1,4 @@
+import { searchLyrics, exactLyric, lyricText } from "./lyrics-search";
 import LyricsSearch from "./LyricsSearch";
 import { useListeningRecorder, ListeningDialog } from "./listening";
 import { t as tr, useLanguage, setLanguage, dateLabel } from "./i18n";
@@ -798,6 +799,67 @@ export default function App() {
       visibleTracks.length,
       Math.ceil((scroll + listHeight) / 76) + 4,
     );
+  const [fetchingLyrics, setFetchingLyrics] = useState(false);
+  const stopLyrics = useRef(false);
+  async function fillMissingLyrics() {
+    if (fetchingLyrics) {
+      stopLyrics.current = true;
+      return;
+    }
+    if (
+      !window.confirm(
+        tr(
+          "Buscará letras faltantes en LRCLIB usando título y artista de esta lista. No envía audio ni reemplaza tus letras guardadas. ¿Continuar?",
+        ),
+      )
+    )
+      return;
+    setFetchingLyrics(true);
+    stopLyrics.current = false;
+    let saved = 0,
+      skipped = 0;
+    try {
+      for (const track of visibleTracks) {
+        if (stopLyrics.current) break;
+        const original = await api.getLyrics(track.id);
+        if (original.trim()) continue;
+        const results = await searchLyrics(track);
+        const match = results
+          .filter((r) => exactLyric(r, track))
+          .sort(
+            (a, b) => Number(!!b.syncedLyrics) - Number(!!a.syncedLyrics),
+          )[0];
+        if (match && (await api.getLyrics(track.id)) === original) {
+          await api.saveLyrics(track.id, lyricText(match), original);
+          if (latest.current.settings.queue.current === track.id)
+            setLyrics(lyricText(match));
+          saved++;
+        } else skipped++;
+        setNotice(
+          tr("Letras: {saved} guardadas · {skipped} por revisar", {
+            saved,
+            skipped,
+          }),
+        );
+        await new Promise((resolve) => setTimeout(resolve, 900));
+      }
+      setNotice(
+        tr(
+          "Búsqueda terminada: {saved} letras guardadas · {skipped} sin coincidencia segura.",
+          { saved, skipped },
+        ),
+      );
+    } catch (e) {
+      setNotice(
+        tr(
+          "Búsqueda detenida; se conservan {saved} letras guardadas. {error}",
+          { saved, error: String(e) },
+        ),
+      );
+    } finally {
+      setFetchingLyrics(false);
+    }
+  }
   async function playQueue(queue: Queue, from = 0) {
     if (busy.current || !queue.current) return;
     busy.current = true;
@@ -1484,6 +1546,15 @@ export default function App() {
                   >
                     <Play size={16} fill="currentColor" />
                     {tr(" Reproducir")}
+                  </button>
+                  <button
+                    className="secondary"
+                    onClick={() => void fillMissingLyrics()}
+                    disabled={!visibleTracks.length}
+                  >
+                    {fetchingLyrics
+                      ? tr("Detener búsqueda de letras")
+                      : tr("Buscar letras faltantes")}
                   </button>
                   {selectedPlaylist && (
                     <button

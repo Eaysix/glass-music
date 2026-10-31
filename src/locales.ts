@@ -1,4 +1,83 @@
 export const messages: Record<string, Record<string, string>> = {
+  "QR para vincular tu dispositivo": {
+    en: "QR code to link your device",
+    de: "QR-Code zum Verknüpfen deines Geräts",
+    "zh-CN": "用于关联设备的二维码",
+  },
+  "En iPhone escanea este QR desde Sincronizar. En Android pega el código en Ajustes → Windows ↔ Android. El código dura 5 minutos y se usa una sola vez.":
+    {
+      en: "On iPhone, scan this QR from Sync. On Android, paste the code in Settings → Windows ↔ Android. The code expires in 5 minutes and can be used once.",
+      de: "Scanne diesen QR-Code auf dem iPhone unter Synchronisieren. Füge auf Android den Code unter Einstellungen → Windows ↔ Android ein. Der Code gilt 5 Minuten und kann einmal verwendet werden.",
+      "zh-CN":
+        "在 iPhone 的同步页面扫描二维码。在 Android 的设置 → Windows ↔ Android 中粘贴代码。代码 5 分钟后失效，且只能使用一次。",
+    },
+  "Buscar letra en LRCLIB": {
+    en: "Find lyrics on LRCLIB",
+    de: "Liedtext auf LRCLIB suchen",
+    "zh-CN": "在 LRCLIB 搜索歌词",
+  },
+  "Buscando…": { en: "Searching…", de: "Suche läuft…", "zh-CN": "正在搜索…" },
+  "Envía título y artista a LRCLIB. El audio se queda en tu equipo.": {
+    en: "Sends the title and artist to LRCLIB. Audio stays on your device.",
+    de: "Sendet Titel und Interpret an LRCLIB. Audio bleibt auf deinem Gerät.",
+    "zh-CN": "将歌名和歌手发送到 LRCLIB。音频保留在你的设备上。",
+  },
+  "Sin coincidencias. Puedes escribir la letra manualmente.": {
+    en: "No matches. You can enter the lyrics manually.",
+    de: "Keine Treffer. Du kannst den Liedtext manuell eingeben.",
+    "zh-CN": "没有匹配结果。你可以手动输入歌词。",
+  },
+  "Coincidencia de letra": {
+    en: "Lyrics match",
+    de: "Liedtext-Treffer",
+    "zh-CN": "歌词匹配",
+  },
+  "Elige una versión…": {
+    en: "Choose a version…",
+    de: "Version auswählen…",
+    "zh-CN": "选择版本…",
+  },
+  Sincronizada: { en: "Timed", de: "Synchronisiert", "zh-CN": "已同步" },
+  Texto: { en: "Text", de: "Text", "zh-CN": "文本" },
+  "Usar esta letra en el borrador": {
+    en: "Use these lyrics in the draft",
+    de: "Diesen Liedtext in den Entwurf übernehmen",
+    "zh-CN": "将此歌词用于草稿",
+  },
+  "Buscar letras faltantes": {
+    en: "Find missing lyrics",
+    de: "Fehlende Liedtexte suchen",
+    "zh-CN": "搜索缺失的歌词",
+  },
+  "Detener búsqueda de letras": {
+    en: "Stop lyrics search",
+    de: "Liedtextsuche stoppen",
+    "zh-CN": "停止歌词搜索",
+  },
+  "Buscará letras faltantes en LRCLIB usando título y artista de esta lista. No envía audio ni reemplaza tus letras guardadas. ¿Continuar?":
+    {
+      en: "Find missing lyrics on LRCLIB using titles and artists in this list. Audio is not sent and saved lyrics are kept. Continue?",
+      de: "Fehlende Liedtexte mit Titel und Interpret dieser Liste auf LRCLIB suchen. Audio wird nicht gesendet und gespeicherte Texte bleiben erhalten. Fortfahren?",
+      "zh-CN":
+        "使用此列表中的歌名和歌手在 LRCLIB 搜索缺失的歌词。不发送音频，也不替换已保存的歌词。继续吗？",
+    },
+  "Letras: {saved} guardadas · {skipped} por revisar": {
+    en: "Lyrics: {saved} saved · {skipped} to review",
+    de: "Liedtexte: {saved} gespeichert · {skipped} zu prüfen",
+    "zh-CN": "歌词：已保存 {saved} 首 · 待检查 {skipped} 首",
+  },
+  "Búsqueda terminada: {saved} letras guardadas · {skipped} sin coincidencia segura.":
+    {
+      en: "Search finished: {saved} lyrics saved · {skipped} without a confident match.",
+      de: "Suche beendet: {saved} Liedtexte gespeichert · {skipped} ohne sicheren Treffer.",
+      "zh-CN": "搜索完成：已保存 {saved} 首歌词 · {skipped} 首没有可靠匹配。",
+    },
+  "Búsqueda detenida; se conservan {saved} letras guardadas. {error}": {
+    en: "Search stopped; {saved} saved lyrics are kept. {error}",
+    de: "Suche gestoppt; {saved} gespeicherte Liedtexte bleiben erhalten. {error}",
+    "zh-CN": "搜索已停止；保留已保存的 {saved} 首歌词。{error}",
+  },
+
   "Añadir a la cola": {
     en: "Add to queue",
     de: "Zur Warteschlange hinzufügen",

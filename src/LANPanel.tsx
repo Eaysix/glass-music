@@ -178,13 +178,13 @@ export default function LANPanel({
               {image && (
                 <img
                   src={image}
-                  alt={t("QR para vincular tu iPhone")}
+                  alt={t("QR para vincular tu dispositivo")}
                   className="lan-qr"
                 />
               )}
               <p>
                 {t(
-                  "En el iPhone abre Sincronizar → Vincular mi PC y escanea este QR. El código dura 5 minutos y se usa una sola vez.",
+                  "En iPhone escanea este QR desde Sincronizar. En Android pega el código en Ajustes → Windows ↔ Android. El código dura 5 minutos y se usa una sola vez.",
                 )}
               </p>
               <details>

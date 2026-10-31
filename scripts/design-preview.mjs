@@ -26,6 +26,10 @@ const page = await browser.newPage({ viewport: { width: 1360, height: 880 } });
 await fs.mkdir("artifacts/motion", { recursive: true });
 try {
   await page.goto("http://127.0.0.1:1422");
+  await page
+    .getByRole("button", { name: /Todas las canciones/ })
+    .first()
+    .click();
   const chooser = page.waitForEvent("filechooser");
   await page
     .getByRole("button", { name: "Añadir música", exact: true })
@@ -207,94 +211,21 @@ try {
       }),
   );
   await page.reload();
-  await page.getByRole("heading", { name: "Tu biblioteca" }).waitFor();
-  await page.waitForTimeout(500);
-  await page.screenshot({ path: "artifacts/design-library.png" });
-  await page.locator(".track-title").nth(0).click();
   await page
-    .locator(".track-title")
-    .nth(1)
-    .click({ modifiers: ["Control"] });
-  await page.screenshot({ path: "artifacts/design-selection.png" });
+    .getByRole("heading", { name: "Tu música, Mi espacio.", exact: true })
+    .waitFor();
   await page
-    .getByRole("button", { name: "Limpiar selección", exact: true })
+    .getByRole("button", { name: /Noches lentas/ })
+    .first()
     .click();
   await page
-    .getByRole("button", {
-      name: "Ajustes de apariencia y perfil",
-      exact: true,
-    })
-    .click();
-  await page.getByRole("tab", { name: "Reproductor", exact: true }).click();
-  await page.screenshot({ path: "artifacts/design-settings.png" });
-  await page.getByRole("button", { name: "Listo", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Ajustar volumen", exact: true })
-    .click();
-  await page.screenshot({ path: "artifacts/design-volume.png" });
-  await page
-    .getByRole("button", { name: "Cerrar volumen", exact: true })
-    .click();
-  // Optional recording: capture actual UI frames while exercising transitions.
-  if (process.env.GLASS_RECORD_MOTION) {
-    let recording = true;
-    const frames = [];
-    const capture = (async () => {
-      while (recording) {
-        const file = path.resolve(
-          `artifacts/motion/${String(frames.length).padStart(4, "0")}.png`,
-        );
-        frames.push({ file, at: Date.now() });
-        await page.screenshot({ path: file });
-        await page.waitForTimeout(65);
-      }
-    })();
-    try {
-      await page
-        .getByRole("button", { name: "Reproducir", exact: true })
-        .last()
-        .click();
-      await page.waitForTimeout(600);
-      await page.locator(".track-row").nth(2).click({ button: "right" });
-      await page.waitForTimeout(500);
-      await page.keyboard.press("Escape");
-      await page
-        .getByRole("button", { name: "Mostrar cola", exact: true })
-        .click();
-      await page.waitForTimeout(500);
-      await page
-        .getByRole("button", { name: "Ampliar portada", exact: true })
-        .click();
-      await page.waitForTimeout(600);
-      await page.getByRole("button", { name: "Letra", exact: true }).click();
-      await page.waitForTimeout(600);
-      await page
-        .getByRole("button", { name: "Siguiente", exact: true })
-        .click();
-      await page.waitForTimeout(600);
-      await page.keyboard.press("Escape");
-      await page.waitForTimeout(500);
-    } finally {
-      recording = false;
-      await capture;
-    }
-    await fs.writeFile(
-      "artifacts/motion/frames.txt",
-      frames
-        .map(
-          (f, i) =>
-            `file '${f.file}'\nduration ${((frames[i + 1]?.at ?? f.at + 120) - f.at) / 1000}`,
-        )
-        .join("\n"),
-    );
-  }
-  await page
-    .getByRole("button", { name: "Ampliar portada", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Letra", exact: true }).click();
-  await page.waitForTimeout(500);
-  await page.screenshot({ path: "artifacts/design-lyrics.png" });
-  console.log("Synthetic design previews saved.");
+    .getByRole("heading", { name: "Noches lentas", exact: true })
+    .waitFor();
+  await page.waitForTimeout(700);
+  await page.screenshot({ path: "artifacts/glass-music-windows-promo.png" });
+  console.log(
+    "Windows promotion screenshot captured from the real UI with synthetic metadata.",
+  );
 } finally {
   await browser.close();
   await server.close();
