@@ -120,7 +120,7 @@ internal fun Modifier.glass(radius: Int = 24) = clip(RoundedCornerShape(radius.d
                     else if (tab == 0 && playlistId == null) {
                         LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
                             item { Brand() }
-                            item { Column { Text("Tu música.\nContigo.", fontSize = 40.sp, lineHeight = 44.sp, fontWeight = FontWeight.Bold); Spacer(Modifier.height(12.dp)); Text("${library.appearance.name} · ${library.songs.size} canciones sin conexión", color = Color.White.copy(alpha = .55f)) } }
+                            item { Column { Text("Tu música.\nContigo.", fontSize = 40.sp, lineHeight = 44.sp, fontWeight = FontWeight.Bold); Spacer(Modifier.height(12.dp)); Text("${library.appearance.name} · ${library.songs.count(store::isDownloaded)} canciones sin conexión", color = Color.White.copy(alpha = .55f)) } }
                             if (current != null) item {
                                 Row(Modifier.fillMaxWidth().glass().clickable { expanded = true }.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Cover(current, store, Modifier.size(58.dp)); Column(Modifier.weight(1f).padding(start = 16.dp)) { Text("SEGUIR ESCUCHANDO", fontSize = 10.sp, letterSpacing = 2.sp, color = tint); Text(current.title, fontWeight = FontWeight.Bold); Text(clock(media.position), color = Color.White.copy(alpha = .55f)) }
@@ -137,7 +137,7 @@ internal fun Modifier.glass(radius: Int = 24) = clip(RoundedCornerShape(radius.d
                                 }
                             }
                             item { Button(onClick = { pick(null) }, enabled = !importing, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Icon(Icons.Default.Add, null); Text(if (importing) "Importando…" else "Importar música", Modifier.padding(start = 8.dp)) } }
-                            item { Text("Archivos FLAC y MP3 · Sin cuentas ni conexión\nAndroid ${BuildConfig.VERSION_NAME} · Primera versión local", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .4f)) }
+                            item { Text("Archivos FLAC y MP3 · Sin cuentas ni conexión\nAndroid ${BuildConfig.VERSION_NAME} · Biblioteca local y sincronización Wi-Fi", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .4f)) }
                         }
                     } else {
                         val list = library.playlists.firstOrNull { it.id == playlistId }

@@ -26,13 +26,41 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import java.util.Locale
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 
 @Composable internal fun LibraryScreen(title: String, songs: List<Song>, newest: Boolean, store: LibraryStore,
     modifier: Modifier, back: (() -> Unit)?, onImport: () -> Unit, importing: Boolean,
     play: (Song, List<String>) -> Unit, enqueue: (String) -> Unit, favorite: (String) -> Unit,
     add: (String) -> Unit, remove: (String) -> Unit, sort: () -> Unit) {
+    val scope=rememberCoroutineScope()
+    var batchJob by remember { mutableStateOf<Job?>(null) }
+    var confirmBatch by remember { mutableStateOf(false) }
+    var batchStatus by remember { mutableStateOf("") }
     var query by rememberSaveable(title) { mutableStateOf("") }
     val visible = remember(songs, query, newest) { orderedSongs(songs, newest).filter { "${it.title} ${it.artist} ${it.album}".contains(query, true) } }
+    if(confirmBatch) AlertDialog(onDismissRequest={confirmBatch=false},title={Text("Buscar letras faltantes")},text={Text("Envía título y artista de esta lista a LRCLIB. No envía audio ni reemplaza letras guardadas. Las coincidencias dudosas se revisan manualmente.")},confirmButton={TextButton(onClick={
+        confirmBatch=false
+        batchJob=scope.launch {
+            var saved=0;var skipped=0
+            try {
+                for(song in visible) {
+                    val before=store.state.value.songs.firstOrNull{it.id==song.id} ?: continue
+                    if(before.lyrics.isNotBlank())continue
+                    val match=LyricsSearch.search(song).firstOrNull {
+                        it.optString("trackName").trim().equals(song.title.trim(),true) && it.optString("artistName").trim().equals(song.artist.trim(),true) && kotlin.math.abs(it.optDouble("duration")-song.durationMs/1000.0)<=2
+                    }
+                    if(match!=null && store.state.value.songs.firstOrNull{it.id==song.id}?.lyrics?.isBlank()==true){store.lyrics(song.id,lyricsText(match));saved++}else skipped++
+                    batchStatus="$saved guardadas · $skipped por revisar";delay(900)
+                }
+                batchStatus="Listo: $saved guardadas · $skipped por revisar"
+            }catch(e:CancellationException){batchStatus="Búsqueda detenida. Letras guardadas: $saved";throw e}
+            catch(e:Exception){batchStatus=e.message ?: "No se pudo buscar."}
+            finally{batchJob=null}
+        }
+    }){Text("Buscar en LRCLIB")}},dismissButton={TextButton(onClick={confirmBatch=false}){Text("Cancelar")}})
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -43,10 +71,18 @@ import java.util.Locale
         }
         item { OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), label = { Text("Canción, artista o álbum") }, singleLine = true, leadingIcon = { Icon(Icons.Default.Search, null) }) }
         item { Row(verticalAlignment = Alignment.CenterVertically) { Text("${visible.size} canciones", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f)); TextButton(onClick = sort) { Text(if (newest) "Nuevas primero" else "Antiguas primero", fontSize = 12.sp) } } }
+        if(visible.isNotEmpty()) item { Column {
+            TextButton(onClick={if(batchJob!=null)batchJob?.cancel()else confirmBatch=true}){Text(if(batchJob==null)"Buscar letras faltantes"else"Detener búsqueda de letras")}
+            if(batchStatus.isNotBlank())Text(batchStatus,fontSize=11.sp)
+        } }
+        if (back != null && visible.isNotEmpty()) item {
+            Row { Button(onClick = { visible.filter(store::isDownloaded).randomOrNull()?.let { play(it,visible.map { s -> s.id }) } }) { Text("Reproducir") }
+                TextButton(onClick = { store.syncManager.sync(visible.map { it.id }) }) { Text("Descargar playlist") } }
+        }
         if (visible.isEmpty()) item { Column(Modifier.fillMaxWidth().glass().padding(24.dp)) { Text(if (query.isBlank()) "Tu música empieza aquí" else "Sin resultados", fontWeight = FontWeight.Bold); Text("Importa archivos FLAC o MP3 desde el botón +.", Modifier.padding(top = 8.dp), color = Color.White.copy(alpha = .6f)) } }
         items(visible, key = { it.id }) { song ->
             var menu by remember { mutableStateOf(false) }
-            Row(Modifier.fillMaxWidth().glass(18).clickable { play(song, visible.map { it.id }) }.padding(start = 10.dp, top = 8.dp, bottom = 8.dp).testTag("play-${song.id}"), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().glass(18).clickable { if(store.isDownloaded(song))play(song, visible.map { it.id })else store.message.value="Descarga esta canción desde sus opciones para escucharla sin conexión." }.padding(start = 10.dp, top = 8.dp, bottom = 8.dp).testTag("play-${song.id}"), verticalAlignment = Alignment.CenterVertically) {
                 Cover(song, store, Modifier.size(46.dp))
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                     Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
@@ -56,6 +92,7 @@ import java.util.Locale
                 Box {
                     IconButton(onClick = { menu = true }, modifier = Modifier.testTag("song-menu-${song.id}")) { Icon(Icons.Default.MoreVert, "Opciones de canción") }
                     DropdownMenu(menu, { menu = false }) {
+                        if(song.remoteServer!=null) DropdownMenuItem(text = { Text("Descargar para escuchar sin conexión") }, onClick = { menu=false;store.syncManager.sync(listOf(song.id)) })
                         DropdownMenuItem(text = { Text("Añadir a la cola") }, onClick = { menu = false; enqueue(song.id) })
                         DropdownMenuItem(text = { Text("Agregar a playlist") }, onClick = { menu = false; add(song.id) })
                         DropdownMenuItem(text = { Text("Quitar de la app") }, onClick = { menu = false; remove(song.id) })
@@ -68,6 +105,7 @@ import java.util.Locale
 
 @Composable internal fun SettingsScreen(appearance: Appearance, store: LibraryStore, client: PlaybackClient, modifier: Modifier) {
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
+        item { SyncScreen(store, client) }
         item { Text("A tu manera.", fontSize = 34.sp, fontWeight = FontWeight.Bold) }
         item { OutlinedTextField(appearance.name, { text -> store.appearance { it.copy(name = text.take(60)) } }, Modifier.fillMaxWidth(), label = { Text("Nombre de tu espacio") }, singleLine = true) }
         item { Column(Modifier.glass().padding(20.dp)) {
@@ -166,8 +204,22 @@ import java.util.Locale
 
 @Composable internal fun LyricsEditor(song: Song, position: Long, dismiss: () -> Unit, save: (String) -> Unit) {
     var text by remember(song.id) { mutableStateOf(TextFieldValue(song.lyrics)) }
+    val scope=rememberCoroutineScope()
+    var searching by remember { mutableStateOf(false) }
+    var candidates by remember { mutableStateOf<List<org.json.JSONObject>>(emptyList()) }
+    var notice by remember { mutableStateOf("") }
+    var chosen by remember { mutableStateOf<org.json.JSONObject?>(null) }
     AlertDialog(onDismissRequest = dismiss, title = { Text("Letra · ${song.title}", maxLines = 2) }, text = {
         Column {
+            TextButton(enabled=!searching,onClick={scope.launch {
+                searching=true;notice="";try{candidates=LyricsSearch.search(song);if(candidates.isEmpty())notice="Sin coincidencias. Puedes escribirla manualmente."}catch(e:Exception){notice=e.message ?: "No se pudo buscar."}finally{searching=false}
+            }}) {Text(if(searching)"Buscando…"else"Buscar letra en LRCLIB")}
+            Text("Envía título y artista; el audio se queda en tu teléfono.",fontSize=11.sp)
+            if(notice.isNotEmpty())Text(notice,fontSize=11.sp)
+            if(candidates.isNotEmpty()) LazyColumn(Modifier.heightIn(max=120.dp)) { items(candidates) { result ->
+                TextButton(onClick={chosen=result}) {Text("${result.optString("trackName")} · ${result.optDouble("duration").toInt()} s · ${if(result.optional("syncedLyrics")!=null)"Sincronizada"else"Texto"}",fontSize=11.sp)}
+            } }
+            if(chosen!=null) { Text(lyricsText(chosen!!).take(180),fontSize=11.sp);TextButton(onClick={text=TextFieldValue(lyricsText(chosen!!));chosen=null;candidates=emptyList()}){Text("Usar en el borrador")} }
             Text("Texto libre o LRC. Coloca el cursor antes de una línea para marcarla con el tiempo actual.", fontSize = 12.sp, color = Color.White.copy(alpha = .55f))
             OutlinedTextField(text, { text = it }, Modifier.fillMaxWidth().heightIn(min = 180.dp, max = 300.dp).testTag("lyrics-text"), label = { Text("Letra y tiempos LRC") })
             TextButton(onClick = {

@@ -108,3 +108,12 @@ El usuario informó aproximadamente 8% de CPU y menos de 300 MB de RAM con 0.1.2
 - APK de prueba para Android 8+, importación FLAC/MP3 por selector del sistema y copia privada sin modificar originales. Playlists con importación directa, biblioteca/favoritas, portadas embebidas, cola manual FIFO, orden por fecha, letras locales editables y LRC por línea. Audio Media3 en segundo plano con controles multimedia.
 - Persistir cola real, posición y personalización sin reproducir al abrir; aurora opcional y mini reproductor sobre navegación reservada. Sin cuentas, permisos globales de archivos, conexión a internet ni servidor.
 - Primera etapa Android local; sincronización con PC/iPhone, estadísticas compartidas y Android Auto quedan pendientes. Mantener Android en una rama separada de main. Guía: [ANDROID.md](ANDROID.md).
+
+## Actualización acordada 2026-10-31
+
+- No escribir código sin acordar el alcance y recibir «escribamos código». Autorizado este bloque: orden de GitHub, reloj iPhone, Android ↔ Windows, búsqueda opcional LRCLIB e inicio de playlist con canción aleatoria. Catálogo comercial fuera del bloque.
+- Las comprobaciones de ramas no publican paquetes. Solo workflow_dispatch con package=true o una rama release de la plataforma genera un candidato. Ninguna ejecución crea una release ni cambia etiquetas.
+- Mantener main como PC. iOS y Android permanecen separados. Conservar ramas e historial antiguos; cerrar PR obsoletos con referencia al reemplazo.
+- Letras: petición explícita de título/artista a LRCLIB, vista previa y elección de versión. Preferir LRC disponible, texto simple como respaldo. Guardar mediante los mecanismos existentes y conservar la edición manual. No transmitir audio al proveedor ni fabricar tiempos por palabra. Alineación automática de audio y conversión Lyricsfile por palabra quedan para evaluar posteriormente.
+- Android usa el protocolo v1 existente, TLS con certificado fijado al código de vinculación, token cifrado con Keystore y red Wi-Fi/Ethernet. Sin servidor externo. Descargas privadas, playlists y letras con conflictos, favoritas, punto de reproducción y acumulados por fuente para no duplicar minutos. No subir los audios importados en el móvil a Windows.
+- Reproducir desde la cabecera de una playlist elige una pista aleatoria; elegir una fila conserva esa selección y el modo aleatorio general se mantiene independiente.

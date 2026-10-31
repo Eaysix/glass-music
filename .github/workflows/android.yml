@@ -1,9 +1,21 @@
-name: Android · comprobar y crear APK de prueba
+name: Android · pruebas y candidato manual
 on:
   push:
-    branches: ["feat/android-**"]
-    paths: ["android/**", "tests/fixtures/**", ".github/workflows/android.yml"]
+    branches: ["feat/android-**", "release/android-**"]
+    paths:
+      [
+        "android/**",
+        "tests/fixtures/**",
+        "crates/glass-sync/**",
+        "scripts/android-connected.sh",
+        ".github/workflows/android.yml",
+      ]
   workflow_dispatch:
+    inputs:
+      package:
+        description: "Crear APK candidata después de las pruebas"
+        type: boolean
+        default: false
 concurrency:
   group: android-${{ github.ref_name }}
   cancel-in-progress: true
@@ -36,6 +48,12 @@ jobs:
         run: |
           mkdir -p android/app/src/debug/assets
           cp tests/fixtures/first.flac tests/fixtures/second.mp3 android/app/src/debug/assets/
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/glass-sync
+      - name: Verify the unchanged Windows and iPhone protocol
+        run: cargo test --locked --manifest-path crates/glass-sync/Cargo.toml && cargo build --locked --manifest-path crates/glass-sync/Cargo.toml --example test_hub
       - name: Unit tests, lint and APK
         working-directory: android
         run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
@@ -53,20 +71,17 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: |
-            cd android && gradle --no-daemon :app:connectedDebugAndroidTest
-            adb pull /sdcard/Pictures/GlassMusic "$GITHUB_WORKSPACE/android-screenshots" || true
-            adb install -r "$GITHUB_WORKSPACE/android/app/build/outputs/apk/debug/app-debug.apk"
-            adb shell am start -W -n com.eaysix.glassmusic.android/.MainActivity
-            sleep 1
-            adb exec-out screencap -p > "$GITHUB_WORKSPACE/android-screen.png"
+          script: bash scripts/android-connected.sh
       - name: Identify APK
+        if: startsWith(github.ref_name, 'release/android-') || inputs.package == true || (github.ref_name == 'feat/android-first' && startsWith(github.event.head_commit.message, 'candidate(android):'))
         run: |
           mkdir -p android/build/artifacts
-          NAME="Glass-Music-Android-0.1.0-build${GITHUB_RUN_NUMBER}-${GITHUB_SHA:0:7}.apk"
+          VERSION=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' android/app/build.gradle.kts)
+          NAME="Glass-Music-Android-$VERSION-build${GITHUB_RUN_NUMBER}-${GITHUB_SHA:0:7}.apk"
           cp android/app/build/outputs/apk/debug/app-debug.apk "android/build/artifacts/$NAME"
           echo "GLASS_APK=$NAME" >> "$GITHUB_ENV"
       - uses: actions/upload-artifact@v4
+        if: startsWith(github.ref_name, 'release/android-') || inputs.package == true || (github.ref_name == 'feat/android-first' && startsWith(github.event.head_commit.message, 'candidate(android):'))
         with:
           name: ${{ env.GLASS_APK }}
           path: android/build/artifacts/*.apk
