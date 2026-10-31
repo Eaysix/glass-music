@@ -1,6 +1,6 @@
 # Versiones y distribución
 
-`main` contiene Windows. Las referencias móviles no se fusionan a main en este bloque.
+`main` contiene Windows. Las referencias móviles vigentes son `platform/ios` y `platform/android`; no se fusionan a main en este bloque.
 
 | Plataforma | Última referencia previa | Candidato de este bloque | Rama de trabajo          |
 | ---------- | ------------------------ | ------------------------ | ------------------------ |
