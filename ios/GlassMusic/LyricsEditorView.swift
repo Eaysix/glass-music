@@ -8,6 +8,7 @@ struct LyricsEditorView: View {
     init(song: Song, player: MusicPlayer) { self.song = song; self.player = player }
     @State private var text = ""
     @State private var loaded = false
+    @State private var searching = false
     @State private var mode = "text"
     @State private var draft = LyricTimingDraft("")
     private var words: Bool { mode == "words" }
@@ -16,6 +17,7 @@ struct LyricsEditorView: View {
         NavigationStack {
             VStack(spacing: 14) {
                 Text(song.title).font(.headline).lineLimit(1).accessibilityIdentifier("lyrics-song-title")
+                Button("Buscar letra en LRCLIB") { searching = true }.accessibilityIdentifier("search-online-lyrics")
                 Picker("Editor", selection: $mode) { Text("Texto").tag("text"); Text("Líneas").tag("lines"); Text("Palabras").tag("words") }.pickerStyle(.segmented)
                 if mode == "text" {
                     TextEditor(text: $text).font(.body.monospaced()).accessibilityLabel("Letra y tiempos LRC").scrollContentBackground(.hidden).padding(10).background(.thinMaterial, in: RoundedRectangle(cornerRadius: 20))
@@ -46,6 +48,7 @@ struct LyricsEditorView: View {
                     ToolbarItem(placement: .cancellationAction) { Button("Cancelar") { dismiss() } }
                     ToolbarItem(placement: .confirmationAction) { Button("Guardar") { if let result { library.editLyrics(song.id, text: result); dismiss() } }.disabled(result == nil || (result?.utf8.count ?? 0) > 1024 * 1024) }
                 }
+                .sheet(isPresented: $searching) { LyricsSearchView(song: song) { value in mode = "text"; text = value; draft = LyricTimingDraft(value) } }
                 .onAppear { if !loaded { text = library.state.lyrics[song.id]?.text ?? ""; draft = LyricTimingDraft(text); loaded = true } }
                 .onChange(of: text) { _, value in if mode == "text" { draft = LyricTimingDraft(value) } }
                 .onChange(of: mode) { _, _ in draft.cursor = 0; player.detailedLyrics(mode != "text") }

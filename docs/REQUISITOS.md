@@ -116,3 +116,12 @@ El usuario informó aproximadamente 8% de CPU y menos de 300 MB de RAM con 0.1.2
 - Duración medida por AVPlayerItem, coherente en reproductor grande, mini reproductor, editor de letras, saltos y pantalla bloqueada. Se conserva por archivo/revisión, no se modifica el audio original ni se sustituye por una duración de catálogo al sincronizar. Muestras durante un seek pendiente se descartan.
 - Importar FLAC/MP3 desde una playlist añade los archivos directamente a esa lista; el editor de creación permite importar y seleccionar los archivos nuevos antes de guardar. Conserva descargas al eliminar listas. Las playlists recibidas de PC mantienen su ID y revisión al añadirles canciones desde el teléfono. Los audios importados solo en iPhone continúan locales.
 - Android 0.1.0 comienza por reproducción local y playlists, independiente de main. La sincronización Android-PC queda para una siguiente etapa.
+
+## Actualización acordada 2026-10-31
+
+- No escribir código sin acordar el alcance y recibir «escribamos código». Autorizado este bloque: orden de GitHub, reloj iPhone, Android ↔ Windows, búsqueda opcional LRCLIB e inicio de playlist con canción aleatoria. Catálogo comercial fuera del bloque.
+- Las comprobaciones de ramas no publican paquetes. Solo workflow_dispatch con package=true o una rama release de la plataforma genera un candidato. Ninguna ejecución crea una release ni cambia etiquetas.
+- Mantener main como PC. iOS y Android permanecen separados. Conservar ramas e historial antiguos; cerrar PR obsoletos con referencia al reemplazo.
+- Letras: petición explícita de título/artista a LRCLIB, vista previa y elección de versión. Preferir LRC disponible, texto simple como respaldo. Guardar mediante los mecanismos existentes y conservar la edición manual. No transmitir audio al proveedor ni fabricar tiempos por palabra. Alineación automática de audio y conversión Lyricsfile por palabra quedan para evaluar posteriormente.
+- Android usa el protocolo v1 existente, TLS con certificado fijado al código de vinculación, token cifrado con Keystore y red Wi-Fi/Ethernet. Sin servidor externo. Descargas privadas, playlists y letras con conflictos, favoritas, punto de reproducción y acumulados por fuente para no duplicar minutos. No subir los audios importados en el móvil a Windows.
+- Reproducir desde la cabecera de una playlist elige una pista aleatoria; elegir una fila conserva esa selección y el modo aleatorio general se mantiene independiente.

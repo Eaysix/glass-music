@@ -181,7 +181,7 @@ struct SongList: View {
             }
             if !songs.isEmpty {
                 Section {
-                    HStack { Button { if let first = songs.first(where: { library.file($0.id) != nil }) { player.play(first, ids: songs.map(\.id), source: source) } } label: { Label("Reproducir", systemImage: "play.fill") }.buttonStyle(.borderedProminent)
+                    HStack { Button { if let first = (source.hasPrefix("playlist:") ? songs.filter { library.file($0.id) != nil }.randomElement() : songs.first(where: { library.file($0.id) != nil })) { player.play(first, ids: songs.map(\.id), source: source) } } label: { Label("Reproducir", systemImage: "play.fill") }.buttonStyle(.borderedProminent)
                         Spacer(); if !downloadedOnly, library.state.link != nil { Button { sync.download(songs.map(\.id)) } label: { Image(systemName: "arrow.down.circle") }.disabled(sync.busy).accessibilityLabel("Descargar esta lista") }
                     }.listRowBackground(Color.clear)
                 }
