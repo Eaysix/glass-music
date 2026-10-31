@@ -4,7 +4,8 @@ data class Song(
     val id: String, val title: String, val artist: String, val album: String,
     val durationMs: Long, val format: String, val modifiedAt: Long?,
     val fileName: String, val coverName: String? = null, val favorite: Boolean = false,
-    val lyrics: String = "",
+    val lyrics: String = "", val remoteServer: String? = null, val remoteRevision: String? = null,
+    val fileRevision: String? = null, val lyricsRevision: String = "", val fileSize: Long? = null,
 )
 data class Playlist(val id: String, val name: String, val ids: List<String>)
 data class QueueState(
@@ -14,6 +15,7 @@ data class QueueState(
 data class Appearance(val name: String = "Mi espacio", val accent: Long = 0xFF8CCDF3,
     val animated: Boolean = true, val scale: Float = 1f, val newest: Boolean = false, val volume: Float = 0.8f)
 data class LibraryState(val ready: Boolean = false, val songs: List<Song> = emptyList(),
+    val sync: String = "{\"sourceId\":\"${java.util.UUID.randomUUID()}\"}",
     val playlists: List<Playlist> = emptyList(), val queue: QueueState = QueueState(), val appearance: Appearance = Appearance())
 
 fun orderedSongs(songs: List<Song>, newest: Boolean): List<Song> = songs.sortedWith(

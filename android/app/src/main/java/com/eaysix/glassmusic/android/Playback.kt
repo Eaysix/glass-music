@@ -44,6 +44,9 @@ class PlaybackService : MediaSessionService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val handler = Handler(Looper.getMainLooper())
     private var restoring = true
+    private var listenedId: String? = null
+    private var listenedPosition = 0L
+    private var listenedAt = android.os.SystemClock.elapsedRealtime()
     private val checkpoint = object : Runnable {
         override fun run() { persist(); if (session?.player?.isPlaying == true) handler.postDelayed(this, 10_000) }
     }
@@ -71,7 +74,7 @@ class PlaybackService : MediaSessionService() {
                 override fun onAddMediaItems(mediaSession: MediaSession, controller: MediaSession.ControllerInfo, mediaItems: List<MediaItem>): ListenableFuture<List<MediaItem>> {
                     val songs = store.state.value.songs.associateBy { it.id }
                     // Only catalogued private audio can be played, including commands from other controllers.
-                    return Futures.immediateFuture(mediaItems.mapNotNull { item -> songs[item.mediaId]?.item(store, item.mediaMetadata.extras?.getBoolean("manual") == true) })
+                    return Futures.immediateFuture(mediaItems.mapNotNull { item -> songs[item.mediaId]?.takeIf(store::isDownloaded)?.item(store, item.mediaMetadata.extras?.getBoolean("manual") == true) })
                 }
             }).build()
         scope.launch {
@@ -79,7 +82,7 @@ class PlaybackService : MediaSessionService() {
             val snapshot = store.state.value
             val songs = snapshot.songs.associateBy { it.id }
             val queue = snapshot.queue
-            val restored = queue.ids.mapIndexedNotNull { i, id -> songs[id]?.item(store, queue.manual.getOrNull(i) == true) }
+            val restored = queue.ids.mapIndexedNotNull { i, id -> songs[id]?.takeIf(store::isDownloaded)?.item(store, queue.manual.getOrNull(i) == true) }
             player.volume = snapshot.appearance.volume
             if (restored.isNotEmpty()) {
                 player.setMediaItems(restored, queue.index.coerceIn(0, restored.lastIndex), queue.position.coerceAtLeast(0))
@@ -95,6 +98,14 @@ class PlaybackService : MediaSessionService() {
     private fun persist() {
         if (restoring || !store.state.value.ready) return
         val player = session?.player ?: return
+        val now = android.os.SystemClock.elapsedRealtime()
+        val id = player.currentMediaItem?.mediaId
+        val delta = player.currentPosition - listenedPosition
+        val elapsed = now - listenedAt
+        if (listenedId == id && player.isPlaying && delta > 0 && elapsed in 1..20_000 && kotlin.math.abs(delta - elapsed) < 1500) {
+            if (id != null) store.recordListening(id, minOf(delta,elapsed) / 1000.0)
+        }
+        listenedId = id; listenedPosition = player.currentPosition; listenedAt = now
         val ids = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }
         val manual = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaMetadata.extras?.getBoolean("manual") == true }
         store.saveQueue(QueueState(ids, manual, player.currentMediaItemIndex.coerceAtLeast(0),
@@ -149,7 +160,7 @@ class PlaybackClient(context: Context, private val store: LibraryStore) {
     fun play(id: String, context: List<String>) {
         val p = player ?: return
         val byId = store.state.value.songs.associateBy { it.id }
-        val available = context.distinct().mapNotNull { byId[it] }.filter { store.mediaFile(it).exists() }
+        val available = context.distinct().mapNotNull { byId[it] }.filter(store::isDownloaded)
         if (available.none { it.id == id }) return
         val ordered = if (store.state.value.queue.shuffle) available.filter { it.id == id } + available.filter { it.id != id }.shuffled() else available
         p.setMediaItems(ordered.map { it.item(store) }, ordered.indexOfFirst { it.id == id }, 0)
@@ -162,7 +173,7 @@ class PlaybackClient(context: Context, private val store: LibraryStore) {
             if (p.playbackState == Player.STATE_ENDED) p.seekTo(0)
             if (p.playbackState == Player.STATE_IDLE) p.prepare()
             p.play()
-        } else orderedSongs(store.state.value.songs, store.state.value.appearance.newest).firstOrNull()?.let { play(it.id, store.state.value.songs.map { s -> s.id }) }
+        } else orderedSongs(store.state.value.songs.filter(store::isDownloaded), store.state.value.appearance.newest).firstOrNull()?.let { play(it.id, store.state.value.songs.map { s -> s.id }) }
         publish()
     }
     fun seek(position: Long) { player?.seekTo(position.coerceIn(0, state.value.duration.coerceAtLeast(0))); publish() }
@@ -174,7 +185,7 @@ class PlaybackClient(context: Context, private val store: LibraryStore) {
     }
     fun enqueue(id: String) {
         val p = player ?: return
-        val song = store.state.value.songs.firstOrNull { it.id == id } ?: return
+        val song = store.state.value.songs.firstOrNull { it.id == id && store.isDownloaded(it) } ?: return
         if (p.mediaItemCount == 0) { p.addMediaItem(song.item(store, true)); p.prepare(); return }
         val flags = (0 until p.mediaItemCount).map { p.getMediaItemAt(it).mediaMetadata.extras?.getBoolean("manual") == true }
         p.addMediaItem(manualInsertionIndex(p.currentMediaItemIndex, flags), song.item(store, true)); publish()
