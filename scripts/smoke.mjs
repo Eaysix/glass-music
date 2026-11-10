@@ -67,6 +67,20 @@ try {
     .getByRole("heading", { name: "Tu música, Mi espacio.", exact: true })
     .waitFor();
   assert.equal(await page.locator(".track-row").count(), 0);
+  for (const x of [2, 720, 1438]) {
+    await page.mouse.move(x, 958);
+    await page.waitForFunction(
+      () =>
+        getComputedStyle(document.querySelector(".player")).pointerEvents ===
+        "auto",
+    );
+    await page.mouse.move(x, 600);
+    await page.waitForFunction(
+      () =>
+        getComputedStyle(document.querySelector(".player")).pointerEvents ===
+        "none",
+    );
+  }
   await page
     .getByRole("button", { name: /Todas las canciones/ })
     .first()
@@ -899,6 +913,20 @@ try {
     true,
   );
   console.log("bulk remove cancel/commit and 5,000-track selection passed");
+  const search = page.getByLabel("Buscar música", { exact: true });
+  await search.fill("sin coincidencias para esta prueba");
+  await page.locator(".track-list").waitFor({ state: "detached" });
+  await page.setViewportSize({ width: 1440, height: 1300 });
+  await search.fill("");
+  await page.waitForFunction(() => {
+    const list = document.querySelector(".track-list");
+    const last = list?.querySelector(".track-row:last-child");
+    return (
+      last &&
+      last.getBoundingClientRect().bottom >=
+        list.getBoundingClientRect().bottom - 2
+    );
+  });
   await page.setViewportSize({ width: 960, height: 720 });
   for (let i = 0; i < 5; i++) await page.keyboard.press("Control+Equal");
   await page.locator(".profile").click();
