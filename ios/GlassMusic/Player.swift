@@ -11,7 +11,8 @@ import UIKit
     @Published var shuffle = false
     @Published var repeatAll = false
     private let library: Library
-    private let audio = AVPlayer()
+    private var audio = AVPlayer()
+    private var sessionActive = false
     private var detailed = false
     private var itemStatus: NSKeyValueObservation?
     private var itemDuration: NSKeyValueObservation?
@@ -53,20 +54,35 @@ import UIKit
             let options = (notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? NSNumber)?.uintValue ?? 0
             Task { @MainActor in
                 guard let self else { return }
-                if type == AVAudioSession.InterruptionType.began.rawValue { self.interruptedPlaying = self.playing; self.pause() }
+                if type == AVAudioSession.InterruptionType.began.rawValue { self.interruptedPlaying = self.playing; self.sessionActive = false; self.pause() }
                 else if type == AVAudioSession.InterruptionType.ended.rawValue {
                     if self.interruptedPlaying && AVAudioSession.InterruptionOptions(rawValue: options).contains(.shouldResume) { self.resume() }
                     self.interruptedPlaying = false
                 }
             }
         })
+        tokens.append(center.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.resetAudio() }
+        })
         library.catalogChanged = { [weak self] in self?.reconcile() }
         setupRemote()
     }
     private func activate() throws {
         let session = AVAudioSession.sharedInstance()
+        guard !sessionActive else { return }
         try session.setCategory(.playback, mode: .default, options: [])
         try session.setActive(true)
+        sessionActive = true
+    }
+    private func resetAudio() {
+        clockGeneration = UUID(); clockTask?.cancel(); clockTask = nil
+        seekRequest = UUID(); seeking = false; pendingSeek = nil
+        itemStatus = nil; itemDuration = nil
+        sessionActive = false; interruptedPlaying = false; playing = false
+        audio = AVPlayer()
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [])
+        library.listening.flush()
+        persist(); nowPlaying()
     }
     func play(_ song: Song, ids: [String], source: String = "library", from: Double = 0) {
         guard library.file(song.id) != nil else { library.message = "Descarga esta canción para escucharla sin conexión."; return }
@@ -90,7 +106,11 @@ import UIKit
             itemStatus = item.observe(\.status, options: [.initial, .new]) { [weak self] item, _ in
                 Task { @MainActor in
                     guard let self, self.audio.currentItem === item else { return }
-                    if item.status == .failed { self.pause(); self.library.message = item.error?.localizedDescription ?? "No se pudo reproducir este archivo." }
+                    if item.status == .failed {
+                        self.pause()
+                        self.audio.replaceCurrentItem(with: nil)
+                        self.library.message = item.error?.localizedDescription ?? "No se pudo reproducir este archivo. Pulsa Play para reintentar."
+                    }
                     else if item.status == .readyToPlay { self.resolveDuration(item, file: file, revision: revision); if let target = self.pendingSeek { self.pendingSeek = nil; self.performSeek(target) } }
                 }
             }
@@ -118,7 +138,10 @@ import UIKit
         if !seeking, audio.currentItem?.status == .readyToPlay { position = bounded(audio.currentTime().seconds) }
         audio.pause(); playing = false
         clockGeneration = UUID()
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        if sessionActive {
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+            sessionActive = false
+        }
         clockTask?.cancel(); clockTask = nil
         persist(); nowPlaying()
     }
