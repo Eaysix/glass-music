@@ -178,6 +178,16 @@ import UIKit
         } else { state.lyrics[conflict.id] = conflict.remote }
         persist()
     }
+    func saveServerSong(_ song: Song, addToLibrary: Bool) {
+        let alreadySaved = state.songs.contains { $0.id == song.id } && !(state.serverDownloadsOnly?.contains(song.id) ?? false)
+        if !state.songs.contains(where: { $0.id == song.id }) { state.songs.append(song) }
+        state.localIds.insert(song.id)
+        var hidden = state.serverDownloadsOnly ?? []
+        if addToLibrary || alreadySaved { hidden.remove(song.id) }
+        else { hidden.insert(song.id) }
+        state.serverDownloadsOnly = hidden
+        persist(); catalogChanged?()
+    }
     func install(_ url: URL, song: Song) throws {
         let count = try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber
         guard let expected = song.fileSize, count?.int64Value == expected else { throw AppError.message("La descarga quedó incompleta. Vuelve a sincronizar.") }

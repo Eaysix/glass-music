@@ -20,7 +20,7 @@ struct PhoneQueueView: View {
         }.tint(library.tint).preferredColorScheme(.dark)
     }
     private func row(_ id: String) -> some View {
-        let song = library.state.songs.first { $0.id == id }
+        let song = player.song(id)
         return HStack { Artwork(id: id, size: 44); VStack(alignment: .leading) { Text(song?.title ?? "No disponible"); Text(song?.artist ?? "").font(.caption).foregroundStyle(.secondary) } }.listRowBackground(Color.white.opacity(0.04))
     }
 }
