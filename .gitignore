@@ -21,3 +21,5 @@ crates/*/target/
 ios/build/
 ios/*.xcodeproj/
 *.xcuserstate
+
+/server-data/
