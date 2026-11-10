@@ -143,6 +143,7 @@ struct LibraryState: Codable {
     var phoneAppearance: PhoneAppearance?
     var queue: PhoneQueue?
     var songs: [Song] = []
+    var serverDownloadsOnly: Set<String>?
     var playlists: [Playlist] = []
     var localPlaylists: [Playlist] = []
     var files: [String: OfflineFile] = [:]

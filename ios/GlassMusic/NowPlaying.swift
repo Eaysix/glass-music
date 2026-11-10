@@ -38,9 +38,9 @@ struct NowPlayingView: View {
                             timeline(song)
                             transport
                             HStack {
-                                Label(song.format + " · Sin conexión", systemImage: "checkmark.circle.fill").font(.caption)
+                                Label(song.format + (library.isDownloaded(song.id) ? " · Sin conexión" : " · Servidor"), systemImage: library.isDownloaded(song.id) ? "checkmark.circle.fill" : "network").font(.caption)
                                 Spacer()
-                                Button { editingSong = song } label: { Label("Editar letra", systemImage: "pencil.line") }.font(.caption).frame(minHeight: 44)
+                                Button { editingSong = song } label: { Label("Editar letra", systemImage: "pencil.line") }.font(.caption).frame(minHeight: 44).disabled(!library.state.songs.contains { $0.id == song.id })
                             }.foregroundStyle(.secondary)
                             Button { appearance = true } label: { Label("Personalizar", systemImage: "slider.horizontal.3").font(.subheadline).frame(maxWidth: .infinity).padding(.vertical, 12) }.glassSurface(radius: 20, chrome: true).buttonStyle(GlassPressStyle())
                         }.frame(maxWidth: 520).padding(.horizontal, 22).padding(.top, 6).padding(.bottom, 24).frame(maxWidth: .infinity)

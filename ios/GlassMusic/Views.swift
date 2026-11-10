@@ -163,6 +163,7 @@ struct SongList: View {
     @State private var lyricSearchStatus = ""
     @Environment(\.dismiss) private var dismiss
     @State private var search = ""
+    @State private var serverScope = false
     private var playlistExists: Bool {
         !source.hasPrefix("playlist:") || (library.state.localPlaylists + library.state.playlists).contains { "playlist:" + $0.id == source }
     }
@@ -171,12 +172,21 @@ struct SongList: View {
         let resolvedIds = source.hasPrefix("playlist:") ? (library.state.playlists + library.state.localPlaylists).first(where: { "playlist:" + $0.id == source })?.trackIds ?? ids : ids
         if let ids = resolvedIds { let map = Dictionary(uniqueKeysWithValues: library.state.songs.map { ($0.id, $0) }); list = ids.compactMap { map[$0] } }
         else { list = library.state.songs }
-        return library.songOrder(for: source).apply(list).filter { (!downloadedOnly || library.isDownloaded($0.id)) && (search.isEmpty || "\($0.title) \($0.artist) \($0.album)".localizedCaseInsensitiveContains(search)) }
+        return library.songOrder(for: source).apply(list).filter { (downloadedOnly ? library.isDownloaded($0.id) : !(library.state.serverDownloadsOnly?.contains($0.id) ?? false)) && (search.isEmpty || "\($0.title) \($0.artist) \($0.album)".localizedCaseInsensitiveContains(search)) }
     }
     var body: some View {
         let visible = songs
         let context = visible.map(\.id)
         return List {
+            if source == "library" {
+                Picker("Buscar en", selection: $serverScope) {
+                    Text("Mi biblioteca").tag(false)
+                    Text("Servidor").tag(true)
+                }.pickerStyle(.segmented)
+            }
+            if serverScope {
+                ServerSearchResults(catalog: player.server, player: player, query: search)
+            } else {
             Section {
                 Picker("Orden de canciones", selection: Binding(get: { library.songOrder(for: source) }, set: { library.setSongOrder($0, for: source) })) {
                     ForEach(SongOrder.allCases) { order in Text(order.label).tag(order) }
@@ -199,6 +209,7 @@ struct SongList: View {
             }
             ForEach(visible) { song in SongRow(song: song, player: player, context: context, source: source) }.listRowBackground(Color.white.opacity(0.035))
             if songs.isEmpty { ContentUnavailableView(search.isEmpty ? "Tu música aparecerá aquí" : "Sin resultados", systemImage: "music.note", description: Text("Sincroniza tu PC o importa archivos FLAC y MP3." )).listRowBackground(Color.clear) }
+            }
         }.glassScreen().toolbar(.hidden, for: .tabBar).listStyle(.insetGrouped).navigationTitle(title).searchable(text: $search, prompt: "Canciones, artistas, álbumes")
         .fileImporter(isPresented: $importFiles, allowedContentTypes: [UTType(filenameExtension: "flac") ?? .audio, .mp3], allowsMultipleSelection: true) { result in
             switch result {
@@ -270,7 +281,11 @@ struct SongRow: View {
         HStack(spacing: 12) {
             Button { player.play(song, ids: context, source: source) } label: { HStack(spacing: 12) { Artwork(id: song.id, size: 44 * library.phoneAppearance.hudScale); VStack(alignment: .leading, spacing: 5) { Text(song.title).font(.system(size: 15 * library.phoneAppearance.hudScale, weight: .semibold)).foregroundStyle(.primary).lineLimit(1); Text(song.artist).font(.caption).foregroundStyle(.secondary).lineLimit(1) } }.contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityIdentifier("play-song-\(song.id)")
             Spacer(minLength: 0)
-            if library.file(song.id) == nil { Button { sync.download([song.id]) } label: { Image(systemName: "arrow.down.circle") }.disabled(sync.busy || library.state.localIds.contains(song.id)).accessibilityLabel("Descargar \(song.title)") }
+            if library.file(song.id) == nil { Button {
+                if player.server.canPlay(song) {
+                    Task { do { try await player.server.download(song, into: library) } catch { library.message = error.localizedDescription } }
+                } else { sync.download([song.id]) }
+            } label: { Image(systemName: "arrow.down.circle") }.disabled(sync.busy || (library.state.localIds.contains(song.id) && !player.server.canPlay(song))).accessibilityLabel("Descargar \(song.title)") }
             else { Image(systemName: "checkmark.circle.fill").font(.caption).foregroundStyle(.secondary).accessibilityLabel("Disponible sin conexión") }
             Menu {
                 Button("Añadir a la cola", systemImage: "text.badge.plus") { player.enqueue(song.id) }.disabled(!library.isDownloaded(song.id))
