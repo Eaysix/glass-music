@@ -118,6 +118,15 @@ struct ListeningStatsView: View {
                     }.frame(maxWidth: .infinity, alignment: .leading).glassCard()
                     Text("Tus 5 canciones más escuchadas").font(.title2.bold())
                     let ranked = totals.sorted { $0.value == $1.value ? $0.key < $1.key : $0.value > $1.value }.prefix(5)
+                    if !ranked.isEmpty {
+                        let titles = ranked.map { item in
+                            library.state.songs.first { $0.id == item.key }?.title ?? "Canción fuera de la biblioteca"
+                        }
+                        NavigationLink {
+                            ListeningShareView(period: interval.start.formatted(annual ? .dateTime.year() : .dateTime.day().month().year()),
+                                               minutes: Int(totals.values.reduce(0, +) / 60), songs: titles, tint: library.tint)
+                        } label: { Label("Compartir resumen", systemImage: "square.and.arrow.up") }.buttonStyle(.bordered)
+                    }
                     if ranked.isEmpty { Text("Tu resumen empieza con lo que escuches desde esta actualización.").foregroundStyle(.secondary) }
                     ForEach(Array(ranked.enumerated()), id: \.element.key) { index, item in
                         let song = library.state.songs.first { $0.id == item.key }
