@@ -690,15 +690,6 @@ export default function App() {
     return () => window.removeEventListener("keydown", handler);
   });
   useEffect(() => {
-    const el = listRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver((entries) =>
-      setListHeight(entries[0].contentRect.height),
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [ready, view, tracks.length]);
-  useEffect(() => {
     setScroll(0);
     setSelection(new Set());
     selectionAnchor.current = null;
@@ -714,6 +705,16 @@ export default function App() {
       }),
     [tracks, settings.playlists, view, query, filter, sort],
   );
+  const hasVisibleTracks = visibleTracks.length > 0;
+  useLayoutEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) =>
+      setListHeight(entries[0].contentRect.height),
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ready, view, showHome, hasVisibleTracks]);
   useEffect(() => {
     if (!ready) return;
     setSettings((s) => {
@@ -1293,6 +1294,20 @@ export default function App() {
     );
   return (
     <div
+      onPointerMoveCapture={(e) => {
+        if (!settings.player.autoHide || e.pointerType !== "mouse") return;
+        const edge = e.currentTarget.querySelector(".player-reveal");
+        if (!edge) return;
+        edge.toggleAttribute(
+          "data-edge-active",
+          e.clientY >= document.documentElement.clientHeight - 24,
+        );
+      }}
+      onPointerLeave={(e) => {
+        e.currentTarget
+          .querySelector(".player-reveal")
+          ?.removeAttribute("data-edge-active");
+      }}
       onContextMenu={(e) => {
         if (
           !(e.target as HTMLElement).closest("input,textarea,[contenteditable]")

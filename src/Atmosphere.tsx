@@ -18,6 +18,10 @@ export default memo(function Atmosphere({
       ctx.clearRect(0, 0, 32, 32);
       ctx.filter = "blur(5px)";
       ctx.drawImage(image, -12, -12, 56, 56);
+      ctx.canvas.removeAttribute("data-cover-ready");
+      // Restart the entrance after the new image has actually been painted.
+      void ctx.canvas.offsetWidth;
+      ctx.canvas.setAttribute("data-cover-ready", "");
     };
     image.src = coverUrl(cover)!;
     return () => {

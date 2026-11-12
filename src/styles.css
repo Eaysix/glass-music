@@ -3017,8 +3017,22 @@ button:active:not(:disabled) {
   filter: none;
   opacity: 0.26;
 }
+.app .album-atmosphere {
+  opacity: 0.45;
+  transform-origin: 65% 45%;
+}
 .app .focus-backdrop {
-  opacity: 0.34;
+  opacity: 0.42;
+}
+.app:not(.no-motion, .performance-economy, .reduced)
+  :is(.album-atmosphere, .focus-backdrop)[data-cover-ready] {
+  animation: atmosphere-arrive 720ms var(--ease) both;
+}
+@keyframes atmosphere-arrive {
+  from {
+    opacity: 0;
+    transform: scale(1.045);
+  }
 }
 .app.performance-economy .glass,
 .app.reduced .glass {
@@ -3106,10 +3120,11 @@ button:active:not(:disabled) {
     opacity 0.2s ease calc(0.38s + var(--player-content-delay)),
     translate 0.32s var(--ease) calc(0.38s + var(--player-content-delay));
 }
-.player-auto-hide:has(.player-reveal:hover) > .player,
+.player-auto-hide:has(.player-reveal:is(:hover, [data-edge-active])) > .player,
 .player-auto-hide:has(.player-reveal:focus-visible) > .player,
 .player-auto-hide:has(.player:hover) > .player,
 .player-auto-hide:has(.player:focus-within) > .player,
+.player-auto-hide:has(.player input:active) > .player,
 .player-auto-hide:has([data-volume-open="true"]) > .player,
 .player-auto-hide.controls-open > .player {
   --player-content-opacity: 1;
