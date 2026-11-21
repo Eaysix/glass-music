@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Glass Music",
-  "version": "1.0.0-rc.9",
-  "identifier": "com.eaysix.glassmusic",
+  "productName": "Glass Music Lab",
+  "version": "2.0.0",
+  "identifier": "com.eaysix.glassmusic.lab",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Glass Music",
+        "title": "Glass Music Lab",
         "width": 1360,
         "height": 880,
         "minWidth": 960,
@@ -23,7 +23,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost https://lrclib.net; img-src 'self' asset: http://asset.localhost data: blob:; style-src 'self' 'unsafe-inline'; media-src 'self' blob:; script-src 'self'; object-src 'none'; base-uri 'self'",
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost https://lrclib.net https://raw.githubusercontent.com; img-src 'self' asset: http://asset.localhost data: blob:; style-src 'self' 'unsafe-inline'; media-src 'self' blob:; script-src 'self'; object-src 'none'; base-uri 'self'",
       "assetProtocol": {
         "enable": true,
         "scope": ["$APPLOCALDATA/covers/**"]

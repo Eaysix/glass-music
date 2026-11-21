@@ -1,3 +1,4 @@
+import ExtensionRegistry from "./ExtensionRegistry";
 import LANPanel from "./LANPanel";
 import { t, setLanguage, type Language } from "./i18n";
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
@@ -11,6 +12,7 @@ const tabs = [
   ["discord", "Discord"],
   ["performance", "Rendimiento"],
   ["sync", "Sincronizar"],
+  ["extensions", "Repositorios"],
 ] as const;
 export default function SettingsPanel({
   settings: s,
@@ -65,6 +67,7 @@ export default function SettingsPanel({
         aria-labelledby={`tab-${tab}`}
         className="settings-content"
       >
+        {tab === "extensions" && <ExtensionRegistry />}
         {tab === "sync" && <LANPanel resume={resumePhone} />}
         {tab === "profile" && (
           <>
